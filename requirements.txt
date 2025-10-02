@@ -17,3 +17,12 @@ passlib[bcrypt]
 python-multipart
 websockets
 bcrypt
+scikit-learn
+scipy
+joblib
+seaborn
+plotly
+yfinance
+beautifulsoup4
+textblob
+vaderSentiment
