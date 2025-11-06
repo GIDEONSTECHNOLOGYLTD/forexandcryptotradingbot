@@ -6,4 +6,10 @@ const config = getDefaultConfig(__dirname);
 config.watchFolders = [];
 config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];
 
+// Limit parallel workers to reduce file handles
+config.maxWorkers = 2;
+
+// Reduce cache size
+config.cacheStores = [];
+
 module.exports = config;
