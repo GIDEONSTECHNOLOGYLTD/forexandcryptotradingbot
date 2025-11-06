@@ -1,3 +1,4 @@
+# Core Trading
 ccxt
 pandas
 numpy
@@ -8,15 +9,6 @@ schedule
 colorama
 tabulate
 matplotlib
-pymongo
-fastapi
-uvicorn[standard]
-pydantic
-python-jose[cryptography]
-passlib[bcrypt]
-python-multipart
-websockets
-bcrypt
 scikit-learn
 scipy
 joblib
@@ -26,3 +18,50 @@ yfinance
 beautifulsoup4
 textblob
 vaderSentiment
+
+# Database
+pymongo
+redis
+
+# Web Framework
+fastapi
+uvicorn[standard]
+pydantic
+python-multipart
+websockets
+
+# Authentication & Security
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+pyotp
+qrcode
+
+# Payment Processing
+stripe
+
+# Monitoring & Observability
+prometheus-client
+psutil
+sentry-sdk
+
+# Testing
+pytest
+pytest-cov
+pytest-asyncio
+pytest-mock
+httpx
+
+# Email
+aiosmtplib
+
+# Code Quality
+black
+flake8
+mypy
+pylint
+isort
+
+# Performance
+aiofiles
+ujson
