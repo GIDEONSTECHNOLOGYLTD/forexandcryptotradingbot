@@ -35,9 +35,34 @@ services:
         sync: false
     healthCheckPath: /health
 
-  # Trading Bot Service
+  # User Bots Worker (NEW - Runs all user bots)
   - type: worker
-    name: trading-bot-worker
+    name: user-bots-worker
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot_worker.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: MONGODB_URI
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: COINGATE_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+
+  # Demo Trading Bot (Original - for testing)
+  - type: worker
+    name: demo-trading-bot
     runtime: python
     region: oregon
     plan: starter
@@ -56,8 +81,6 @@ services:
       - key: OKX_PASSPHRASE
         sync: false
       - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: TELEGRAM_CHAT_ID
         sync: false
       - key: PAPER_TRADING
         value: "True"
