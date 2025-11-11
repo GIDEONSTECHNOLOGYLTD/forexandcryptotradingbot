@@ -16,7 +16,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.tradingbot",
+      "bundleIdentifier": "com.gtechldt.tradingbot",
       "buildNumber": "1.0.0",
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to scan QR codes for payments",
@@ -31,7 +31,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#667eea"
       },
-      "package": "com.yourcompany.tradingbot",
+      "package": "com.gtechldt.tradingbot",
       "versionCode": 1,
       "permissions": [
         "NOTIFICATIONS",
@@ -43,7 +43,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "your-project-id-here"
+        "projectId": "49b56a0e-70ba-4d62-abe4-5928343098e1"
       }
     },
     "plugins": [
@@ -55,6 +55,6 @@
         }
       ]
     ],
-    "owner": "your-expo-username"
+    "owner": "gtechldt"
   }
 }
