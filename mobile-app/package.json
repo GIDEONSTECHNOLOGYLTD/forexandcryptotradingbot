@@ -27,7 +27,7 @@
     "expo-notifications": "~0.27.6",
     "expo-secure-store": "~12.8.1",
     "expo-status-bar": "~1.11.1",
-    "expo-updates": "~0.24.0",
+    "expo-updates": "^29.0.12",
     "react": "18.2.0",
     "react-native": "0.73.6",
     "react-native-chart-kit": "^6.12.0",
