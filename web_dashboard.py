@@ -26,6 +26,16 @@ except ImportError:
     MONGODB_AVAILABLE = False
     exit(1)
 
+# Import trading modules
+try:
+    from user_bot_manager import BotManager
+    from forex_trader import ForexTrader
+    from p2p_copy_trading import CopyTradingSystem, P2PMarketplace
+    TRADING_MODULES_AVAILABLE = True
+except ImportError as e:
+    print(f"{Fore.YELLOW}⚠️  Advanced trading modules not available: {e}{Style.RESET_ALL}")
+    TRADING_MODULES_AVAILABLE = False
+
 # Configuration
 SECRET_KEY = config.JWT_SECRET_KEY
 ALGORITHM = "HS256"
@@ -64,6 +74,17 @@ db = MongoTradingDatabase()
 users_collection = db.db['users']
 subscriptions_collection = db.db['subscriptions']
 bot_instances_collection = db.db['bot_instances']
+
+# Initialize trading managers
+if TRADING_MODULES_AVAILABLE:
+    bot_manager = BotManager(db.db)
+    copy_trading_system = CopyTradingSystem(db.db)
+    p2p_marketplace = P2PMarketplace(db.db)
+    print(f"{Fore.GREEN}✅ Advanced trading modules initialized{Style.RESET_ALL}")
+else:
+    bot_manager = None
+    copy_trading_system = None
+    p2p_marketplace = None
 
 
 # ============================================================================
@@ -440,21 +461,59 @@ async def get_bot_performance(bot_id: str, user: dict = Depends(get_current_user
 
 @app.post("/api/bots/{bot_id}/start")
 async def start_bot(bot_id: str, user: dict = Depends(get_current_user)):
-    """Start bot instance"""
-    bot_instances_collection.update_one(
-        {"_id": bot_id},
-        {"$set": {"status": "running", "last_active": datetime.utcnow()}}
-    )
-    return {"message": "Bot started"}
+    """Start bot instance - REAL TRADING ENABLED"""
+    if bot_manager:
+        try:
+            status = await bot_manager.start_bot(str(user["_id"]), bot_id)
+            return {
+                "message": "Bot started successfully",
+                "status": status
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    else:
+        # Fallback to simple status update
+        bot_instances_collection.update_one(
+            {"_id": bot_id},
+            {"$set": {"status": "running", "last_active": datetime.utcnow()}}
+        )
+        return {"message": "Bot started (paper trading mode)"}
 
 @app.post("/api/bots/{bot_id}/stop")
 async def stop_bot(bot_id: str, user: dict = Depends(get_current_user)):
     """Stop bot instance"""
-    bot_instances_collection.update_one(
-        {"_id": bot_id},
-        {"$set": {"status": "stopped"}}
-    )
-    return {"message": "Bot stopped"}
+    if bot_manager:
+        try:
+            await bot_manager.stop_bot(str(user["_id"]), bot_id)
+            return {"message": "Bot stopped successfully"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    else:
+        # Fallback to simple status update
+        bot_instances_collection.update_one(
+            {"_id": bot_id},
+            {"$set": {"status": "stopped"}}
+        )
+        return {"message": "Bot stopped"}
+
+@app.get("/api/bots/{bot_id}/status")
+async def get_bot_status_endpoint(bot_id: str, user: dict = Depends(get_current_user)):
+    """Get real-time bot status"""
+    if bot_manager:
+        status = bot_manager.get_bot_status(bot_id)
+        if status:
+            return status
+    
+    # Fallback to database status
+    bot = bot_instances_collection.find_one({"_id": bot_id, "user_id": str(user["_id"])})
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    
+    return {
+        "bot_id": str(bot["_id"]),
+        "status": bot.get("status", "stopped"),
+        "created_at": bot.get("created_at")
+    }
 
 
 # ============================================================================
@@ -904,6 +963,130 @@ async def get_my_subscription(user: dict = Depends(get_current_user)):
     if subscription:
         subscription["_id"] = str(subscription["_id"])
     return subscription or {"plan": "free"}
+
+
+# ============================================================================
+# FOREX TRADING ENDPOINTS
+# ============================================================================
+
+@app.get("/api/forex/pairs")
+async def get_forex_pairs():
+    """Get available forex trading pairs"""
+    if TRADING_MODULES_AVAILABLE:
+        try:
+            import ccxt
+            exchange = ccxt.okx()
+            forex_trader = ForexTrader(exchange)
+            return forex_trader.get_available_pairs()
+        except Exception as e:
+            return {"error": str(e), "pairs": []}
+    return {"message": "Forex trading not available"}
+
+@app.get("/api/forex/{symbol}/analysis")
+async def analyze_forex_pair(symbol: str):
+    """Analyze a forex pair"""
+    if TRADING_MODULES_AVAILABLE:
+        try:
+            import ccxt
+            exchange = ccxt.okx()
+            forex_trader = ForexTrader(exchange)
+            return forex_trader.analyze_forex_pair(symbol)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    raise HTTPException(status_code=503, detail="Forex trading not available")
+
+@app.get("/api/forex/market-overview")
+async def get_forex_market_overview():
+    """Get overview of all forex markets"""
+    if TRADING_MODULES_AVAILABLE:
+        try:
+            import ccxt
+            exchange = ccxt.okx()
+            forex_trader = ForexTrader(exchange)
+            return forex_trader.get_forex_market_overview()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    raise HTTPException(status_code=503, detail="Forex trading not available")
+
+
+# ============================================================================
+# P2P COPY TRADING ENDPOINTS
+# ============================================================================
+
+@app.post("/api/p2p/expert/create")
+async def create_expert_profile(profile_data: dict, user: dict = Depends(get_current_user)):
+    """Create expert trader profile"""
+    if copy_trading_system:
+        try:
+            expert_id = copy_trading_system.create_expert_profile(str(user["_id"]), profile_data)
+            return {"expert_id": expert_id, "message": "Expert profile created"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    raise HTTPException(status_code=503, detail="Copy trading not available")
+
+@app.get("/api/p2p/experts")
+async def get_expert_traders(limit: int = 50):
+    """Get expert trader leaderboard"""
+    if copy_trading_system:
+        return copy_trading_system.get_expert_leaderboard(limit)
+    return []
+
+@app.post("/api/p2p/follow/{leader_id}")
+async def follow_expert_trader(leader_id: str, copy_config: dict, user: dict = Depends(get_current_user)):
+    """Start copying an expert trader"""
+    if copy_trading_system:
+        try:
+            result = copy_trading_system.start_copying(str(user["_id"]), leader_id, copy_config)
+            return result
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    raise HTTPException(status_code=503, detail="Copy trading not available")
+
+@app.delete("/api/p2p/unfollow/{leader_id}")
+async def unfollow_expert_trader(leader_id: str, user: dict = Depends(get_current_user)):
+    """Stop copying an expert trader"""
+    if copy_trading_system:
+        try:
+            copy_trading_system.stop_copying(str(user["_id"]), leader_id)
+            return {"message": "Unfollowed successfully"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    raise HTTPException(status_code=503, detail="Copy trading not available")
+
+@app.get("/api/p2p/my-following")
+async def get_my_following(user: dict = Depends(get_current_user)):
+    """Get list of experts I'm following"""
+    if copy_trading_system:
+        return copy_trading_system.get_follower_stats(str(user["_id"]))
+    return {}
+
+@app.get("/api/p2p/my-followers")
+async def get_my_followers(user: dict = Depends(get_current_user)):
+    """Get my followers (if I'm an expert)"""
+    if copy_trading_system:
+        return copy_trading_system.get_leader_stats(str(user["_id"]))
+    return {}
+
+@app.get("/api/p2p/marketplace")
+async def get_strategy_marketplace():
+    """Get strategy marketplace listings"""
+    if p2p_marketplace:
+        strategies = list(db.db['strategy_marketplace'].find({'is_active': True}))
+        for strategy in strategies:
+            strategy['_id'] = str(strategy['_id'])
+        return strategies
+    return []
+
+@app.post("/api/p2p/marketplace/list")
+async def list_strategy_for_sale(strategy_data: dict, user: dict = Depends(get_current_user)):
+    """List a strategy for sale"""
+    if p2p_marketplace:
+        try:
+            listing_id = p2p_marketplace.list_strategy(str(user["_id"]), strategy_data)
+            return {"listing_id": listing_id, "message": "Strategy listed successfully"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    raise HTTPException(status_code=503, detail="Marketplace not available")
 
 
 # ============================================================================
