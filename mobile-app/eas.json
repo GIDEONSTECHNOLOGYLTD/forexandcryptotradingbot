@@ -22,8 +22,7 @@
     "production": {
       "ios": {
         "simulator": false,
-        "image": "latest",
-        "bundleIdentifier": "com.gtechldt.tradingbot"
+        "image": "latest"
       },
       "android": {
         "buildType": "app-bundle"
