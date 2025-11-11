@@ -464,6 +464,23 @@ async def get_bot_performance(bot_id: str, user: dict = Depends(get_current_user
 @app.post("/api/bots/{bot_id}/start")
 async def start_bot(bot_id: str, user: dict = Depends(get_current_user)):
     """Start bot instance - REAL TRADING ENABLED"""
+    from bson import ObjectId
+    
+    # Verify bot exists and belongs to user
+    try:
+        bot_obj_id = ObjectId(bot_id)
+    except:
+        raise HTTPException(status_code=400, detail="Invalid bot ID format")
+    
+    bot = bot_instances_collection.find_one({"_id": bot_obj_id})
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    
+    # Check ownership (skip for admin)
+    is_admin = user.get("role") == "admin"
+    if not is_admin and bot.get("user_id") != str(user["_id"]):
+        raise HTTPException(status_code=403, detail="Not authorized to control this bot")
+    
     if bot_manager:
         try:
             status = await bot_manager.start_bot(str(user["_id"]), bot_id)
@@ -476,7 +493,7 @@ async def start_bot(bot_id: str, user: dict = Depends(get_current_user)):
     else:
         # Fallback to simple status update
         bot_instances_collection.update_one(
-            {"_id": bot_id},
+            {"_id": bot_obj_id},
             {"$set": {"status": "running", "last_active": datetime.utcnow()}}
         )
         return {"message": "Bot started (paper trading mode)"}
@@ -484,6 +501,23 @@ async def start_bot(bot_id: str, user: dict = Depends(get_current_user)):
 @app.post("/api/bots/{bot_id}/stop")
 async def stop_bot(bot_id: str, user: dict = Depends(get_current_user)):
     """Stop bot instance"""
+    from bson import ObjectId
+    
+    # Verify bot exists and belongs to user
+    try:
+        bot_obj_id = ObjectId(bot_id)
+    except:
+        raise HTTPException(status_code=400, detail="Invalid bot ID format")
+    
+    bot = bot_instances_collection.find_one({"_id": bot_obj_id})
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    
+    # Check ownership (skip for admin)
+    is_admin = user.get("role") == "admin"
+    if not is_admin and bot.get("user_id") != str(user["_id"]):
+        raise HTTPException(status_code=403, detail="Not authorized to control this bot")
+    
     if bot_manager:
         try:
             await bot_manager.stop_bot(str(user["_id"]), bot_id)
@@ -493,7 +527,7 @@ async def stop_bot(bot_id: str, user: dict = Depends(get_current_user)):
     else:
         # Fallback to simple status update
         bot_instances_collection.update_one(
-            {"_id": bot_id},
+            {"_id": bot_obj_id},
             {"$set": {"status": "stopped"}}
         )
         return {"message": "Bot stopped"}
