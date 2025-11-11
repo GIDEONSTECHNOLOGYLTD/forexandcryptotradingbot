@@ -1166,12 +1166,22 @@ async def websocket_trades(websocket: WebSocket):
 
 @app.get("/")
 async def root():
-    """Serve user dashboard"""
+    """Serve login page"""
+    return FileResponse("static/login.html")
+
+@app.get("/login")
+async def login_page():
+    """Serve login page"""
+    return FileResponse("static/login.html")
+
+@app.get("/dashboard")
+async def user_dashboard():
+    """Serve user dashboard - requires authentication"""
     return FileResponse("static/user_dashboard.html")
 
 @app.get("/admin")
 async def admin_dashboard():
-    """Serve admin dashboard"""
+    """Serve admin dashboard - requires authentication"""
     return FileResponse("static/admin_dashboard.html")
 
 @app.get("/api")

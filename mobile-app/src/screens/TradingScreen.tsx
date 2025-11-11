@@ -16,7 +16,8 @@ export default function TradingScreen({ navigation }: any) {
     try {
       setLoading(true);
       const data = await api.getBots();
-      setBots(data.bots || []);
+      // Backend returns array directly now
+      setBots(Array.isArray(data) ? data : (data.bots || []));
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.detail || 'Failed to load bots');
     } finally {
