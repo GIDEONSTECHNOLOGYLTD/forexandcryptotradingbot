@@ -378,6 +378,20 @@ async def get_exchange_status(user: dict = Depends(get_current_user)):
         "connected_at": user.get("connected_at")
     }
 
+@app.get("/api/user/balance")
+async def get_user_balance(user: dict = Depends(get_current_user)):
+    """Get user's real-time OKX balance - FULLY IMPLEMENTED"""
+    is_admin = user.get("role") == "admin"
+    
+    if is_admin:
+        # Admin sees admin OKX account balance
+        result = balance_fetcher.get_admin_balance()
+    else:
+        # Regular user sees their OKX account balance
+        result = balance_fetcher.get_user_balance(str(user["_id"]))
+    
+    return result
+
 @app.delete("/api/user/disconnect-exchange")
 async def disconnect_exchange(user: dict = Depends(get_current_user)):
     """Disconnect user's exchange account"""
@@ -674,6 +688,7 @@ async def paystack_callback(reference: str):
 
 # Crypto Payment Integration - FULL IMPLEMENTATION
 from okx_payment_handler import payment_handler
+from balance_fetcher import balance_fetcher
 
 @app.post("/api/payments/crypto/initialize")
 async def initialize_crypto_payment(payment: CryptoPayment, user: dict = Depends(get_current_user)):
