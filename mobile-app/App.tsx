@@ -7,14 +7,19 @@ import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 
 // Screens
+import SplashScreen from './src/screens/SplashScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import TradingScreen from './src/screens/TradingScreen';
 import PortfolioScreen from './src/screens/PortfolioScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import SignupScreen from './src/screens/SignupScreen';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import BotConfigScreen from './src/screens/BotConfigScreen';
 import PaymentScreen from './src/screens/PaymentScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -58,44 +63,43 @@ function MainTabs() {
 }
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    checkLoginStatus();
-  }, []);
-
-  const checkLoginStatus = async () => {
-    try {
-      const token = await SecureStore.getItemAsync('authToken');
-      setIsLoggedIn(!!token);
-    } catch (error) {
-      console.error('Error checking login status:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  if (isLoading) {
-    return null; // Or a loading screen
-  }
-
   return (
     <>
       <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          {!isLoggedIn ? (
-            <>
-              <Stack.Screen name="Login" component={LoginScreen} />
-              <Stack.Screen name="Signup" component={SignupScreen} />
-            </>
-          ) : (
-            <>
-              <Stack.Screen name="MainTabs" component={MainTabs} />
-              <Stack.Screen name="BotConfig" component={BotConfigScreen} />
-              <Stack.Screen name="Payment" component={PaymentScreen} />
-            </>
-          )}
+        <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Splash">
+          {/* Initial Screens */}
+          <Stack.Screen name="Splash" component={SplashScreen} />
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          
+          {/* Auth Screens */}
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Signup" component={SignupScreen} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+          
+          {/* Main App */}
+          <Stack.Screen name="MainTabs" component={MainTabs} />
+          
+          {/* Modal Screens */}
+          <Stack.Screen 
+            name="BotConfig" 
+            component={BotConfigScreen}
+            options={{ presentation: 'modal', headerShown: true, title: 'Create Bot' }}
+          />
+          <Stack.Screen 
+            name="Payment" 
+            component={PaymentScreen}
+            options={{ presentation: 'modal', headerShown: true, title: 'Subscription' }}
+          />
+          <Stack.Screen 
+            name="Profile" 
+            component={ProfileScreen}
+            options={{ headerShown: true, title: 'Profile' }}
+          />
+          <Stack.Screen 
+            name="Notifications" 
+            component={NotificationsScreen}
+            options={{ headerShown: true, title: 'Notifications' }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
       <StatusBar style="auto" />

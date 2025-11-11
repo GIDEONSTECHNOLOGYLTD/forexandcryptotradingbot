@@ -102,7 +102,9 @@ class UserLogin(BaseModel):
     password: str
 
 class BotConfig(BaseModel):
-    user_id: str
+    bot_type: str = "momentum"  # momentum, grid, dca, arbitrage, etc.
+    symbol: str = "BTC/USDT"
+    capital: float = 1000
     initial_capital: float = 10000
     max_position_size: float = 2.0
     stop_loss_percent: float = 2.0
@@ -422,7 +424,7 @@ async def create_bot(config: BotConfig, user: dict = Depends(get_current_user)):
             )
     
     bot_instance = {
-        "user_id": config.user_id,
+        "user_id": str(user["_id"]),  # Use authenticated user's ID, not from config
         "config": config.dict(),
         "status": "stopped",
         "created_at": datetime.utcnow(),
@@ -439,10 +441,18 @@ async def create_bot(config: BotConfig, user: dict = Depends(get_current_user)):
 @app.get("/api/bots/my-bots")
 async def get_my_bots(user: dict = Depends(get_current_user)):
     """Get user's bot instances"""
-    bots = list(bot_instances_collection.find({"user_id": str(user["_id"])}))
+    # Admin can see all bots, regular users see only their own
+    is_admin = user.get("role") == "admin"
+    
+    if is_admin:
+        bots = list(bot_instances_collection.find({}))
+    else:
+        bots = list(bot_instances_collection.find({"user_id": str(user["_id"])}))
+    
     for bot in bots:
         bot["_id"] = str(bot["_id"])
-    return bots
+    
+    return {"bots": bots}
 
 @app.get("/api/bots/{bot_id}/performance")
 async def get_bot_performance(bot_id: str, user: dict = Depends(get_current_user)):
