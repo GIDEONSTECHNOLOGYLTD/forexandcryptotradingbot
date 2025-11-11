@@ -77,7 +77,7 @@ export default function TradingScreen({ navigation }: any) {
       >
         {bots.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="robot-outline" size={64} color="#9ca3af" />
+            <Ionicons name="construct-outline" size={64} color="#9ca3af" />
             <Text style={styles.emptyText}>No bots yet</Text>
             <Text style={styles.emptySubtext}>Create your first trading bot</Text>
             <TouchableOpacity

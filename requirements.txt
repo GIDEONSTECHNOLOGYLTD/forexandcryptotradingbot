@@ -56,8 +56,9 @@ pytest-asyncio
 pytest-mock
 httpx
 
-# Email
+# Email & Notifications
 aiosmtplib
+python-telegram-bot
 
 # Code Quality
 black

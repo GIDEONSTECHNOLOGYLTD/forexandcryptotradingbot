@@ -78,6 +78,19 @@
                 <div class="bg-white rounded-xl shadow-lg p-6 card">
                     <div class="flex items-center justify-between">
                         <div>
+                            <p class="text-gray-500 text-sm">OKX Balance</p>
+                            <h3 class="text-3xl font-bold text-gray-800" id="okxBalance">$0.00</h3>
+                            <p class="text-xs text-gray-400 mt-1" id="balanceStatus">Not connected</p>
+                        </div>
+                        <div class="bg-purple-100 p-4 rounded-full">
+                            <i class="fas fa-wallet text-2xl text-purple-600"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg p-6 card">
+                    <div class="flex items-center justify-between">
+                        <div>
                             <p class="text-gray-500 text-sm">Total Capital</p>
                             <h3 class="text-3xl font-bold text-gray-800" id="totalCapital">$0.00</h3>
                         </div>
@@ -341,6 +354,7 @@
             document.getElementById('dashboard').classList.remove('hidden');
 
             await loadUserInfo();
+            await loadBalance();
             await loadStats();
             await loadBots();
             await loadTrades();
@@ -366,13 +380,34 @@
             }
         }
 
+        // Load Balance
+        async function loadBalance() {
+            try {
+                const response = await fetch(`${API_URL}/api/user/balance`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('okxBalance').textContent = '$' + data.total_usdt.toFixed(2);
+                    document.getElementById('balanceStatus').textContent = data.account_type === 'admin' ? 'Admin Account' : 'Connected';
+                    document.getElementById('balanceStatus').classList.add('text-green-500');
+                } else {
+                    document.getElementById('balanceStatus').textContent = data.error || 'Not connected';
+                    document.getElementById('balanceStatus').classList.add('text-red-500');
+                }
+            } catch (error) {
+                console.error('Error loading balance:', error);
+            }
+        }
+
         // Load Stats
         async function loadStats() {
             try {
                 const response = await fetch(`${API_URL}/api/bots/my-bots`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                const bots = await response.json();
+                const bots = Array.isArray(await response.json()) ? await response.json() : [];
                 
                 let totalCapital = 0;
                 let totalPnL = 0;
