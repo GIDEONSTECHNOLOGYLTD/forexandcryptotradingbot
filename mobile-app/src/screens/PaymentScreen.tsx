@@ -1,8 +1,55 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as InAppPurchases from 'expo-in-app-purchases';
 
-export default function PaymentScreen() {
+// Product IDs - These need to be created in App Store Connect
+const PRODUCT_IDS = {
+  pro: 'com.gtechldt.tradingbot.pro.monthly',
+  enterprise: 'com.gtechldt.tradingbot.enterprise.monthly'
+};
+
+export default function PaymentScreen({ navigation }: any) {
+  const [selectedPlan, setSelectedPlan] = useState('pro');
+  const [products, setProducts] = useState<any[]>([]);
+  const [purchasing, setPurchasing] = useState(false);
+
+  useEffect(() => {
+    initializeIAP();
+    return () => {
+      InAppPurchases.disconnectAsync();
+    };
+  }, []);
+
+  const initializeIAP = async () => {
+    try {
+      await InAppPurchases.connectAsync();
+      const { results } = await InAppPurchases.getProductsAsync([
+        PRODUCT_IDS.pro,
+        PRODUCT_IDS.enterprise
+      ]);
+      setProducts(results);
+    } catch (error) {
+      console.error('IAP initialization error:', error);
+    }
+  };
+
+  const handlePurchase = async (productId: string) => {
+    try {
+      setPurchasing(true);
+      await InAppPurchases.purchaseItemAsync(productId);
+      Alert.alert('Success', 'Subscription activated!', [
+        { text: 'OK', onPress: () => navigation.goBack() }
+      ]);
+    } catch (error: any) {
+      if (error.code !== 'E_USER_CANCELLED') {
+        Alert.alert('Error', 'Purchase failed. Please try again.');
+      }
+    } finally {
+      setPurchasing(false);
+    }
+  };
+
   const plans = [
     { name: 'Free', price: '$0', features: ['Paper trading', '1 bot', 'Basic strategies'] },
     { name: 'Pro', price: '$29', features: ['Real trading', '3 bots', 'All strategies', 'Priority support'] },
@@ -22,8 +69,22 @@ export default function PaymentScreen() {
               <Text style={styles.featureText}>{feature}</Text>
             </View>
           ))}
-          <TouchableOpacity style={styles.button}>
-            <Text style={styles.buttonText}>Select Plan</Text>
+          <TouchableOpacity 
+            style={[styles.button, purchasing && styles.buttonDisabled]}
+            onPress={() => {
+              if (plan.name === 'Free') {
+                Alert.alert('Free Plan', 'You are already on the free plan!');
+              } else if (plan.name === 'Pro') {
+                handlePurchase(PRODUCT_IDS.pro);
+              } else if (plan.name === 'Enterprise') {
+                handlePurchase(PRODUCT_IDS.enterprise);
+              }
+            }}
+            disabled={purchasing}
+          >
+            <Text style={styles.buttonText}>
+              {purchasing ? 'Processing...' : plan.name === 'Free' ? 'Current Plan' : 'Select Plan'}
+            </Text>
           </TouchableOpacity>
         </View>
       ))}
@@ -47,4 +108,5 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  buttonDisabled: { opacity: 0.5 },
 });
