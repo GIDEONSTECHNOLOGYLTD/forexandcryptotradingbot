@@ -12,8 +12,17 @@ class BalanceFetcher:
     
     def __init__(self):
         self.db = MongoTradingDatabase()
-        self.encryption_key = config.ENCRYPTION_KEY.encode()
-        self.fernet = Fernet(self.encryption_key)
+        try:
+            # Try to use encryption key if available
+            encryption_key = config.ENCRYPTION_KEY
+            if encryption_key and encryption_key != 'generate-a-fernet-key-here':
+                self.encryption_key = encryption_key.encode()
+                self.fernet = Fernet(self.encryption_key)
+            else:
+                self.fernet = None
+        except Exception as e:
+            print(f"Warning: Could not initialize encryption: {e}")
+            self.fernet = None
     
     def get_admin_balance(self):
         """Get admin OKX account balance"""
@@ -57,6 +66,14 @@ class BalanceFetcher:
     def get_user_balance(self, user_id: str):
         """Get user's OKX account balance"""
         try:
+            # Check if encryption is available
+            if not self.fernet:
+                return {
+                    'success': False,
+                    'error': 'Encryption not configured',
+                    'account_type': 'user'
+                }
+            
             # Get user from database
             user = self.db.db['users'].find_one({'_id': user_id})
             
