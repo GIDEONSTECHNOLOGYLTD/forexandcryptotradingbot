@@ -3,42 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trading Bot - User Dashboard</title>
+    <title>Trading Bot Pro - Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        .card {
-            transition: transform 0.2s;
-        }
-        .card:hover {
-            transform: translateY(-5px);
-        }
-        .status-running {
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card { transition: all 0.3s; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .status-running { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .btn-primary { @apply px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition; }
+        .btn-success { @apply px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition; }
+        .btn-danger { @apply px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition; }
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-50">
     <!-- Navigation -->
-    <nav class="gradient-bg text-white shadow-lg">
+    <nav id="mainNav" class="gradient-bg text-white shadow-lg hidden">
         <div class="container mx-auto px-6 py-4">
             <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <i class="fas fa-robot text-3xl mr-3"></i>
-                    <h1 class="text-2xl font-bold">Trading Bot Dashboard</h1>
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-robot text-3xl"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold">Trading Bot Pro</h1>
+                        <p class="text-sm opacity-80" id="userName"></p>
+                    </div>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <span id="userName" class="text-sm"></span>
-                    <span id="userPlan" class="px-3 py-1 bg-white bg-opacity-20 rounded-full text-xs"></span>
-                    <button onclick="logout()" class="px-4 py-2 bg-red-500 rounded hover:bg-red-600">
+                    <span id="userPlan" class="px-4 py-2 bg-white bg-opacity-20 rounded-full text-sm font-semibold"></span>
+                    <button onclick="showSettings()" class="px-4 py-2 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30">
+                        <i class="fas fa-cog mr-2"></i>Settings
+                    </button>
+                    <button onclick="logout()" class="px-4 py-2 bg-red-500 rounded-lg hover:bg-red-600">
                         <i class="fas fa-sign-out-alt mr-2"></i>Logout
                     </button>
                 </div>
@@ -48,214 +45,251 @@
 
     <!-- Login Screen -->
     <div id="loginScreen" class="min-h-screen flex items-center justify-center gradient-bg">
-        <div class="bg-white p-8 rounded-lg shadow-2xl w-96">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
             <div class="text-center mb-8">
                 <i class="fas fa-robot text-6xl text-purple-600 mb-4"></i>
                 <h2 class="text-3xl font-bold text-gray-800">Welcome Back</h2>
-                <p class="text-gray-600">Login to your trading dashboard</p>
+                <p class="text-gray-600">Sign in to start trading</p>
             </div>
             <form onsubmit="login(event)">
                 <div class="mb-4">
                     <label class="block text-gray-700 mb-2">Email</label>
-                    <input type="email" id="loginEmail" required
-                           class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
-                           placeholder="your@email.com">
+                    <input type="email" id="loginEmail" required 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
                 </div>
                 <div class="mb-6">
                     <label class="block text-gray-700 mb-2">Password</label>
-                    <input type="password" id="loginPassword" required
-                           class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
-                           placeholder="••••••••">
+                    <input type="password" id="loginPassword" required 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
                 </div>
-                <button type="submit" 
-                        class="w-full gradient-bg text-white py-3 rounded-lg font-semibold hover:opacity-90">
-                    Login
+                <button type="submit" class="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Sign In
                 </button>
             </form>
-            <div class="mt-4 text-center">
-                <a href="#" onclick="showRegister()" class="text-purple-600 hover:underline">
-                    Don't have an account? Register
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Register Screen -->
-    <div id="registerScreen" class="hidden min-h-screen flex items-center justify-center gradient-bg">
-        <div class="bg-white p-8 rounded-lg shadow-2xl w-96">
-            <div class="text-center mb-8">
-                <i class="fas fa-user-plus text-6xl text-purple-600 mb-4"></i>
-                <h2 class="text-3xl font-bold text-gray-800">Create Account</h2>
-                <p class="text-gray-600">Start trading today</p>
-            </div>
-            <form onsubmit="register(event)">
-                <div class="mb-4">
-                    <label class="block text-gray-700 mb-2">Full Name</label>
-                    <input type="text" id="registerName" required
-                           class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600">
-                </div>
-                <div class="mb-4">
-                    <label class="block text-gray-700 mb-2">Email</label>
-                    <input type="email" id="registerEmail" required
-                           class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600">
-                </div>
-                <div class="mb-6">
-                    <label class="block text-gray-700 mb-2">Password</label>
-                    <input type="password" id="registerPassword" required
-                           class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600">
-                </div>
-                <button type="submit" 
-                        class="w-full gradient-bg text-white py-3 rounded-lg font-semibold hover:opacity-90">
-                    Create Account
-                </button>
-            </form>
-            <div class="mt-4 text-center">
-                <a href="#" onclick="showLogin()" class="text-purple-600 hover:underline">
-                    Already have an account? Login
-                </a>
-            </div>
         </div>
     </div>
 
     <!-- Main Dashboard -->
     <div id="dashboard" class="hidden">
-        <!-- Stats Cards -->
         <div class="container mx-auto px-6 py-8">
+            
+            <!-- Stats Overview -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <!-- Total Capital -->
-                <div class="card bg-white rounded-lg shadow-lg p-6">
+                <div class="bg-white rounded-xl shadow-lg p-6 card">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-gray-500 text-sm">Total Capital</p>
-                            <h3 id="totalCapital" class="text-2xl font-bold text-gray-800">$0.00</h3>
+                            <h3 class="text-3xl font-bold text-gray-800" id="totalCapital">$0.00</h3>
                         </div>
-                        <div class="bg-green-100 p-3 rounded-full">
-                            <i class="fas fa-dollar-sign text-green-600 text-2xl"></i>
+                        <div class="bg-green-100 p-4 rounded-full">
+                            <i class="fas fa-dollar-sign text-2xl text-green-600"></i>
                         </div>
                     </div>
                 </div>
 
-                <!-- Total PnL -->
-                <div class="card bg-white rounded-lg shadow-lg p-6">
+                <div class="bg-white rounded-xl shadow-lg p-6 card">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-gray-500 text-sm">Total PnL</p>
-                            <h3 id="totalPnL" class="text-2xl font-bold">$0.00</h3>
+                            <p class="text-gray-500 text-sm">Total P&L</p>
+                            <h3 class="text-3xl font-bold" id="totalPnL">$0.00</h3>
                         </div>
-                        <div class="bg-blue-100 p-3 rounded-full">
-                            <i class="fas fa-chart-line text-blue-600 text-2xl"></i>
+                        <div class="bg-blue-100 p-4 rounded-full">
+                            <i class="fas fa-chart-line text-2xl text-blue-600"></i>
                         </div>
                     </div>
                 </div>
 
-                <!-- Win Rate -->
-                <div class="card bg-white rounded-lg shadow-lg p-6">
+                <div class="bg-white rounded-xl shadow-lg p-6 card">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-gray-500 text-sm">Win Rate</p>
-                            <h3 id="winRate" class="text-2xl font-bold text-gray-800">0%</h3>
+                            <h3 class="text-3xl font-bold text-gray-800" id="winRate">0%</h3>
                         </div>
-                        <div class="bg-purple-100 p-3 rounded-full">
-                            <i class="fas fa-trophy text-purple-600 text-2xl"></i>
+                        <div class="bg-purple-100 p-4 rounded-full">
+                            <i class="fas fa-trophy text-2xl text-purple-600"></i>
                         </div>
                     </div>
                 </div>
 
-                <!-- Active Bots -->
-                <div class="card bg-white rounded-lg shadow-lg p-6">
+                <div class="bg-white rounded-xl shadow-lg p-6 card">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-gray-500 text-sm">Active Bots</p>
-                            <h3 id="activeBots" class="text-2xl font-bold text-gray-800">0</h3>
+                            <h3 class="text-3xl font-bold text-gray-800" id="activeBots">0</h3>
                         </div>
-                        <div class="bg-yellow-100 p-3 rounded-full">
-                            <i class="fas fa-robot text-yellow-600 text-2xl"></i>
+                        <div class="bg-yellow-100 p-4 rounded-full">
+                            <i class="fas fa-robot text-2xl text-yellow-600"></i>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Charts Row -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <!-- Performance Chart -->
-                <div class="bg-white rounded-lg shadow-lg p-6">
-                    <h3 class="text-xl font-bold mb-4">Performance Chart</h3>
-                    <canvas id="performanceChart"></canvas>
-                </div>
+            <!-- Create Bot Section -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+                <h2 class="text-2xl font-bold mb-6 flex items-center">
+                    <i class="fas fa-plus-circle text-green-600 mr-3"></i>
+                    Create New Bot
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">Bot Type</label>
+                        <select id="botType" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600">
+                            <option value="momentum">Momentum Strategy</option>
+                            <option value="grid">Grid Trading</option>
+                            <option value="dca">DCA Bot</option>
+                            <option value="mean_reversion">Mean Reversion</option>
+                            <option value="breakout">Breakout</option>
+                            <option value="scalping">Scalping</option>
+                            <option value="swing">Swing Trading</option>
+                            <option value="arbitrage">Arbitrage</option>
+                        </select>
+                    </div>
 
-                <!-- Trade Distribution -->
-                <div class="bg-white rounded-lg shadow-lg p-6">
-                    <h3 class="text-xl font-bold mb-4">Trade Distribution</h3>
-                    <canvas id="tradeChart"></canvas>
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">Trading Pair</label>
+                        <select id="symbol" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600">
+                            <optgroup label="Crypto">
+                                <option value="BTC/USDT">BTC/USDT</option>
+                                <option value="ETH/USDT">ETH/USDT</option>
+                                <option value="SOL/USDT">SOL/USDT</option>
+                                <option value="DOGE/USDT">DOGE/USDT</option>
+                                <option value="XRP/USDT">XRP/USDT</option>
+                            </optgroup>
+                            <optgroup label="Forex">
+                                <option value="EUR/USD">EUR/USD</option>
+                                <option value="GBP/USD">GBP/USD</option>
+                                <option value="USD/JPY">USD/JPY</option>
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">Initial Capital ($)</label>
+                        <input type="number" id="capital" value="1000" min="100" step="100"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600">
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">Trading Mode</label>
+                        <select id="tradingMode" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600">
+                            <option value="true">Paper Trading (Safe)</option>
+                            <option value="false">Real Trading (Live)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">Risk Level</label>
+                        <select id="riskLevel" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600">
+                            <option value="low">Low (1% per trade)</option>
+                            <option value="medium" selected>Medium (2% per trade)</option>
+                            <option value="high">High (3% per trade)</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-end">
+                        <button onclick="createBot()" class="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold">
+                            <i class="fas fa-rocket mr-2"></i>Create & Start Bot
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Bots Section -->
-            <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
-                <div class="flex items-center justify-between mb-6">
-                    <h3 class="text-xl font-bold">My Trading Bots</h3>
-                    <button onclick="showCreateBot()" 
-                            class="gradient-bg text-white px-4 py-2 rounded-lg hover:opacity-90">
-                        <i class="fas fa-plus mr-2"></i>Create New Bot
-                    </button>
-                </div>
-                <div id="botsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <!-- Bots will be loaded here -->
+            <!-- My Bots Section -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+                <h2 class="text-2xl font-bold mb-6 flex items-center">
+                    <i class="fas fa-robot text-purple-600 mr-3"></i>
+                    My Trading Bots
+                </h2>
+                <div id="botsList" class="space-y-4">
+                    <p class="text-gray-500 text-center py-8">No bots yet. Create your first bot above!</p>
                 </div>
             </div>
 
             <!-- Recent Trades -->
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <h3 class="text-xl font-bold mb-4">Recent Trades</h3>
-                <div class="overflow-x-auto">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold mb-6 flex items-center">
+                    <i class="fas fa-history text-blue-600 mr-3"></i>
+                    Recent Trades
+                </h2>
+                <div id="tradesList" class="overflow-x-auto">
                     <table class="w-full">
                         <thead>
                             <tr class="border-b">
+                                <th class="text-left py-3 px-4">Time</th>
                                 <th class="text-left py-3 px-4">Symbol</th>
-                                <th class="text-left py-3 px-4">Side</th>
+                                <th class="text-left py-3 px-4">Type</th>
                                 <th class="text-left py-3 px-4">Entry</th>
                                 <th class="text-left py-3 px-4">Exit</th>
-                                <th class="text-left py-3 px-4">PnL</th>
-                                <th class="text-left py-3 px-4">Date</th>
+                                <th class="text-left py-3 px-4">P&L</th>
                             </tr>
                         </thead>
-                        <tbody id="tradesTable">
-                            <!-- Trades will be loaded here -->
+                        <tbody id="tradesTableBody">
+                            <tr>
+                                <td colspan="6" class="text-center py-8 text-gray-500">No trades yet</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
+
         </div>
     </div>
 
-    <!-- Create Bot Modal -->
-    <div id="createBotModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-        <div class="bg-white rounded-lg p-8 w-96">
-            <h3 class="text-2xl font-bold mb-4">Create New Bot</h3>
-            <form onsubmit="createBot(event)">
-                <div class="mb-4">
-                    <label class="block text-gray-700 mb-2">Initial Capital</label>
-                    <input type="number" id="botCapital" value="10000" required
-                           class="w-full px-4 py-2 border rounded-lg">
-                </div>
-                <div class="mb-4">
-                    <label class="block text-gray-700 mb-2">Trading Mode</label>
-                    <select id="botMode" class="w-full px-4 py-2 border rounded-lg">
-                        <option value="true">Paper Trading (Safe)</option>
-                        <option value="false">Live Trading</option>
-                    </select>
-                </div>
-                <div class="flex space-x-4">
-                    <button type="submit" 
-                            class="flex-1 gradient-bg text-white py-2 rounded-lg">
-                        Create
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-8 max-w-2xl w-full mx-4 max-h-screen overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Settings</h2>
+                <button onclick="hideSettings()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+
+            <!-- Exchange Connection -->
+            <div class="mb-6">
+                <h3 class="text-xl font-semibold mb-4">Exchange Connection</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-gray-700 mb-2">OKX API Key</label>
+                        <input type="text" id="okxApiKey" class="w-full px-4 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 mb-2">OKX Secret Key</label>
+                        <input type="password" id="okxSecretKey" class="w-full px-4 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 mb-2">OKX Passphrase</label>
+                        <input type="password" id="okxPassphrase" class="w-full px-4 py-2 border rounded-lg">
+                    </div>
+                    <button onclick="connectExchange()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        Connect Exchange
                     </button>
-                    <button type="button" onclick="hideCreateBot()"
-                            class="flex-1 bg-gray-300 py-2 rounded-lg">
-                        Cancel
-                    </button>
                 </div>
-            </form>
+            </div>
+
+            <!-- Subscription -->
+            <div class="mb-6">
+                <h3 class="text-xl font-semibold mb-4">Subscription</h3>
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="border rounded-lg p-4 text-center">
+                        <h4 class="font-bold">Free</h4>
+                        <p class="text-2xl font-bold my-2">$0</p>
+                        <p class="text-sm text-gray-600">Paper trading only</p>
+                    </div>
+                    <div class="border-2 border-purple-600 rounded-lg p-4 text-center">
+                        <h4 class="font-bold text-purple-600">Pro</h4>
+                        <p class="text-2xl font-bold my-2">$29/mo</p>
+                        <p class="text-sm text-gray-600">Real trading + 3 bots</p>
+                        <button class="mt-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm">Upgrade</button>
+                    </div>
+                    <div class="border rounded-lg p-4 text-center">
+                        <h4 class="font-bold">Enterprise</h4>
+                        <p class="text-2xl font-bold my-2">$99/mo</p>
+                        <p class="text-sm text-gray-600">Unlimited bots</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -267,11 +301,9 @@
         // Initialize
         if (token) {
             loadDashboard();
-        } else {
-            document.getElementById('loginScreen').classList.remove('hidden');
         }
 
-        // Authentication
+        // Login
         async function login(event) {
             event.preventDefault();
             const email = document.getElementById('loginEmail').value;
@@ -284,91 +316,117 @@
                     body: JSON.stringify({ email, password })
                 });
 
-                const data = await response.json();
-                if (response.ok) {
-                    token = data.access_token;
-                    localStorage.setItem('token', token);
-                    currentUser = data.user;
-                    loadDashboard();
-                } else {
-                    alert('Login failed: ' + data.detail);
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert(error.detail || 'Login failed');
+                    return;
                 }
+
+                const data = await response.json();
+                token = data.access_token;
+                localStorage.setItem('token', token);
+                currentUser = data.user;
+                
+                loadDashboard();
             } catch (error) {
-                alert('Error: ' + error.message);
+                console.error('Login error:', error);
+                alert('Login error: ' + error.message);
             }
         }
 
-        async function register(event) {
-            event.preventDefault();
-            const name = document.getElementById('registerName').value;
-            const email = document.getElementById('registerEmail').value;
-            const password = document.getElementById('registerPassword').value;
-
-            try {
-                const response = await fetch(`${API_URL}/api/auth/register`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        email, 
-                        password, 
-                        full_name: name,
-                        role: 'user'
-                    })
-                });
-
-                const data = await response.json();
-                if (response.ok) {
-                    alert('Registration successful! Please login.');
-                    showLogin();
-                } else {
-                    alert('Registration failed: ' + data.detail);
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
-        }
-
-        function logout() {
-            localStorage.removeItem('token');
-            location.reload();
-        }
-
-        function showLogin() {
-            document.getElementById('registerScreen').classList.add('hidden');
-            document.getElementById('loginScreen').classList.remove('hidden');
-        }
-
-        function showRegister() {
-            document.getElementById('loginScreen').classList.add('hidden');
-            document.getElementById('registerScreen').classList.remove('hidden');
-        }
-
-        // Dashboard
+        // Load Dashboard
         async function loadDashboard() {
             document.getElementById('loginScreen').classList.add('hidden');
-            document.getElementById('registerScreen').classList.add('hidden');
+            document.getElementById('mainNav').classList.remove('hidden');
             document.getElementById('dashboard').classList.remove('hidden');
 
             await loadUserInfo();
+            await loadStats();
             await loadBots();
             await loadTrades();
-            await loadStats();
-            initCharts();
+            
+            // Auto-refresh every 5 seconds
+            setInterval(() => {
+                loadStats();
+                loadBots();
+            }, 5000);
         }
 
+        // Load User Info
         async function loadUserInfo() {
             try {
                 const response = await fetch(`${API_URL}/api/users/me`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const user = await response.json();
-                document.getElementById('userName').textContent = user.full_name;
-                document.getElementById('userPlan').textContent = user.subscription.toUpperCase();
+                document.getElementById('userName').textContent = user.full_name || user.email;
+                document.getElementById('userPlan').textContent = (user.subscription || 'free').toUpperCase();
             } catch (error) {
                 console.error('Error loading user:', error);
             }
         }
 
+        // Load Stats
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_URL}/api/bots/my-bots`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const bots = await response.json();
+                
+                let totalCapital = 0;
+                let totalPnL = 0;
+                let activeBots = 0;
+                
+                bots.forEach(bot => {
+                    totalCapital += bot.config?.initial_capital || 0;
+                    if (bot.status === 'running') activeBots++;
+                });
+
+                document.getElementById('totalCapital').textContent = `$${totalCapital.toFixed(2)}`;
+                document.getElementById('totalPnL').textContent = `$${totalPnL.toFixed(2)}`;
+                document.getElementById('activeBots').textContent = activeBots;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Create Bot
+        async function createBot() {
+            const config = {
+                user_id: currentUser?.email || 'user',
+                strategy: document.getElementById('botType').value,
+                symbol: document.getElementById('symbol').value,
+                initial_capital: parseFloat(document.getElementById('capital').value),
+                paper_trading: document.getElementById('tradingMode').value === 'true',
+                risk_level: document.getElementById('riskLevel').value
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/api/bots/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    alert('✅ Bot created successfully!');
+                    loadBots();
+                } else {
+                    const error = await response.json();
+                    alert('❌ Error: ' + error.detail);
+                }
+            } catch (error) {
+                console.error('Error creating bot:', error);
+                alert('❌ Error creating bot: ' + error.message);
+            }
+        }
+
+        // Load Bots
         async function loadBots() {
             try {
                 const response = await fetch(`${API_URL}/api/bots/my-bots`, {
@@ -377,153 +435,140 @@
                 const bots = await response.json();
                 
                 const botsList = document.getElementById('botsList');
+                
+                if (bots.length === 0) {
+                    botsList.innerHTML = '<p class="text-gray-500 text-center py-8">No bots yet. Create your first bot above!</p>';
+                    return;
+                }
+
                 botsList.innerHTML = bots.map(bot => `
-                    <div class="card border rounded-lg p-4">
-                        <div class="flex items-center justify-between mb-2">
-                            <h4 class="font-bold">Bot #${bot._id.slice(-6)}</h4>
-                            <span class="px-2 py-1 rounded text-xs ${bot.status === 'running' ? 'bg-green-100 text-green-800 status-running' : 'bg-gray-100 text-gray-800'}">
-                                ${bot.status}
-                            </span>
+                    <div class="border rounded-lg p-4 flex items-center justify-between hover:shadow-lg transition">
+                        <div class="flex items-center space-x-4">
+                            <div class="bg-purple-100 p-3 rounded-full">
+                                <i class="fas fa-robot text-purple-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-lg">${bot.config?.strategy || 'Trading Bot'}</h3>
+                                <p class="text-gray-600 text-sm">${bot.config?.symbol || 'BTC/USDT'} • $${bot.config?.initial_capital || 0}</p>
+                            </div>
                         </div>
-                        <p class="text-sm text-gray-600 mb-3">
-                            Capital: $${bot.config.initial_capital.toLocaleString()}
-                        </p>
-                        <div class="flex space-x-2">
-                            ${bot.status === 'stopped' ? 
-                                `<button onclick="startBot('${bot._id}')" class="flex-1 bg-green-500 text-white py-1 rounded text-sm">Start</button>` :
-                                `<button onclick="stopBot('${bot._id}')" class="flex-1 bg-red-500 text-white py-1 rounded text-sm">Stop</button>`
+                        <div class="flex items-center space-x-4">
+                            <span class="px-3 py-1 rounded-full text-sm font-semibold ${
+                                bot.status === 'running' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            }">
+                                ${bot.status === 'running' ? '🟢 Running' : '⚫ Stopped'}
+                            </span>
+                            ${bot.status === 'running' ? 
+                                `<button onclick="stopBot('${bot._id}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
+                                    <i class="fas fa-stop mr-2"></i>Stop
+                                </button>` :
+                                `<button onclick="startBot('${bot._id}')" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600">
+                                    <i class="fas fa-play mr-2"></i>Start
+                                </button>`
                             }
-                            <button onclick="viewBot('${bot._id}')" class="flex-1 bg-blue-500 text-white py-1 rounded text-sm">View</button>
                         </div>
                     </div>
                 `).join('');
-
-                document.getElementById('activeBots').textContent = bots.filter(b => b.status === 'running').length;
             } catch (error) {
                 console.error('Error loading bots:', error);
             }
         }
 
-        async function loadTrades() {
-            // Placeholder - implement actual API call
-            const tradesTable = document.getElementById('tradesTable');
-            tradesTable.innerHTML = `
-                <tr><td colspan="6" class="text-center py-4 text-gray-500">No trades yet</td></tr>
-            `;
-        }
-
-        async function loadStats() {
-            // Placeholder - implement actual API call
-            document.getElementById('totalCapital').textContent = '$10,000.00';
-            document.getElementById('totalPnL').textContent = '$0.00';
-            document.getElementById('winRate').textContent = '0%';
-        }
-
-        function initCharts() {
-            // Performance Chart
-            const perfCtx = document.getElementById('performanceChart').getContext('2d');
-            new Chart(perfCtx, {
-                type: 'line',
-                data: {
-                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                    datasets: [{
-                        label: 'Capital',
-                        data: [10000, 10050, 10100, 10080, 10150, 10200, 10250],
-                        borderColor: 'rgb(102, 126, 234)',
-                        tension: 0.1
-                    }]
-                }
-            });
-
-            // Trade Distribution
-            const tradeCtx = document.getElementById('tradeChart').getContext('2d');
-            new Chart(tradeCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Wins', 'Losses'],
-                    datasets: [{
-                        data: [60, 40],
-                        backgroundColor: ['rgb(34, 197, 94)', 'rgb(239, 68, 68)']
-                    }]
-                }
-            });
-        }
-
-        // Bot Management
-        function showCreateBot() {
-            document.getElementById('createBotModal').classList.remove('hidden');
-        }
-
-        function hideCreateBot() {
-            document.getElementById('createBotModal').classList.add('hidden');
-        }
-
-        async function createBot(event) {
-            event.preventDefault();
-            const capital = document.getElementById('botCapital').value;
-            const paperTrading = document.getElementById('botMode').value === 'true';
-
-            try {
-                const userResponse = await fetch(`${API_URL}/api/users/me`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const user = await userResponse.json();
-
-                const response = await fetch(`${API_URL}/api/bots/create`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        user_id: user._id,
-                        initial_capital: parseFloat(capital),
-                        paper_trading: paperTrading
-                    })
-                });
-
-                if (response.ok) {
-                    alert('Bot created successfully!');
-                    hideCreateBot();
-                    loadBots();
-                } else {
-                    alert('Failed to create bot');
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
-        }
-
+        // Start Bot
         async function startBot(botId) {
             try {
                 const response = await fetch(`${API_URL}/api/bots/${botId}/start`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+
                 if (response.ok) {
+                    alert('✅ Bot started successfully!');
                     loadBots();
+                    loadStats();
+                } else {
+                    const error = await response.json();
+                    alert('❌ Error: ' + error.detail);
                 }
             } catch (error) {
                 console.error('Error starting bot:', error);
+                alert('❌ Error starting bot: ' + error.message);
             }
         }
 
+        // Stop Bot
         async function stopBot(botId) {
             try {
                 const response = await fetch(`${API_URL}/api/bots/${botId}/stop`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+
                 if (response.ok) {
+                    alert('✅ Bot stopped successfully!');
                     loadBots();
+                    loadStats();
+                } else {
+                    const error = await response.json();
+                    alert('❌ Error: ' + error.detail);
                 }
             } catch (error) {
                 console.error('Error stopping bot:', error);
+                alert('❌ Error stopping bot: ' + error.message);
             }
         }
 
-        function viewBot(botId) {
-            alert('Bot details for: ' + botId);
+        // Load Trades
+        async function loadTrades() {
+            // Placeholder - will be implemented with real trade data
+            console.log('Loading trades...');
+        }
+
+        // Connect Exchange
+        async function connectExchange() {
+            const credentials = {
+                okx_api_key: document.getElementById('okxApiKey').value,
+                okx_secret_key: document.getElementById('okxSecretKey').value,
+                okx_passphrase: document.getElementById('okxPassphrase').value,
+                paper_trading: false
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/api/user/connect-exchange`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(credentials)
+                });
+
+                if (response.ok) {
+                    alert('✅ Exchange connected successfully!');
+                    hideSettings();
+                } else {
+                    const error = await response.json();
+                    alert('❌ Error: ' + error.detail);
+                }
+            } catch (error) {
+                console.error('Error connecting exchange:', error);
+                alert('❌ Error connecting exchange: ' + error.message);
+            }
+        }
+
+        // Settings Modal
+        function showSettings() {
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function hideSettings() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        // Logout
+        function logout() {
+            localStorage.removeItem('token');
+            location.reload();
         }
     </script>
 </body>
