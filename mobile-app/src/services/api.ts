@@ -1,10 +1,10 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-// Change this to your backend URL
+// Backend API URL
 const API_BASE_URL = __DEV__ 
   ? 'http://localhost:8000/api'  // Local development
-  : 'https://your-production-domain.com/api';  // Production
+  : 'https://trading-bot-api-7xps.onrender.com/api';  // Production - YOUR LIVE BACKEND!
 
 const api = axios.create({
   baseURL: API_BASE_URL,

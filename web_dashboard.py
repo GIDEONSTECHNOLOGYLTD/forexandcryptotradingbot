@@ -395,29 +395,31 @@ async def disconnect_exchange(user: dict = Depends(get_current_user)):
 async def create_bot(config: BotConfig, user: dict = Depends(get_current_user)):
     """Create bot instance for user"""
     
-    # Check if user has connected exchange for real trading
-    if not config.paper_trading and not user.get("exchange_connected"):
+    # Check if user has connected exchange for real trading (skip for admin)
+    is_admin = user.get("role") == "admin"
+    if not config.paper_trading and not user.get("exchange_connected") and not is_admin:
         raise HTTPException(
             status_code=400,
-            detail="Please connect your exchange account first"
+            detail="Please connect your exchange account first. Go to Settings > Exchange Connection."
         )
     
-    # Check subscription limits
+    # Check subscription limits (skip for admin)
     subscription = user.get("subscription", "free")
     features = get_plan_features(subscription)
     
-    existing_bots = bot_instances_collection.count_documents({"user_id": str(user["_id"])})
-    if existing_bots >= features["max_bots"]:
-        raise HTTPException(
-            status_code=403,
-            detail=f"Bot limit reached. Upgrade to create more bots."
-        )
-    
-    if not config.paper_trading and not features["real_trading"]:
-        raise HTTPException(
-            status_code=403,
-            detail="Real trading requires Pro or Enterprise subscription"
-        )
+    if not is_admin:
+        existing_bots = bot_instances_collection.count_documents({"user_id": str(user["_id"])})
+        if existing_bots >= features["max_bots"]:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Bot limit reached ({features['max_bots']} bots). Upgrade to Pro for 3 bots or Enterprise for unlimited."
+            )
+        
+        if not config.paper_trading and not features["real_trading"]:
+            raise HTTPException(
+                status_code=403,
+                detail="Real trading requires Pro ($29/month) or Enterprise ($99/month) subscription. Upgrade in Settings."
+            )
     
     bot_instance = {
         "user_id": config.user_id,
