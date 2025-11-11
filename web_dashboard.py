@@ -672,64 +672,41 @@ async def paystack_callback(reference: str):
     
     raise HTTPException(status_code=400, detail="Payment verification failed")
 
-# Crypto Payment Integration
+# Crypto Payment Integration - FULL IMPLEMENTATION
+from okx_payment_handler import payment_handler
+
 @app.post("/api/payments/crypto/initialize")
 async def initialize_crypto_payment(payment: CryptoPayment, user: dict = Depends(get_current_user)):
-    """Initialize crypto payment"""
-    
-    # Plan prices in USD
-    plan_prices = {
-        "pro": 29,
-        "enterprise": 99
-    }
-    
-    # Generate unique payment address (you'll need to integrate with a crypto payment processor)
-    # For now, we'll use a placeholder
-    payment_address = generate_crypto_address(payment.crypto_currency)
-    
-    # Save payment record
-    payment_id = db.db['payments'].insert_one({
-        "user_id": str(user["_id"]),
-        "plan": payment.plan,
-        "amount": plan_prices.get(payment.plan, 29),
-        "crypto_currency": payment.crypto_currency,
-        "payment_address": payment_address,
-        "status": "pending",
-        "payment_method": "crypto",
-        "created_at": datetime.utcnow(),
-        "expires_at": datetime.utcnow() + timedelta(hours=2)
-    }).inserted_id
-    
-    return {
-        "payment_id": str(payment_id),
-        "payment_address": payment_address,
-        "amount": plan_prices.get(payment.plan, 29),
-        "crypto_currency": payment.crypto_currency,
-        "expires_in": 7200  # 2 hours
-    }
+    """Initialize crypto payment - FULLY IMPLEMENTED"""
+    try:
+        result = payment_handler.initialize_payment(
+            user_id=str(user["_id"]),
+            plan=payment.plan,
+            crypto=payment.crypto_currency
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Payment initialization failed: {str(e)}")
 
-@app.post("/api/payments/crypto/verify")
-async def verify_crypto_payment(payment_id: str, tx_hash: str, user: dict = Depends(get_current_user)):
-    """Verify crypto payment"""
-    
-    # Get payment record
-    payment = db.db['payments'].find_one({"_id": payment_id})
-    
-    if not payment:
-        raise HTTPException(status_code=404, detail="Payment not found")
-    
-    # Verify transaction on blockchain (you'll need to integrate with blockchain API)
-    # For now, we'll accept the tx_hash and mark as pending verification
-    
-    db.db['payments'].update_one(
-        {"_id": payment_id},
-        {"$set": {
-            "tx_hash": tx_hash,
-            "status": "verifying"
-        }}
-    )
-    
-    return {"message": "Payment submitted for verification"}
+@app.get("/api/payments/crypto/status/{payment_id}")
+async def check_crypto_payment_status(payment_id: str, user: dict = Depends(get_current_user)):
+    """Check crypto payment status - FULLY IMPLEMENTED"""
+    try:
+        result = payment_handler.check_payment_status(payment_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Status check failed: {str(e)}")
+
+@app.get("/api/payments/history")
+async def get_payment_history(user: dict = Depends(get_current_user)):
+    """Get user's payment history"""
+    try:
+        history = payment_handler.get_payment_history(str(user["_id"]))
+        return {"payments": history}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch history: {str(e)}")
 
 # In-App Purchase Verification
 @app.post("/api/payments/iap/verify")

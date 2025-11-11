@@ -60,6 +60,29 @@ services:
       - key: TELEGRAM_BOT_TOKEN
         sync: false
 
+  # Payment Checker (NEW - Checks crypto payments every minute)
+  - type: worker
+    name: payment-checker
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: python payment_checker.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: MONGODB_URI
+        sync: false
+      - key: OKX_API_KEY
+        sync: false
+      - key: OKX_SECRET_KEY
+        sync: false
+      - key: OKX_PASSPHRASE
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+
   # Demo Trading Bot (Original - for testing)
   - type: worker
     name: demo-trading-bot
