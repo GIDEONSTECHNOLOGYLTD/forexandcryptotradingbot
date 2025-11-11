@@ -188,9 +188,13 @@ async def login(credentials: UserLogin):
     
     token = create_access_token({"sub": credentials.email})
     
+    # Determine redirect URL based on role
+    redirect_url = "/admin" if user["role"] == "admin" else "/user"
+    
     return {
         "access_token": token,
         "token_type": "bearer",
+        "redirect_url": redirect_url,
         "user": {
             "email": user["email"],
             "full_name": user["full_name"],
@@ -206,15 +210,26 @@ async def get_me(user: dict = Depends(get_current_user)):
     user["_id"] = str(user["_id"])
     return user
 
+class PasswordChange(BaseModel):
+    old_password: str
+    new_password: str
+
+class EmailChange(BaseModel):
+    new_email: EmailStr
+    password: str
+
+class ProfileUpdate(BaseModel):
+    full_name: str
+
 @app.put("/api/users/me/password")
-async def change_password(old_password: str, new_password: str, user: dict = Depends(get_current_user)):
+async def change_password(data: PasswordChange, user: dict = Depends(get_current_user)):
     """Change user password"""
     # Verify old password
-    if not verify_password(old_password, user["password"]):
+    if not verify_password(data.old_password, user["password"]):
         raise HTTPException(status_code=400, detail="Invalid current password")
     
     # Update password
-    new_hash = hash_password(new_password)
+    new_hash = hash_password(data.new_password)
     users_collection.update_one(
         {"_id": user["_id"]},
         {"$set": {"password": new_hash}}
@@ -223,30 +238,30 @@ async def change_password(old_password: str, new_password: str, user: dict = Dep
     return {"message": "Password changed successfully"}
 
 @app.put("/api/users/me/email")
-async def change_email(new_email: EmailStr, password: str, user: dict = Depends(get_current_user)):
+async def change_email(data: EmailChange, user: dict = Depends(get_current_user)):
     """Change user email"""
     # Verify password
-    if not verify_password(password, user["password"]):
+    if not verify_password(data.password, user["password"]):
         raise HTTPException(status_code=400, detail="Invalid password")
     
     # Check if email already exists
-    if users_collection.find_one({"email": new_email}):
+    if users_collection.find_one({"email": data.new_email}):
         raise HTTPException(status_code=400, detail="Email already in use")
     
     # Update email
     users_collection.update_one(
         {"_id": user["_id"]},
-        {"$set": {"email": new_email}}
+        {"$set": {"email": data.new_email}}
     )
     
     return {"message": "Email changed successfully"}
 
 @app.put("/api/users/me/profile")
-async def update_profile(full_name: str, user: dict = Depends(get_current_user)):
+async def update_profile(data: ProfileUpdate, user: dict = Depends(get_current_user)):
     """Update user profile"""
     users_collection.update_one(
         {"_id": user["_id"]},
-        {"$set": {"full_name": full_name}}
+        {"$set": {"full_name": data.full_name}}
     )
     
     return {"message": "Profile updated successfully"}

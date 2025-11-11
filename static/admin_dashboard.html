@@ -15,7 +15,7 @@
 </head>
 <body class="bg-gray-100">
     <!-- Navigation -->
-    <nav class="gradient-bg text-white shadow-lg">
+    <nav id="mainNav" class="gradient-bg text-white shadow-lg hidden">
         <div class="container mx-auto px-6 py-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
@@ -264,16 +264,29 @@
                     body: JSON.stringify({ email, password })
                 });
 
-                const data = await response.json();
-                if (response.ok && data.user.role === 'admin') {
-                    token = data.access_token;
-                    localStorage.setItem('admin_token', token);
-                    loadDashboard();
-                } else {
-                    alert('Admin access required');
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert(error.detail || 'Login failed');
+                    return;
                 }
+
+                const data = await response.json();
+                
+                // Check if user is admin
+                if (data.user.role !== 'admin') {
+                    alert('Admin access required. Redirecting to user dashboard...');
+                    window.location.href = '/user';
+                    return;
+                }
+                
+                // Store token and load admin dashboard
+                token = data.access_token;
+                localStorage.setItem('admin_token', token);
+                loadDashboard();
+                
             } catch (error) {
-                alert('Error: ' + error.message);
+                console.error('Login error:', error);
+                alert('Login error: ' + error.message);
             }
         }
 
@@ -402,6 +415,7 @@
 
         async function loadDashboard() {
             document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainNav').classList.remove('hidden');
             document.getElementById('dashboard').classList.remove('hidden');
 
             await loadOverview();
