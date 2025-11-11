@@ -452,7 +452,7 @@ async def get_my_bots(user: dict = Depends(get_current_user)):
     for bot in bots:
         bot["_id"] = str(bot["_id"])
     
-    return {"bots": bots}
+    return bots  # Return array directly, not wrapped in object
 
 @app.get("/api/bots/{bot_id}/performance")
 async def get_bot_performance(bot_id: str, user: dict = Depends(get_current_user)):
