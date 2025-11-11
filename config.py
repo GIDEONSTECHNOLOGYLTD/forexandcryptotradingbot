@@ -19,6 +19,24 @@ MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
 # JWT Configuration (for user authentication)
 JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'change-this-secret-key')
 
+# Encryption Key (for API keys)
+ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY', 'generate-a-fernet-key-here')
+
+# Payment Configuration
+PAYSTACK_SECRET_KEY = os.getenv('PAYSTACK_SECRET_KEY', '')
+PAYSTACK_PUBLIC_KEY = os.getenv('PAYSTACK_PUBLIC_KEY', '')
+
+# Crypto Payment (CoinGate, NOWPayments, etc.)
+COINGATE_API_KEY = os.getenv('COINGATE_API_KEY', '')
+
+# In-App Purchase Configuration
+APPLE_SHARED_SECRET = os.getenv('APPLE_SHARED_SECRET', '')
+GOOGLE_SERVICE_ACCOUNT_FILE = os.getenv('GOOGLE_SERVICE_ACCOUNT_FILE', '')
+ANDROID_PACKAGE_NAME = os.getenv('ANDROID_PACKAGE_NAME', 'com.tradingbot.app')
+
+# API URL
+API_URL = os.getenv('API_URL', 'http://localhost:8000')
+
 # Trading Configuration
 TIMEFRAME = '1h'  # 1 hour candles
 PAPER_TRADING = True  # Set to False for live trading (NOT RECOMMENDED until thoroughly tested)

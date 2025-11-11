@@ -37,9 +37,12 @@ passlib[bcrypt]
 bcrypt
 pyotp
 qrcode
+cryptography
 
 # Payment Processing
 stripe
+google-api-python-client
+google-auth
 
 # Monitoring & Observability
 prometheus-client
