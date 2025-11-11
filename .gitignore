@@ -11,6 +11,22 @@ venv/
 env/
 ENV/
 
+# Node.js / Mobile App
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.expo/
+.expo-shared/
+dist/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
 # Logs
 *.log
 trading_bot.log
