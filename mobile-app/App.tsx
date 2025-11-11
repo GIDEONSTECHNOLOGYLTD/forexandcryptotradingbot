@@ -20,6 +20,7 @@ import BotConfigScreen from './src/screens/BotConfigScreen';
 import PaymentScreen from './src/screens/PaymentScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
+import AboutScreen from './src/screens/AboutScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -99,6 +100,11 @@ export default function App() {
             name="Notifications" 
             component={NotificationsScreen}
             options={{ headerShown: true, title: 'Notifications' }}
+          />
+          <Stack.Screen 
+            name="About" 
+            component={AboutScreen}
+            options={{ headerShown: true, title: 'About & Credits' }}
           />
         </Stack.Navigator>
       </NavigationContainer>

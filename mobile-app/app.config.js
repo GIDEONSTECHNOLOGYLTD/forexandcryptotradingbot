@@ -6,6 +6,7 @@ export default {
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "automatic",
+    description: "AI-Powered Trading Bot - Built by Gideon's Technology Ltd",
     splash: {
       image: "./assets/splash.png",
       resizeMode: "contain",

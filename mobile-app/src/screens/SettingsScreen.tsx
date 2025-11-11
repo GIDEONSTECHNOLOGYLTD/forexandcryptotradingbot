@@ -32,6 +32,12 @@ export default function SettingsScreen({ navigation }: any) {
         <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
       </TouchableOpacity>
 
+      <TouchableOpacity style={styles.item} onPress={() => navigation.navigate('About')}>
+        <Ionicons name="information-circle-outline" size={24} color="#667eea" />
+        <Text style={styles.itemText}>About & Credits</Text>
+        <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.item} onPress={handleLogout}>
         <Ionicons name="log-out-outline" size={24} color="#ef4444" />
         <Text style={[styles.itemText, { color: '#ef4444' }]}>Logout</Text>
