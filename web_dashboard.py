@@ -685,6 +685,38 @@ async def stop_bot(bot_id: str, user: dict = Depends(get_current_user)):
         "bot_id": bot_id
     }
 
+@app.delete("/api/bots/{bot_id}")
+async def delete_bot(bot_id: str, user: dict = Depends(get_current_user)):
+    """Delete bot instance"""
+    from bson import ObjectId
+    
+    # Verify bot exists and belongs to user
+    try:
+        bot_obj_id = ObjectId(bot_id)
+    except:
+        raise HTTPException(status_code=400, detail="Invalid bot ID format")
+    
+    bot = bot_instances_collection.find_one({"_id": bot_obj_id})
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    
+    # Check ownership (skip for admin)
+    is_admin = user.get("role") == "admin"
+    if not is_admin and bot.get("user_id") != str(user["_id"]):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this bot")
+    
+    # Stop bot if running
+    if bot.get("status") == "running":
+        try:
+            await bot_engine.stop_bot(bot_id)
+        except:
+            pass
+    
+    # Delete bot
+    bot_instances_collection.delete_one({"_id": bot_obj_id})
+    
+    return {"message": "Bot deleted successfully", "bot_id": bot_id}
+
 @app.get("/api/bots/{bot_id}/status")
 async def get_bot_status_endpoint(bot_id: str, user: dict = Depends(get_current_user)):
     """Get real-time bot status"""

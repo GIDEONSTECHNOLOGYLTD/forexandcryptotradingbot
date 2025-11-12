@@ -88,6 +88,11 @@ export const stopBot = async (botId: string) => {
   return response.data;
 };
 
+export const deleteBot = async (botId: string) => {
+  const response = await api.delete(`/bots/${botId}`);
+  return response.data;
+};
+
 // Trading
 export const getTrades = async () => {
   const response = await api.get('/trades');

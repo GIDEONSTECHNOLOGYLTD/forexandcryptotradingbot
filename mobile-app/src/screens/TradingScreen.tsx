@@ -104,6 +104,39 @@ export default function TradingScreen({ navigation }: any) {
     }
   };
 
+  const handleDeleteBot = (botId: string, botType: string) => {
+    Alert.alert(
+      'Delete Bot',
+      `Are you sure you want to delete this ${botType} bot? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.deleteBot(botId);
+              Alert.alert('Success', 'Bot deleted successfully');
+              loadBots();
+            } catch (error: any) {
+              Alert.alert('Error', error.response?.data?.detail || 'Failed to delete bot');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleUpdateBot = (bot: any) => {
+    Alert.alert(
+      'Update Bot',
+      'Bot update feature coming soon! You can create a new bot with updated settings.',
+      [{ text: 'OK' }]
+    );
+    // TODO: Navigate to edit screen with bot data pre-filled
+    // navigation.navigate('BotConfig', { bot });
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'running':
@@ -244,6 +277,24 @@ export default function TradingScreen({ navigation }: any) {
                 >
                   <Ionicons name="stats-chart" size={20} color="#667eea" />
                   <Text style={[styles.actionButtonText, { color: '#667eea' }]}>Details</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Additional Actions */}
+              <View style={styles.secondaryActions}>
+                <TouchableOpacity 
+                  style={styles.secondaryButton}
+                  onPress={() => handleUpdateBot(bot)}
+                >
+                  <Ionicons name="create-outline" size={18} color="#667eea" />
+                  <Text style={styles.secondaryButtonText}>Edit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.secondaryButton}
+                  onPress={() => handleDeleteBot(bot._id, bot.config?.bot_type)}
+                >
+                  <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                  <Text style={[styles.secondaryButtonText, { color: '#ef4444' }]}>Delete</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -504,5 +555,28 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  secondaryActions: {
+    flexDirection: 'row',
+    marginTop: 12,
+    gap: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  secondaryButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#f9fafb',
+    gap: 6,
+  },
+  secondaryButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#667eea',
   },
 });
