@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as api from '../services/api';
-import * as InAppPurchases from 'expo-in-app-purchases';
 import { useUser } from '../context/UserContext';
 
 const PRODUCT_IDS = {
@@ -19,32 +18,8 @@ export default function PaymentScreen({ navigation }: any) {
   const [cryptoCurrency, setCryptoCurrency] = useState('USDT');
 
   useEffect(() => {
-    if (selectedPaymentMethod === 'iap') {
-      initializeIAP();
-    }
-    return () => {
-      if (selectedPaymentMethod === 'iap') {
-        try {
-          InAppPurchases.disconnectAsync();
-        } catch (error) {
-          // IAP not available in Expo Go
-        }
-      }
-    };
+    // No initialization needed - IAP will be loaded on demand
   }, [selectedPaymentMethod]);
-
-  const initializeIAP = async () => {
-    try {
-      await InAppPurchases.connectAsync();
-    } catch (error) {
-      console.error('IAP initialization error:', error);
-      Alert.alert(
-        'In-App Purchase Not Available',
-        'In-app purchases only work in production builds from App Store. Please use Card or Crypto payment instead.',
-        [{ text: 'OK', onPress: () => setSelectedPaymentMethod('card') }]
-      );
-    }
-  };
 
   const handlePaystackPayment = async (plan: string) => {
     try {
@@ -108,7 +83,20 @@ export default function PaymentScreen({ navigation }: any) {
     try {
       setPurchasing(true);
       
-      // Check if IAP is available
+      // Dynamically import IAP module (only works in production)
+      let InAppPurchases;
+      try {
+        InAppPurchases = await import('expo-in-app-purchases');
+      } catch (importError) {
+        Alert.alert(
+          'Not Available in Expo Go',
+          'In-app purchases only work in production builds from App Store.\n\nPlease use Card (Paystack) or Crypto payment instead.',
+          [{ text: 'OK', onPress: () => setSelectedPaymentMethod('card') }]
+        );
+        return;
+      }
+      
+      // Try to connect
       try {
         await InAppPurchases.connectAsync();
       } catch (connectError) {
