@@ -4,11 +4,25 @@ import { Picker } from '@react-native-picker/picker';
 import * as api from '../services/api';
 import { useUser } from '../context/UserContext';
 
+// Trading pairs - Crypto + Forex
+const TRADING_PAIRS = {
+  crypto: [
+    'BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'XRP/USDT', 'ADA/USDT',
+    'SOL/USDT', 'DOT/USDT', 'DOGE/USDT', 'MATIC/USDT', 'LTC/USDT',
+    'AVAX/USDT', 'LINK/USDT', 'UNI/USDT', 'ATOM/USDT', 'TON/USDT'
+  ],
+  forex: [
+    'EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'AUD/USD',
+    'USD/CAD', 'NZD/USD', 'EUR/GBP', 'EUR/JPY', 'GBP/JPY'
+  ]
+};
+
 export default function BotConfigScreen({ navigation }: any) {
   const { user, isAdmin } = useUser();
   
   // Basic Config
   const [botType, setBotType] = useState('momentum');
+  const [pairCategory, setPairCategory] = useState('crypto');
   const [symbol, setSymbol] = useState('BTC/USDT');
   const [capital, setCapital] = useState('1000');
   const [paperTrading, setPaperTrading] = useState(!user?.exchange_connected && !isAdmin);
@@ -96,11 +110,28 @@ export default function BotConfigScreen({ navigation }: any) {
       <Picker selectedValue={botType} onValueChange={setBotType} style={styles.picker}>
         <Picker.Item label="Momentum" value="momentum" />
         <Picker.Item label="Grid Trading" value="grid" />
-        <Picker.Item label="DCA" value="dca" />
+        <Picker.Item label="DCA (Dollar Cost Average)" value="dca" />
       </Picker>
 
-      <Text style={styles.label}>Symbol</Text>
-      <TextInput style={styles.input} value={symbol} onChangeText={setSymbol} />
+      <Text style={styles.label}>Market Type</Text>
+      <Picker 
+        selectedValue={pairCategory} 
+        onValueChange={(value) => {
+          setPairCategory(value);
+          setSymbol(TRADING_PAIRS[value][0]);
+        }} 
+        style={styles.picker}
+      >
+        <Picker.Item label="Cryptocurrency" value="crypto" />
+        <Picker.Item label="Forex" value="forex" />
+      </Picker>
+
+      <Text style={styles.label}>Trading Pair</Text>
+      <Picker selectedValue={symbol} onValueChange={setSymbol} style={styles.picker}>
+        {TRADING_PAIRS[pairCategory].map(pair => (
+          <Picker.Item key={pair} label={pair} value={pair} />
+        ))}
+      </Picker>
 
       <Text style={styles.label}>Capital ($)</Text>
       <TextInput

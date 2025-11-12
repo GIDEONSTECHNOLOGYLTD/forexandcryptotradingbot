@@ -49,22 +49,21 @@ export default function SettingsScreen({ navigation }: any) {
       {isAdmin && (
         <>
           <Text style={styles.sectionTitle}>ADMIN TOOLS</Text>
-          <TouchableOpacity style={styles.item} onPress={() => navigation.navigate('ManageUsers')}>
-            <Ionicons name="people-outline" size={24} color="#10b981" />
-            <Text style={styles.itemText}>Manage Users</Text>
-            <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
+          <TouchableOpacity style={styles.adminToolButton} onPress={() => navigation.navigate('ManageUsers')}>
+            <Ionicons name="people-outline" size={24} color="#667eea" />
+            <Text style={styles.adminToolText}>Manage Users</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity style={styles.item} onPress={() => navigation.navigate('SystemAnalytics')}>
-            <Ionicons name="stats-chart-outline" size={24} color="#10b981" />
-            <Text style={styles.itemText}>System Analytics</Text>
-            <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
+          <TouchableOpacity style={styles.adminToolButton} onPress={() => navigation.navigate('ManageSubscriptions')}>
+            <Ionicons name="card-outline" size={24} color="#667eea" />
+            <Text style={styles.adminToolText}>Manage Subscriptions</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity style={styles.item} onPress={() => navigation.navigate('SystemSettings')}>
-            <Ionicons name="settings-outline" size={24} color="#10b981" />
-            <Text style={styles.itemText}>System Settings</Text>
-            <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
+          <TouchableOpacity style={styles.adminToolButton} onPress={() => navigation.navigate('SystemAnalytics')}>
+            <Ionicons name="analytics-outline" size={24} color="#667eea" />
+            <Text style={styles.adminToolText}>System Analytics</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.adminToolButton} onPress={() => navigation.navigate('SystemSettings')}>
+            <Ionicons name="settings-outline" size={24} color="#667eea" />
+            <Text style={styles.adminToolText}>System Settings</Text>
           </TouchableOpacity>
         </>
       )}

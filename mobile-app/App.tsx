@@ -28,6 +28,7 @@ import ManageUsersScreen from './src/screens/ManageUsersScreen';
 import SystemAnalyticsScreen from './src/screens/SystemAnalyticsScreen';
 import SystemSettingsScreen from './src/screens/SystemSettingsScreen';
 import SecurityScreen from './src/screens/SecurityScreen';
+import ManageSubscriptionsScreen from './src/screens/ManageSubscriptionsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -141,6 +142,11 @@ export default function App() {
           <Stack.Screen 
             name="Security" 
             component={SecurityScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen 
+            name="ManageSubscriptions" 
+            component={ManageSubscriptionsScreen}
             options={{ headerShown: false }}
           />
         </Stack.Navigator>

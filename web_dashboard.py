@@ -643,13 +643,6 @@ async def stop_bot(bot_id: str, user: dict = Depends(get_current_user)):
     """Stop bot instance"""
     from bson import ObjectId
     
-    # Stop bot engine
-    try:
-        await bot_engine.stop_bot(bot_id)
-        logger.info(f"✅ Bot {bot_id} stopped in bot engine")
-    except Exception as e:
-        logger.error(f"❌ Bot engine stop failed: {e}")
-    
     # Verify bot exists and belongs to user
     try:
         bot_obj_id = ObjectId(bot_id)
@@ -665,35 +658,28 @@ async def stop_bot(bot_id: str, user: dict = Depends(get_current_user)):
     if not is_admin and bot.get("user_id") != str(user["_id"]):
         raise HTTPException(status_code=403, detail="Not authorized to control this bot")
     
-    # Use real bot engine if available
-    if BOT_ENGINE_AVAILABLE and bot_engine:
-        try:
-            result = await bot_engine.stop_bot(bot_id)
-            return {
-                "message": "Bot stopped successfully",
-                "status": "stopped",
-                "bot_id": bot_id
-            }
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to stop bot: {str(e)}")
-    else:
-        # Fallback: just update database
-        try:
-            bot_instances_collection.update_one(
-                {"_id": bot_obj_id},
-                {"$set": {
-                    "status": "stopped",
-                    "stopped_at": datetime.utcnow(),
-                    "last_active": datetime.utcnow()
-                }}
-            )
-            return {
-                "message": "Bot stopped (database only)",
-                "status": "stopped",
-                "bot_id": bot_id
-            }
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to stop bot: {str(e)}")
+    # Stop bot engine
+    try:
+        await bot_engine.stop_bot(bot_id)
+        logger.info(f"✅ Bot {bot_id} stopped in bot engine")
+    except Exception as e:
+        logger.error(f"❌ Bot engine stop failed: {e}")
+        # Continue anyway
+    
+    # Update database
+    bot_instances_collection.update_one(
+        {"_id": bot_obj_id},
+        {"$set": {
+            "status": "stopped",
+            "stopped_at": datetime.utcnow(),
+            "last_active": datetime.utcnow()
+        }}
+    )
+    return {
+        "message": "Bot stopped successfully",
+        "status": "stopped",
+        "bot_id": bot_id
+    }
 
 @app.get("/api/bots/{bot_id}/status")
 async def get_bot_status_endpoint(bot_id: str, user: dict = Depends(get_current_user)):
@@ -1195,6 +1181,26 @@ async def clear_cache(admin: dict = Depends(get_admin_user)):
         return {"message": "Cache cleared successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Cache clear failed: {str(e)}")
+
+@app.put("/api/admin/users/{user_id}/subscription")
+async def update_user_subscription(user_id: str, data: dict, admin: dict = Depends(get_admin_user)):
+    """Update user subscription"""
+    from bson import ObjectId
+    try:
+        user_obj_id = ObjectId(user_id)
+    except:
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+    
+    new_subscription = data.get("subscription")
+    if new_subscription not in ["free", "pro", "enterprise"]:
+        raise HTTPException(status_code=400, detail="Invalid subscription plan")
+    
+    users_collection.update_one(
+        {"_id": user_obj_id},
+        {"$set": {"subscription": new_subscription, "updated_at": datetime.utcnow()}}
+    )
+    
+    return {"message": f"Subscription updated to {new_subscription}", "subscription": new_subscription}
 
 
 # ============================================================================
