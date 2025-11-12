@@ -12,10 +12,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
 import api from '../services/api';
+import { useUser } from '../context/UserContext';
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen({ navigation }: any) {
+  const { user, isAdmin } = useUser();
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({
     totalBalance: 0,
@@ -63,13 +65,23 @@ export default function HomeScreen({ navigation }: any) {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
+      {/* Admin Badge */}
+      {isAdmin && (
+        <View style={styles.adminBadge}>
+          <Ionicons name="shield-checkmark" size={16} color="#fff" />
+          <Text style={styles.adminBadgeText}>ADMIN - System Wide View</Text>
+        </View>
+      )}
+
       {/* Header Card */}
       <LinearGradient
         colors={['#667eea', '#764ba2']}
         style={styles.headerCard}
       >
         <View style={styles.balanceSection}>
-          <Text style={styles.balanceLabel}>Total Balance</Text>
+          <Text style={styles.balanceLabel}>
+            {isAdmin ? 'Total System Balance' : 'Total Balance'}
+          </Text>
           <Text style={styles.balanceAmount}>
             ${stats.totalBalance.toLocaleString()}
           </Text>
@@ -177,6 +189,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  adminBadge: {
+    backgroundColor: '#10b981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    gap: 8,
+  },
+  adminBadgeText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   headerCard: {
     padding: 30,

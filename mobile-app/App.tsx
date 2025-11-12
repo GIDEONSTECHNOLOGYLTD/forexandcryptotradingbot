@@ -5,6 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
+import { UserProvider } from './src/context/UserContext';
 
 // Screens
 import SplashScreen from './src/screens/SplashScreen';
@@ -66,7 +67,7 @@ function MainTabs() {
 
 export default function App() {
   return (
-    <>
+    <UserProvider>
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Splash">
           {/* Initial Screens */}
@@ -115,6 +116,6 @@ export default function App() {
         </Stack.Navigator>
       </NavigationContainer>
       <StatusBar style="auto" />
-    </>
+    </UserProvider>
   );
 }

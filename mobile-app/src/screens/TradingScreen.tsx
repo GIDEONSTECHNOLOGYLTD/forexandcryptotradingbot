@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as api from '../services/api';
+import { useUser } from '../context/UserContext';
 
 export default function TradingScreen({ navigation }: any) {
+  const { user, isAdmin } = useUser();
   const [bots, setBots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
