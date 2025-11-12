@@ -114,7 +114,6 @@ class BotConfig(BaseModel):
     paper_trading: bool = True
 
 class SubscriptionCreate(BaseModel):
-    user_id: str
     plan: str  # free, pro, enterprise
     payment_method: Optional[str] = None
 
@@ -972,11 +971,15 @@ async def trading_stats(admin: dict = Depends(get_admin_user)):
 @app.post("/api/subscriptions/create")
 async def create_subscription(sub_data: SubscriptionCreate, user: dict = Depends(get_current_user)):
     """Create subscription"""
+    # Use authenticated user's ID, not from request
+    user_id = str(user["_id"])
+    
     subscription = {
-        "user_id": sub_data.user_id,
+        "user_id": user_id,
         "plan": sub_data.plan,
         "amount": {"free": 0, "pro": 29, "enterprise": 99}[sub_data.plan],
         "status": "active",
+        "payment_method": sub_data.payment_method or "card",
         "created_at": datetime.utcnow(),
         "expires_at": datetime.utcnow() + timedelta(days=30)
     }
@@ -985,13 +988,18 @@ async def create_subscription(sub_data: SubscriptionCreate, user: dict = Depends
     
     # Update user subscription
     users_collection.update_one(
-        {"_id": sub_data.user_id},
-        {"$set": {"subscription": sub_data.plan}}
+        {"_id": user["_id"]},
+        {"$set": {
+            "subscription": sub_data.plan,
+            "subscription_start": datetime.utcnow(),
+            "subscription_end": datetime.utcnow() + timedelta(days=30)
+        }}
     )
     
     return {
-        "message": "Subscription created",
-        "subscription_id": str(result.inserted_id)
+        "message": "Subscription created successfully",
+        "subscription_id": str(result.inserted_id),
+        "plan": sub_data.plan
     }
 
 @app.get("/api/subscriptions/my-subscription")

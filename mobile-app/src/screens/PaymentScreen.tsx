@@ -1,50 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as InAppPurchases from 'expo-in-app-purchases';
-
-// Product IDs - These need to be created in App Store Connect
-const PRODUCT_IDS = {
-  pro: 'com.gtechldt.tradingbot.pro.monthly',
-  enterprise: 'com.gtechldt.tradingbot.enterprise.monthly'
-};
+import * as api from '../services/api';
 
 export default function PaymentScreen({ navigation }: any) {
   const [selectedPlan, setSelectedPlan] = useState('pro');
-  const [products, setProducts] = useState<any[]>([]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'card' | 'crypto' | 'iap'>('card');
   const [purchasing, setPurchasing] = useState(false);
 
-  useEffect(() => {
-    initializeIAP();
-    return () => {
-      InAppPurchases.disconnectAsync();
-    };
-  }, []);
-
-  const initializeIAP = async () => {
-    try {
-      await InAppPurchases.connectAsync();
-      const { results } = await InAppPurchases.getProductsAsync([
-        PRODUCT_IDS.pro,
-        PRODUCT_IDS.enterprise
-      ]);
-      setProducts(results);
-    } catch (error) {
-      console.error('IAP initialization error:', error);
+  const handleSubscribe = async (plan: string) => {
+    if (plan === 'free') {
+      Alert.alert('Free Plan', 'You are already on the free plan!');
+      return;
     }
-  };
 
-  const handlePurchase = async (productId: string) => {
     try {
       setPurchasing(true);
-      await InAppPurchases.purchaseItemAsync(productId);
-      Alert.alert('Success', 'Subscription activated!', [
-        { text: 'OK', onPress: () => navigation.goBack() }
-      ]);
+      
+      // Call backend to create subscription
+      await api.createSubscription(plan, selectedPaymentMethod);
+      
+      Alert.alert(
+        'Success',
+        `${plan.charAt(0).toUpperCase() + plan.slice(1)} subscription activated!`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
     } catch (error: any) {
-      if (error.code !== 'E_USER_CANCELLED') {
-        Alert.alert('Error', 'Purchase failed. Please try again.');
-      }
+      Alert.alert(
+        'Error',
+        error.response?.data?.detail || 'Failed to activate subscription. Please try again.'
+      );
     } finally {
       setPurchasing(false);
     }
@@ -59,6 +44,56 @@ export default function PaymentScreen({ navigation }: any) {
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Choose Your Plan</Text>
+      
+      {/* Payment Method Selection */}
+      <View style={styles.paymentMethodSection}>
+        <Text style={styles.sectionTitle}>Payment Method</Text>
+        <View style={styles.paymentMethods}>
+          <TouchableOpacity
+            style={[
+              styles.paymentMethod,
+              selectedPaymentMethod === 'card' && styles.paymentMethodSelected
+            ]}
+            onPress={() => setSelectedPaymentMethod('card')}
+          >
+            <Ionicons name="card" size={24} color={selectedPaymentMethod === 'card' ? '#667eea' : '#9ca3af'} />
+            <Text style={[
+              styles.paymentMethodText,
+              selectedPaymentMethod === 'card' && styles.paymentMethodTextSelected
+            ]}>Card</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[
+              styles.paymentMethod,
+              selectedPaymentMethod === 'crypto' && styles.paymentMethodSelected
+            ]}
+            onPress={() => setSelectedPaymentMethod('crypto')}
+          >
+            <Ionicons name="logo-bitcoin" size={24} color={selectedPaymentMethod === 'crypto' ? '#667eea' : '#9ca3af'} />
+            <Text style={[
+              styles.paymentMethodText,
+              selectedPaymentMethod === 'crypto' && styles.paymentMethodTextSelected
+            ]}>Crypto</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[
+              styles.paymentMethod,
+              selectedPaymentMethod === 'iap' && styles.paymentMethodSelected
+            ]}
+            onPress={() => setSelectedPaymentMethod('iap')}
+          >
+            <Ionicons name="phone-portrait" size={24} color={selectedPaymentMethod === 'iap' ? '#667eea' : '#9ca3af'} />
+            <Text style={[
+              styles.paymentMethodText,
+              selectedPaymentMethod === 'iap' && styles.paymentMethodTextSelected
+            ]}>App Store</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Plans */}
       {plans.map((plan, index) => (
         <View key={index} style={styles.planCard}>
           <Text style={styles.planName}>{plan.name}</Text>
@@ -71,15 +106,7 @@ export default function PaymentScreen({ navigation }: any) {
           ))}
           <TouchableOpacity 
             style={[styles.button, purchasing && styles.buttonDisabled]}
-            onPress={() => {
-              if (plan.name === 'Free') {
-                Alert.alert('Free Plan', 'You are already on the free plan!');
-              } else if (plan.name === 'Pro') {
-                handlePurchase(PRODUCT_IDS.pro);
-              } else if (plan.name === 'Enterprise') {
-                handlePurchase(PRODUCT_IDS.enterprise);
-              }
-            }}
+            onPress={() => handleSubscribe(plan.name.toLowerCase())}
             disabled={purchasing}
           >
             <Text style={styles.buttonText}>
@@ -95,6 +122,43 @@ export default function PaymentScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#f9fafb' },
   title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
+  paymentMethodSection: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+    color: '#111827',
+  },
+  paymentMethods: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  paymentMethod: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+    gap: 8,
+  },
+  paymentMethodSelected: {
+    borderColor: '#667eea',
+    backgroundColor: '#eff6ff',
+  },
+  paymentMethodText: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontWeight: '600',
+  },
+  paymentMethodTextSelected: {
+    color: '#667eea',
+  },
   planCard: { backgroundColor: '#fff', padding: 20, borderRadius: 12, marginBottom: 16 },
   planName: { fontSize: 20, fontWeight: 'bold' },
   planPrice: { fontSize: 32, fontWeight: 'bold', color: '#667eea', marginVertical: 8 },
