@@ -6,7 +6,7 @@ import ccxt
 import hashlib
 import time
 from datetime import datetime, timedelta
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import config
 from mongodb_database import MongoTradingDatabase
 
