@@ -174,6 +174,20 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     backgroundColor: '#f9fafb',
   },
+  adminToolButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 16,
+    marginTop: 1,
+    gap: 12,
+  },
+  adminToolText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#111827',
+    fontWeight: '500',
+  },
   item: {
     flexDirection: 'row',
     alignItems: 'center',

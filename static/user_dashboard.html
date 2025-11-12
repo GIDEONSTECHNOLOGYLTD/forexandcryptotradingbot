@@ -13,9 +13,30 @@
         .card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
         .status-running { animation: pulse 2s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .btn-primary { @apply px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition; }
-        .btn-success { @apply px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition; }
-        .btn-danger { @apply px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition; }
+        .btn-primary { 
+            padding: 0.75rem 1.5rem; 
+            background-color: #2563eb; 
+            color: white; 
+            border-radius: 0.5rem; 
+            transition: all 0.3s;
+        }
+        .btn-primary:hover { background-color: #1d4ed8; }
+        .btn-success { 
+            padding: 0.75rem 1.5rem; 
+            background-color: #16a34a; 
+            color: white; 
+            border-radius: 0.5rem; 
+            transition: all 0.3s;
+        }
+        .btn-success:hover { background-color: #15803d; }
+        .btn-danger { 
+            padding: 0.75rem 1.5rem; 
+            background-color: #dc2626; 
+            color: white; 
+            border-radius: 0.5rem; 
+            transition: all 0.3s;
+        }
+        .btn-danger:hover { background-color: #b91c1c; }
     </style>
 </head>
 <body class="bg-gray-50">

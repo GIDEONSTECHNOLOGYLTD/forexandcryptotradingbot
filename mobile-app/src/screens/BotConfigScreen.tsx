@@ -24,7 +24,7 @@ export default function BotConfigScreen({ navigation }: any) {
   const [botType, setBotType] = useState('momentum');
   const [pairCategory, setPairCategory] = useState('crypto');
   const [symbol, setSymbol] = useState('BTC/USDT');
-  const [capital, setCapital] = useState('100');
+  const [capital, setCapital] = useState('20');
   const [paperTrading, setPaperTrading] = useState(!user?.exchange_connected && !isAdmin);
   
   // Advanced Config (matching backend)
@@ -47,9 +47,9 @@ export default function BotConfigScreen({ navigation }: any) {
       Alert.alert('Error', 'Please enter a valid capital amount');
       return;
     }
-    // Check minimum for real trading (OKX requires min $10 order)
-    if (!paperTrading && capitalAmount < 50) {
-      Alert.alert('Error', 'For real trading, minimum capital is $50 to meet exchange order requirements');
+    // Check minimum for real trading (OKX requires min $5-10 order depending on pair)
+    if (!paperTrading && capitalAmount < 15) {
+      Alert.alert('Error', 'For real trading, minimum capital is $15 to meet exchange order requirements');
       return;
     }
 
@@ -145,10 +145,10 @@ export default function BotConfigScreen({ navigation }: any) {
         value={capital}
         onChangeText={setCapital}
         keyboardType="numeric"
-        placeholder="Minimum $50 for real trading"
+        placeholder="Minimum $15 for real trading"
       />
       {!paperTrading && (
-        <Text style={styles.hint}>💡 Minimum $50 required for real trading (exchange limits)</Text>
+        <Text style={styles.hint}>💡 Minimum $15 required for real trading (exchange limits)</Text>
       )}
 
       <View style={styles.switchContainer}>

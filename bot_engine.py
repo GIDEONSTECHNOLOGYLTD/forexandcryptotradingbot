@@ -141,10 +141,10 @@ class BotInstance:
                     # Open position
                     amount = (self.balance * 0.9) / price
                     
-                    # Check minimum order value (OKX requires minimum $5-10)
+                    # Check minimum order value (OKX requires minimum $5)
                     order_value = amount * price
-                    if order_value < 10 and not self.paper_trading:
-                        logger.warning(f"⚠️ Order value ${order_value:.2f} too small, minimum $10. Skipping.")
+                    if order_value < 5 and not self.paper_trading:
+                        logger.warning(f"⚠️ Order value ${order_value:.2f} too small, minimum $5. Skipping.")
                         await asyncio.sleep(60)
                         continue
                     
