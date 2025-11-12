@@ -99,7 +99,7 @@ export default function ManageUsersScreen({ navigation }: any) {
 
           <View style={styles.userStats}>
             <View style={styles.userStat}>
-              <Ionicons name="robot-outline" size={16} color="#6b7280" />
+              <Ionicons name="cube-outline" size={16} color="#6b7280" />
               <Text style={styles.userStatText}>{user.bot_count} bots</Text>
             </View>
             {user.exchange_connected && (

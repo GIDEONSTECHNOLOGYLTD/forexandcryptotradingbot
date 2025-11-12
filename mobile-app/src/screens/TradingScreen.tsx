@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as api from '../services/api';
@@ -9,10 +9,55 @@ export default function TradingScreen({ navigation }: any) {
   const [bots, setBots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [liveUpdates, setLiveUpdates] = useState<any[]>([]);
+  const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
     loadBots();
+    connectWebSocket();
+    
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
   }, []);
+
+  const connectWebSocket = () => {
+    try {
+      const ws = new WebSocket('wss://trading-bot-api-7xps.onrender.com/ws/trades');
+      
+      ws.onopen = () => {
+        console.log('🔌 WebSocket connected');
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === 'trade') {
+            console.log('📡 Live trade:', message.data);
+            setLiveUpdates(prev => [message.data, ...prev].slice(0, 10));
+          }
+        } catch (e) {
+          console.error('WebSocket message error:', e);
+        }
+      };
+      
+      ws.onerror = (error) => {
+        console.error('❌ WebSocket error:', error);
+      };
+      
+      ws.onclose = () => {
+        console.log('🔌 WebSocket disconnected');
+        // Reconnect after 5 seconds
+        setTimeout(connectWebSocket, 5000);
+      };
+      
+      wsRef.current = ws;
+    } catch (error) {
+      console.error('WebSocket connection failed:', error);
+    }
+  };
 
   const loadBots = async () => {
     try {
@@ -89,6 +134,30 @@ export default function TradingScreen({ navigation }: any) {
           <Ionicons name="add-circle" size={32} color="#667eea" />
         </TouchableOpacity>
       </View>
+
+      {/* Live Updates */}
+      {liveUpdates.length > 0 && (
+        <View style={styles.liveUpdates}>
+          <View style={styles.liveHeader}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveTitle}>Live Trades</Text>
+          </View>
+          {liveUpdates.slice(0, 3).map((trade, index) => (
+            <View key={index} style={styles.liveTradeCard}>
+              <Text style={styles.liveTradeSymbol}>{trade.symbol}</Text>
+              <Text style={[styles.liveTradeSide, trade.side === 'buy' ? styles.buyText : styles.sellText]}>
+                {trade.side.toUpperCase()}
+              </Text>
+              <Text style={styles.liveTradePrice}>${trade.price?.toFixed(2)}</Text>
+              {trade.pnl && (
+                <Text style={[styles.liveTradePnl, trade.pnl > 0 ? styles.profitText : styles.lossText]}>
+                  {trade.pnl > 0 ? '+' : ''}{trade.pnl.toFixed(2)}%
+                </Text>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
 
       <ScrollView
         style={styles.scrollView}
@@ -306,6 +375,73 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 10,
     fontWeight: 'bold',
+  },
+  liveUpdates: {
+    backgroundColor: '#f0fdf4',
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#86efac',
+  },
+  liveHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#22c55e',
+    marginRight: 8,
+  },
+  liveTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#166534',
+  },
+  liveTradeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  liveTradeSymbol: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    flex: 1,
+  },
+  liveTradeSide: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  buyText: {
+    color: '#10b981',
+  },
+  sellText: {
+    color: '#ef4444',
+  },
+  liveTradePrice: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginRight: 8,
+  },
+  liveTradePnl: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  profitText: {
+    color: '#10b981',
+  },
+  lossText: {
+    color: '#ef4444',
   },
   statusBadge: {
     paddingHorizontal: 12,
