@@ -62,69 +62,33 @@ export default function PaymentScreen({ navigation }: any) {
         amount: plan === 'pro' ? 29 : 99
       });
       
-      setCryptoAddress(response.address);
+      const address = response.deposit_address || response.address || 'Address generation failed';
+      const amount = response.crypto_amount || response.amount || (plan === 'pro' ? 29 : 99);
+      
+      setCryptoAddress(address);
       
       Alert.alert(
         'Crypto Payment',
-        `Send ${response.amount} ${cryptoCurrency} to:\n\n${response.address}\n\nPayment will be confirmed automatically.`,
+        `Send ${amount} ${cryptoCurrency} to:\n\n${address}\n\nPayment will be confirmed automatically.`,
         [
           { text: 'Copy Address', onPress: () => {} },
           { text: 'OK' }
         ]
       );
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.detail || 'Payment failed');
+      Alert.alert('Error', error.response?.data?.detail || 'Crypto payment not configured yet. Please use Card payment.');
     } finally {
       setPurchasing(false);
     }
   };
 
   const handleInAppPurchase = async (plan: string) => {
-    try {
-      setPurchasing(true);
-      
-      // Dynamically import IAP module (only works in production)
-      let InAppPurchases;
-      try {
-        InAppPurchases = await import('expo-in-app-purchases');
-      } catch (importError) {
-        Alert.alert(
-          'Not Available in Expo Go',
-          'In-app purchases only work in production builds from App Store.\n\nPlease use Card (Paystack) or Crypto payment instead.',
-          [{ text: 'OK', onPress: () => setSelectedPaymentMethod('card') }]
-        );
-        return;
-      }
-      
-      // Try to connect
-      try {
-        await InAppPurchases.connectAsync();
-      } catch (connectError) {
-        Alert.alert(
-          'Not Available',
-          'In-app purchases only work in production builds. Please use Card or Crypto payment.',
-          [{ text: 'OK', onPress: () => setSelectedPaymentMethod('card') }]
-        );
-        return;
-      }
-      
-      const productId = plan === 'pro' ? PRODUCT_IDS.pro : PRODUCT_IDS.enterprise;
-      await InAppPurchases.purchaseItemAsync(productId);
-      
-      Alert.alert(
-        'Success',
-        'Subscription activated!',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
-      
-      await refreshUser();
-    } catch (error: any) {
-      if (error.code !== 'E_USER_CANCELLED') {
-        Alert.alert('Error', 'Purchase failed. Please try again or use another payment method.');
-      }
-    } finally {
-      setPurchasing(false);
-    }
+    // IAP not available - show message
+    Alert.alert(
+      'Coming Soon',
+      'In-app purchases are being configured.\n\nPlease use Card (Paystack) or Crypto payment for now.',
+      [{ text: 'OK', onPress: () => setSelectedPaymentMethod('card') }]
+    );
   };
 
   const handleSubscribe = async (plan: string) => {
