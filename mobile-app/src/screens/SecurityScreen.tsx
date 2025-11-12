@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import api from '../services/api';
+import axios from 'axios';
+import * as SecureStore from 'expo-secure-store';
+
+const API_BASE_URL = 'https://trading-bot-api-7xps.onrender.com/api';
 
 export default function SecurityScreen({ navigation }: any) {
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -25,9 +28,13 @@ export default function SecurityScreen({ navigation }: any) {
     }
 
     try {
-      await api.put('/users/me/password', {
+      const token = await SecureStore.getItemAsync('authToken');
+      await axios.put(`${API_BASE_URL}/users/me/password`, {
         old_password: currentPassword,
         new_password: newPassword,
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 30000,
       });
       Alert.alert('Success', 'Password changed successfully');
       setCurrentPassword('');

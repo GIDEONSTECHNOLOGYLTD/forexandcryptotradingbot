@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import api from '../services/api';
+import axios from 'axios';
+import * as SecureStore from 'expo-secure-store';
+
+const API_BASE_URL = 'https://trading-bot-api-7xps.onrender.com/api';
 
 export default function ManageUsersScreen({ navigation }: any) {
   const [users, setUsers] = useState<any[]>([]);
@@ -14,7 +17,11 @@ export default function ManageUsersScreen({ navigation }: any) {
 
   const loadUsers = async () => {
     try {
-      const response = await api.get('/admin/users');
+      const token = await SecureStore.getItemAsync('authToken');
+      const response = await axios.get(`${API_BASE_URL}/admin/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 30000,
+      });
       setUsers(response.data.users || []);
     } catch (error) {
       console.error('Error loading users:', error);

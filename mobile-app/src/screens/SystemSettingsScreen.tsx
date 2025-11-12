@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import api from '../services/api';
+import axios from 'axios';
+import * as SecureStore from 'expo-secure-store';
+
+const API_BASE_URL = 'https://trading-bot-api-7xps.onrender.com/api';
 
 export default function SystemSettingsScreen({ navigation }: any) {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
@@ -11,11 +14,15 @@ export default function SystemSettingsScreen({ navigation }: any) {
 
   const handleSaveSettings = async () => {
     try {
-      await api.post('/admin/settings/update', {
+      const token = await SecureStore.getItemAsync('authToken');
+      await axios.post(`${API_BASE_URL}/admin/settings/update`, {
         maintenance_mode: maintenanceMode,
         auto_backup: autoBackup,
         max_bots_per_user: parseInt(maxBotsPerUser),
         default_capital: parseFloat(defaultCapital),
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 30000,
       });
       Alert.alert('Success', 'System settings updated');
     } catch (error) {
