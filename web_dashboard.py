@@ -526,10 +526,14 @@ async def get_my_bots(user: dict = Depends(get_current_user)):
     # Admin can see all bots, regular users see only their own
     is_admin = user.get("role") == "admin"
     
+    print(f"🔍 get_my_bots called by: {user.get('email')} | role: {user.get('role')} | isAdmin: {is_admin}")
+    
     if is_admin:
         bots = list(bot_instances_collection.find({}))
+        print(f"👑 Admin viewing ALL bots: {len(bots)} total")
     else:
         bots = list(bot_instances_collection.find({"user_id": str(user["_id"])}))
+        print(f"👤 User viewing their bots: {len(bots)} bots")
     
     for bot in bots:
         bot["_id"] = str(bot["_id"])

@@ -32,6 +32,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshUser = async () => {
     try {
       const userData = await api.getProfile();
+      console.log('👤 User data loaded:', {
+        email: userData.email,
+        role: userData.role,
+        isAdmin: userData.role === 'admin'
+      });
       setUser({
         email: userData.email,
         full_name: userData.full_name || '',
@@ -40,7 +45,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         exchange_connected: userData.exchange_connected || false,
       });
     } catch (error) {
-      console.error('Failed to fetch user:', error);
+      console.error('❌ Failed to fetch user:', error);
       setUser(null);
     } finally {
       setLoading(false);

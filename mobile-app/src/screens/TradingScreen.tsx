@@ -17,9 +17,12 @@ export default function TradingScreen({ navigation }: any) {
   const loadBots = async () => {
     try {
       setLoading(true);
+      console.log('🔍 Loading bots for user:', user?.email, 'isAdmin:', isAdmin);
       const data = await api.getBots();
-      // Backend returns array directly now
-      setBots(Array.isArray(data) ? data : (data.bots || []));
+      const botsList = Array.isArray(data) ? data : (data.bots || []);
+      console.log('📊 Loaded', botsList.length, 'bots');
+      console.log('🤖 Bot owners:', botsList.map(b => b.user_id).join(', '));
+      setBots(botsList);
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.detail || 'Failed to load bots');
     } finally {
