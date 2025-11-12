@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import * as SecureStore from 'expo-secure-store';
 import * as api from '../services/api';
 
 interface User {
@@ -31,6 +32,16 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshUser = async () => {
     try {
+      // Check if user has auth token first
+      const token = await SecureStore.getItemAsync('authToken');
+      if (!token) {
+        console.log('⚠️ No auth token found, skipping user fetch');
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
+      console.log('🔄 Fetching user profile...');
       const userData = await api.getProfile();
       console.log('👤 User data loaded:', {
         email: userData.email,
@@ -44,8 +55,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         subscription: userData.subscription || 'free',
         exchange_connected: userData.exchange_connected || false,
       });
-    } catch (error) {
-      console.error('❌ Failed to fetch user:', error);
+    } catch (error: any) {
+      console.error('❌ Failed to fetch user:', error.message || error);
+      // If 401, clear token
+      if (error.response?.status === 401) {
+        await SecureStore.deleteItemAsync('authToken');
+      }
       setUser(null);
     } finally {
       setLoading(false);

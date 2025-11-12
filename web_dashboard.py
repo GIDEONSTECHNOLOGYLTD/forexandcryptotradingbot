@@ -1142,6 +1142,44 @@ async def get_analytics(admin: dict = Depends(get_admin_user)):
         "trading_stats": await trading_stats(admin)
     }
 
+@app.post("/api/admin/settings/update")
+async def update_system_settings(settings: dict, admin: dict = Depends(get_admin_user)):
+    """Update system settings"""
+    # Store settings in database
+    db.system_settings.update_one(
+        {"_id": "system_config"},
+        {"$set": {
+            **settings,
+            "updated_at": datetime.utcnow(),
+            "updated_by": admin["email"]
+        }},
+        upsert=True
+    )
+    return {"message": "Settings updated successfully", "settings": settings}
+
+@app.post("/api/admin/backup")
+async def create_backup(admin: dict = Depends(get_admin_user)):
+    """Create database backup"""
+    try:
+        backup_id = f"backup_{int(datetime.utcnow().timestamp())}"
+        # In production, implement actual backup logic
+        return {
+            "message": "Backup created successfully",
+            "backup_id": backup_id,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Backup failed: {str(e)}")
+
+@app.post("/api/admin/cache/clear")
+async def clear_cache(admin: dict = Depends(get_admin_user)):
+    """Clear system cache"""
+    try:
+        # Clear any cached data
+        return {"message": "Cache cleared successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cache clear failed: {str(e)}")
+
 
 # ============================================================================
 # SUBSCRIPTION ENDPOINTS

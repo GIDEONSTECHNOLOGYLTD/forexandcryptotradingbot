@@ -7,7 +7,7 @@ const API_BASE_URL = 'https://trading-bot-api-7xps.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 30000, // Increased to 30 seconds for Render cold starts
   headers: {
     'Content-Type': 'application/json',
   },
