@@ -13,16 +13,31 @@ export default function BotConfigScreen({ navigation }: any) {
   const [paperTrading, setPaperTrading] = useState(!user?.exchange_connected && !isAdmin);
 
   const handleCreate = async () => {
+    // Validation
+    if (!symbol.trim()) {
+      Alert.alert('Error', 'Please enter a trading symbol (e.g., BTC/USDT)');
+      return;
+    }
+    if (!capital || parseFloat(capital) <= 0) {
+      Alert.alert('Error', 'Please enter a valid capital amount');
+      return;
+    }
+
     try {
       const config = {
         bot_type: botType,
-        symbol,
+        symbol: symbol.toUpperCase().trim(),
         capital: parseFloat(capital),
         paper_trading: paperTrading,
       };
-      await api.createBot(config);
-      Alert.alert('Success', 'Bot created successfully!');
-      navigation.goBack();
+      
+      const response = await api.createBot(config);
+      
+      Alert.alert(
+        '✅ Bot Created Successfully!',
+        `${botType.toUpperCase()} bot for ${symbol.toUpperCase()}\nCapital: $${capital}\nMode: ${paperTrading ? 'Paper Trading' : 'Real Trading'}\n\nGo to Trading screen to start it!`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.detail || 'Failed to create bot');
     }

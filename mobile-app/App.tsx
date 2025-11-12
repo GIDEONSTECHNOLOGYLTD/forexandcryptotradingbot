@@ -24,6 +24,9 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import ExchangeConnectionScreen from './src/screens/ExchangeConnectionScreen';
+import ManageUsersScreen from './src/screens/ManageUsersScreen';
+import SystemAnalyticsScreen from './src/screens/SystemAnalyticsScreen';
+import SystemSettingsScreen from './src/screens/SystemSettingsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -118,6 +121,21 @@ export default function App() {
             name="ExchangeConnection" 
             component={ExchangeConnectionScreen}
             options={{ headerShown: true, title: 'Exchange Connection' }}
+          />
+          <Stack.Screen 
+            name="ManageUsers" 
+            component={ManageUsersScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen 
+            name="SystemAnalytics" 
+            component={SystemAnalyticsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen 
+            name="SystemSettings" 
+            component={SystemSettingsScreen}
+            options={{ headerShown: false }}
           />
         </Stack.Navigator>
       </NavigationContainer>

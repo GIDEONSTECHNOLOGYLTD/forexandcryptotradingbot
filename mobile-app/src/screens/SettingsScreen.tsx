@@ -49,19 +49,19 @@ export default function SettingsScreen({ navigation }: any) {
       {isAdmin && (
         <>
           <Text style={styles.sectionTitle}>ADMIN TOOLS</Text>
-          <TouchableOpacity style={styles.item}>
+          <TouchableOpacity style={styles.item} onPress={() => navigation.navigate('ManageUsers')}>
             <Ionicons name="people-outline" size={24} color="#10b981" />
             <Text style={styles.itemText}>Manage Users</Text>
             <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.item}>
+          <TouchableOpacity style={styles.item} onPress={() => navigation.navigate('SystemAnalytics')}>
             <Ionicons name="stats-chart-outline" size={24} color="#10b981" />
             <Text style={styles.itemText}>System Analytics</Text>
             <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.item}>
+          <TouchableOpacity style={styles.item} onPress={() => navigation.navigate('SystemSettings')}>
             <Ionicons name="settings-outline" size={24} color="#10b981" />
             <Text style={styles.itemText}>System Settings</Text>
             <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
