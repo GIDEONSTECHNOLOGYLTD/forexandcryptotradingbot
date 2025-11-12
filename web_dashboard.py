@@ -1390,35 +1390,37 @@ async def startup_event():
     print(f"{Fore.CYAN}📊 Admin Dashboard: http://localhost:8000/docs{Style.RESET_ALL}")
     print(f"{Fore.CYAN}🔌 WebSocket: ws://localhost:8000/ws/trades{Style.RESET_ALL}")
     
-    # Create default admin if doesn't exist
-    if not users_collection.find_one({"email": "admin@tradingbot.com"}):
-        admin = {
-            "email": "admin@tradingbot.com",
-            "password": hash_password("admin123"),  # Change this!
-            "full_name": "Admin User",
-            "role": "admin",
-            "created_at": datetime.utcnow(),
-            "is_active": True,
-            "subscription": "enterprise",
-            "exchange_connected": True,  # Admin uses admin OKX credentials
-            "paper_trading": False  # Admin can do real trading
-        }
-        users_collection.insert_one(admin)
-        print(f"{Fore.YELLOW}⚠️  Default admin created: admin@tradingbot.com / admin123{Style.RESET_ALL}")
-        print(f"{Fore.YELLOW}⚠️  CHANGE THIS PASSWORD IMMEDIATELY!{Style.RESET_ALL}")
-    else:
-        # Update existing admin to ensure correct settings
-        users_collection.update_one(
-            {"email": "admin@tradingbot.com"},
-            {"$set": {
+    # Create/update admin accounts
+    admin_emails = ["admin@tradingbot.com", "ceo@gideonstechnology.com"]
+    
+    for admin_email in admin_emails:
+        if not users_collection.find_one({"email": admin_email}):
+            admin = {
+                "email": admin_email,
+                "password": hash_password("admin123"),  # Change this!
+                "full_name": "Admin User",
                 "role": "admin",
-                "subscription": "enterprise",  # Admin always has enterprise
-                "exchange_connected": True,
-                "paper_trading": False,
-                "is_active": True
-            }}
-        )
-        print(f"{Fore.GREEN}✅ Admin account updated with enterprise subscription{Style.RESET_ALL}")
+                "created_at": datetime.utcnow(),
+                "is_active": True,
+                "subscription": "enterprise",
+                "exchange_connected": True,  # Admin uses admin OKX credentials
+                "paper_trading": False  # Admin can do real trading
+            }
+            users_collection.insert_one(admin)
+            print(f"{Fore.YELLOW}⚠️  Admin created: {admin_email}{Style.RESET_ALL}")
+        else:
+            # Update existing admin to ensure correct settings
+            users_collection.update_one(
+                {"email": admin_email},
+                {"$set": {
+                    "role": "admin",
+                    "subscription": "enterprise",  # Admin always has enterprise
+                    "exchange_connected": True,
+                    "paper_trading": False,
+                    "is_active": True
+                }}
+            )
+            print(f"{Fore.GREEN}✅ Admin account updated: {admin_email} → Enterprise{Style.RESET_ALL}")
 
 
 if __name__ == "__main__":
