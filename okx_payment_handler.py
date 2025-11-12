@@ -71,21 +71,35 @@ class OKXPaymentHandler:
     def create_deposit_address(self, crypto: str) -> Dict:
         """Get deposit address for crypto from admin OKX account"""
         try:
-            # Fetch deposit address
-            deposit_address = self.exchange.fetch_deposit_address(crypto)
+            # For OKX, we need to specify the network/chain
+            # Common networks for each crypto
+            networks = {
+                'BTC': 'Bitcoin',
+                'ETH': 'ERC20',
+                'USDT': 'TRC20',  # Tron network (lower fees)
+                'USDC': 'ERC20',
+                'SOL': 'Solana',
+                'BNB': 'BSC'
+            }
+            
+            network = networks.get(crypto, 'default')
+            
+            # Fetch deposit address with network
+            deposit_address = self.exchange.fetch_deposit_address(crypto, {'network': network})
             
             return {
                 'address': deposit_address['address'],
                 'tag': deposit_address.get('tag'),  # For currencies that need memo/tag
-                'network': deposit_address.get('network', 'default')
+                'network': network
             }
         except Exception as e:
-            print(f"Error creating deposit address: {e}")
-            # Return placeholder - in production, handle this better
+            print(f"Error creating deposit address for {crypto}: {e}")
+            # For testing/demo, return a clear message
             return {
-                'address': f'PLACEHOLDER_{crypto}_ADDRESS',
+                'address': 'DEMO_MODE_CONTACT_SUPPORT',
                 'tag': None,
-                'network': 'default'
+                'network': networks.get(crypto, 'default'),
+                'error': 'Deposit address generation requires OKX account verification'
             }
     
     def initialize_payment(self, user_id: str, plan: str, crypto: str) -> Dict:
