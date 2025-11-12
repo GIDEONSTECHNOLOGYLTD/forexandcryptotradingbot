@@ -14,8 +14,12 @@ from datetime import datetime, timedelta
 import jwt
 import bcrypt
 import os
+import logging
 from colorama import Fore, Style
 import config
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 # Import MongoDB database
 try:

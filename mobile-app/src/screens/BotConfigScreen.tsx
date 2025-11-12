@@ -24,7 +24,7 @@ export default function BotConfigScreen({ navigation }: any) {
   const [botType, setBotType] = useState('momentum');
   const [pairCategory, setPairCategory] = useState('crypto');
   const [symbol, setSymbol] = useState('BTC/USDT');
-  const [capital, setCapital] = useState('1000');
+  const [capital, setCapital] = useState('100');
   const [paperTrading, setPaperTrading] = useState(!user?.exchange_connected && !isAdmin);
   
   // Advanced Config (matching backend)
@@ -42,8 +42,14 @@ export default function BotConfigScreen({ navigation }: any) {
       Alert.alert('Error', 'Please enter a trading symbol (e.g., BTC/USDT)');
       return;
     }
-    if (!capital || parseFloat(capital) <= 0) {
+    const capitalAmount = parseFloat(capital);
+    if (!capital || capitalAmount <= 0) {
       Alert.alert('Error', 'Please enter a valid capital amount');
+      return;
+    }
+    // Check minimum for real trading (OKX requires min $10 order)
+    if (!paperTrading && capitalAmount < 50) {
+      Alert.alert('Error', 'For real trading, minimum capital is $50 to meet exchange order requirements');
       return;
     }
 
@@ -139,7 +145,11 @@ export default function BotConfigScreen({ navigation }: any) {
         value={capital}
         onChangeText={setCapital}
         keyboardType="numeric"
+        placeholder="Minimum $50 for real trading"
       />
+      {!paperTrading && (
+        <Text style={styles.hint}>💡 Minimum $50 required for real trading (exchange limits)</Text>
+      )}
 
       <View style={styles.switchContainer}>
         <View>
@@ -238,6 +248,7 @@ const styles = StyleSheet.create({
   sublabel: { fontSize: 14, color: '#6b7280', marginTop: 4 },
   warning: { fontSize: 12, color: '#ef4444', marginTop: 4 },
   trial: { fontSize: 12, color: '#10b981', marginTop: 4, fontWeight: '600' },
+  hint: { fontSize: 12, color: '#667eea', marginTop: 4, fontStyle: 'italic' },
   input: {
     borderWidth: 1,
     borderColor: '#d1d5db',

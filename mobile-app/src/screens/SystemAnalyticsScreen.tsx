@@ -53,7 +53,7 @@ export default function SystemAnalyticsScreen({ navigation }: any) {
             <Text style={styles.label}>Users</Text>
           </View>
           <View style={styles.stat}>
-            <Ionicons name="robot" size={24} color="#667eea" />
+            <Ionicons name="cube" size={24} color="#667eea" />
             <Text style={styles.value}>{overview.bots.total}</Text>
             <Text style={styles.label}>Bots</Text>
           </View>

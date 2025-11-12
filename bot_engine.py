@@ -140,6 +140,14 @@ class BotInstance:
                 if not position:
                     # Open position
                     amount = (self.balance * 0.9) / price
+                    
+                    # Check minimum order value (OKX requires minimum $5-10)
+                    order_value = amount * price
+                    if order_value < 10 and not self.paper_trading:
+                        logger.warning(f"⚠️ Order value ${order_value:.2f} too small, minimum $10. Skipping.")
+                        await asyncio.sleep(60)
+                        continue
+                    
                     if self.paper_trading:
                         logger.info(f"📝 PAPER BUY: {amount:.6f} {self.symbol} @ ${price:.2f}")
                     else:
