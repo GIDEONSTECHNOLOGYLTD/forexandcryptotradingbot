@@ -148,6 +148,31 @@ export const getExchangeStatus = async () => {
   return response.data;
 };
 
+// Paystack Payment
+export const initializePaystackPayment = async (data: {
+  email: string;
+  amount: number;
+  plan: string;
+}) => {
+  const response = await api.post('/payments/paystack/initialize', data);
+  return response.data;
+};
+
+// Crypto Payment
+export const initializeCryptoPayment = async (data: {
+  plan: string;
+  crypto_currency: string;
+  amount: number;
+}) => {
+  const response = await api.post('/payments/crypto/initialize', data);
+  return response.data;
+};
+
+export const checkCryptoPaymentStatus = async (paymentId: string) => {
+  const response = await api.get(`/payments/crypto/status/${paymentId}`);
+  return response.data;
+};
+
 export default {
   login,
   signup,
@@ -167,4 +192,7 @@ export default {
   connectExchange,
   disconnectExchange,
   getExchangeStatus,
+  initializePaystackPayment,
+  initializeCryptoPayment,
+  checkCryptoPaymentStatus,
 };

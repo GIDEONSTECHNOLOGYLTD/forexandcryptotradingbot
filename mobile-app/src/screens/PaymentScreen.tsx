@@ -1,12 +1,121 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as api from '../services/api';
+import * as InAppPurchases from 'expo-in-app-purchases';
+import { useUser } from '../context/UserContext';
+
+const PRODUCT_IDS = {
+  pro: 'com.gtechldt.tradingbot.pro.monthly',
+  enterprise: 'com.gtechldt.tradingbot.enterprise.monthly'
+};
 
 export default function PaymentScreen({ navigation }: any) {
+  const { user, refreshUser } = useUser();
   const [selectedPlan, setSelectedPlan] = useState('pro');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'card' | 'crypto' | 'iap'>('card');
   const [purchasing, setPurchasing] = useState(false);
+  const [cryptoAddress, setCryptoAddress] = useState('');
+  const [cryptoCurrency, setCryptoCurrency] = useState('USDT');
+
+  useEffect(() => {
+    if (selectedPaymentMethod === 'iap') {
+      initializeIAP();
+    }
+    return () => {
+      if (selectedPaymentMethod === 'iap') {
+        InAppPurchases.disconnectAsync();
+      }
+    };
+  }, [selectedPaymentMethod]);
+
+  const initializeIAP = async () => {
+    try {
+      await InAppPurchases.connectAsync();
+    } catch (error) {
+      console.error('IAP initialization error:', error);
+    }
+  };
+
+  const handlePaystackPayment = async (plan: string) => {
+    try {
+      setPurchasing(true);
+      const response = await api.initializePaystackPayment({
+        email: user?.email || '',
+        amount: plan === 'pro' ? 29 : 99,
+        plan: plan
+      });
+      
+      // Open Paystack payment page
+      await Linking.openURL(response.authorization_url);
+      
+      Alert.alert(
+        'Payment Initiated',
+        'Complete payment in browser. Return here after payment.',
+        [
+          {
+            text: 'I\'ve Paid',
+            onPress: async () => {
+              await refreshUser();
+              navigation.goBack();
+            }
+          }
+        ]
+      );
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.detail || 'Payment failed');
+    } finally {
+      setPurchasing(false);
+    }
+  };
+
+  const handleCryptoPayment = async (plan: string) => {
+    try {
+      setPurchasing(true);
+      const response = await api.initializeCryptoPayment({
+        plan: plan,
+        crypto_currency: cryptoCurrency,
+        amount: plan === 'pro' ? 29 : 99
+      });
+      
+      setCryptoAddress(response.address);
+      
+      Alert.alert(
+        'Crypto Payment',
+        `Send ${response.amount} ${cryptoCurrency} to:\n\n${response.address}\n\nPayment will be confirmed automatically.`,
+        [
+          { text: 'Copy Address', onPress: () => {} },
+          { text: 'OK' }
+        ]
+      );
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.detail || 'Payment failed');
+    } finally {
+      setPurchasing(false);
+    }
+  };
+
+  const handleInAppPurchase = async (plan: string) => {
+    try {
+      setPurchasing(true);
+      const productId = plan === 'pro' ? PRODUCT_IDS.pro : PRODUCT_IDS.enterprise;
+      await InAppPurchases.purchaseItemAsync(productId);
+      
+      Alert.alert(
+        'Success',
+        'Subscription activated!',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+      
+      await refreshUser();
+    } catch (error: any) {
+      if (error.code !== 'E_USER_CANCELLED') {
+        Alert.alert('Error', 'Purchase failed. Please try again.');
+      }
+    } finally {
+      setPurchasing(false);
+    }
+  };
 
   const handleSubscribe = async (plan: string) => {
     if (plan === 'free') {
@@ -14,32 +123,17 @@ export default function PaymentScreen({ navigation }: any) {
       return;
     }
 
-    // Show payment method specific instructions
-    const paymentInstructions = {
-      card: 'Card payment integration coming soon! For now, contact support to upgrade.',
-      crypto: 'Crypto payment integration coming soon! For now, contact support to upgrade.',
-      iap: 'In-app purchases only work in production builds from App Store.'
-    };
-
-    Alert.alert(
-      'Payment Required',
-      paymentInstructions[selectedPaymentMethod],
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Contact Support',
-          onPress: () => {
-            Alert.alert(
-              'Contact Support',
-              'Email: support@gideonstechnology.com\nOr use the chat in the app.'
-            );
-          }
-        }
-      ]
-    );
-
-    // TODO: Implement actual payment processing
-    // For now, don't activate subscription without payment
+    switch (selectedPaymentMethod) {
+      case 'card':
+        await handlePaystackPayment(plan);
+        break;
+      case 'crypto':
+        await handleCryptoPayment(plan);
+        break;
+      case 'iap':
+        await handleInAppPurchase(plan);
+        break;
+    }
   };
 
   const plans = [

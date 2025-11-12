@@ -16,7 +16,7 @@ export default function AboutScreen({ navigation }: any) {
       <View style={styles.header}>
         <Ionicons name="rocket" size={80} color="#667eea" />
         <Text style={styles.title}>Trading Bot Pro</Text>
-        <Text style={styles.version}>Version 1.0.0</Text>
+        <Text style={styles.version}>Version 1.0.0 Beta</Text>
       </View>
 
       <View style={styles.section}>
@@ -53,23 +53,23 @@ export default function AboutScreen({ navigation }: any) {
         <View style={styles.card}>
           <View style={styles.feature}>
             <Ionicons name="checkmark-circle" size={20} color="#10b981" />
-            <Text style={styles.featureText}>8 AI Trading Strategies</Text>
+            <Text style={styles.featureText}>AI Trading Strategies</Text>
           </View>
           <View style={styles.feature}>
             <Ionicons name="checkmark-circle" size={20} color="#10b981" />
-            <Text style={styles.featureText}>Forex + Crypto Support</Text>
+            <Text style={styles.featureText}>Crypto Trading (OKX)</Text>
+          </View>
+          <View style={styles.feature}>
+            <Ionicons name="checkmark-circle" size={20} color="#f59e0b" />
+            <Text style={styles.featureText}>Forex Trading (Beta)</Text>
           </View>
           <View style={styles.feature}>
             <Ionicons name="checkmark-circle" size={20} color="#10b981" />
-            <Text style={styles.featureText}>Real-time Trading</Text>
+            <Text style={styles.featureText}>Real-time Bot Management</Text>
           </View>
           <View style={styles.feature}>
             <Ionicons name="checkmark-circle" size={20} color="#10b981" />
-            <Text style={styles.featureText}>Advanced Analytics</Text>
-          </View>
-          <View style={styles.feature}>
-            <Ionicons name="checkmark-circle" size={20} color="#10b981" />
-            <Text style={styles.featureText}>P2P Copy Trading</Text>
+            <Text style={styles.featureText}>Portfolio Analytics</Text>
           </View>
           <View style={styles.feature}>
             <Ionicons name="checkmark-circle" size={20} color="#10b981" />

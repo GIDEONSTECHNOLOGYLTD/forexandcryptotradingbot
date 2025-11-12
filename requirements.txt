@@ -41,6 +41,8 @@ cryptography
 
 # Payment Processing
 stripe
+paystack
+requests
 google-api-python-client
 google-auth
 
