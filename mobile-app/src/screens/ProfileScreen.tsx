@@ -139,9 +139,7 @@ export default function ProfileScreen({ navigation }: any) {
 
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => {
-            /* TODO: Navigate to exchange connection */
-          }}
+          onPress={() => navigation.navigate('ExchangeConnection')}
         >
           <Ionicons name="swap-horizontal-outline" size={24} color="#667eea" />
           <Text style={styles.actionText}>Exchange Connection</Text>

@@ -128,6 +128,27 @@ export const getProfile = async () => {
   return response.data;
 };
 
+// Exchange Connection
+export const connectExchange = async (credentials: {
+  okx_api_key: string;
+  okx_secret_key: string;
+  okx_passphrase: string;
+  paper_trading: boolean;
+}) => {
+  const response = await api.post('/user/connect-exchange', credentials);
+  return response.data;
+};
+
+export const disconnectExchange = async () => {
+  const response = await api.delete('/user/disconnect-exchange');
+  return response.data;
+};
+
+export const getExchangeStatus = async () => {
+  const response = await api.get('/user/exchange-status');
+  return response.data;
+};
+
 export default {
   login,
   signup,
@@ -144,4 +165,7 @@ export default {
   getSubscription,
   updateProfile,
   getProfile,
+  connectExchange,
+  disconnectExchange,
+  getExchangeStatus,
 };

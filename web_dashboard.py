@@ -1230,11 +1230,19 @@ async def startup_event():
             "role": "admin",
             "created_at": datetime.utcnow(),
             "is_active": True,
-            "subscription": "enterprise"
+            "subscription": "enterprise",
+            "exchange_connected": True,  # Admin uses admin OKX credentials
+            "paper_trading": False  # Admin can do real trading
         }
         users_collection.insert_one(admin)
         print(f"{Fore.YELLOW}⚠️  Default admin created: admin@tradingbot.com / admin123{Style.RESET_ALL}")
         print(f"{Fore.YELLOW}⚠️  CHANGE THIS PASSWORD IMMEDIATELY!{Style.RESET_ALL}")
+    else:
+        # Update existing admin to have exchange_connected flag
+        users_collection.update_one(
+            {"email": "admin@tradingbot.com"},
+            {"$set": {"exchange_connected": True, "paper_trading": False}}
+        )
 
 
 if __name__ == "__main__":

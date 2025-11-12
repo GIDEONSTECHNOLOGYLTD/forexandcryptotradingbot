@@ -21,6 +21,7 @@ import PaymentScreen from './src/screens/PaymentScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import AboutScreen from './src/screens/AboutScreen';
+import ExchangeConnectionScreen from './src/screens/ExchangeConnectionScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -105,6 +106,11 @@ export default function App() {
             name="About" 
             component={AboutScreen}
             options={{ headerShown: true, title: 'About & Credits' }}
+          />
+          <Stack.Screen 
+            name="ExchangeConnection" 
+            component={ExchangeConnectionScreen}
+            options={{ headerShown: true, title: 'Exchange Connection' }}
           />
         </Stack.Navigator>
       </NavigationContainer>
