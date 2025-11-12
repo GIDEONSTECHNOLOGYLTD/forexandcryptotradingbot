@@ -717,6 +717,117 @@ async def delete_bot(bot_id: str, user: dict = Depends(get_current_user)):
     
     return {"message": "Bot deleted successfully", "bot_id": bot_id}
 
+@app.get("/api/ai/suggestions")
+async def get_ai_suggestions(user: dict = Depends(get_current_user)):
+    """Get AI-powered trading suggestions"""
+    suggestions = [
+        {
+            "symbol": "TON/USDT",
+            "name": "Toncoin",
+            "reason": "New Binance listing, strong Telegram integration",
+            "potential": "+45%",
+            "confidence": 92,
+            "timeframe": "7-14 days",
+            "risk": "Medium",
+            "category": "New Listing"
+        },
+        {
+            "symbol": "ARB/USDT",
+            "name": "Arbitrum",
+            "reason": "Layer 2 scaling, increasing adoption",
+            "potential": "+35%",
+            "confidence": 88,
+            "timeframe": "14-30 days",
+            "risk": "Low",
+            "category": "Trending"
+        },
+        {
+            "symbol": "SUI/USDT",
+            "name": "Sui",
+            "reason": "New blockchain, backed by major VCs",
+            "potential": "+60%",
+            "confidence": 78,
+            "timeframe": "30-60 days",
+            "risk": "High",
+            "category": "New Listing"
+        }
+    ]
+    return {"suggestions": suggestions}
+
+@app.get("/api/bots/{bot_id}/analytics")
+async def get_bot_analytics(bot_id: str, user: dict = Depends(get_current_user)):
+    """Get bot performance analytics"""
+    from bson import ObjectId
+    
+    try:
+        bot_obj_id = ObjectId(bot_id)
+    except:
+        raise HTTPException(status_code=400, detail="Invalid bot ID")
+    
+    # Get bot
+    bot = bot_instances_collection.find_one({"_id": bot_obj_id})
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    
+    # Get trades
+    trades = list(db.db['trades'].find({"bot_id": bot_id}))
+    
+    total_trades = len(trades)
+    winning_trades = sum(1 for t in trades if t.get('pnl', 0) > 0)
+    losing_trades = sum(1 for t in trades if t.get('pnl', 0) < 0)
+    total_pnl = sum(t.get('pnl', 0) for t in trades)
+    win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
+    
+    return {
+        "bot_id": bot_id,
+        "total_trades": total_trades,
+        "winning_trades": winning_trades,
+        "losing_trades": losing_trades,
+        "win_rate": round(win_rate, 2),
+        "total_pnl": round(total_pnl, 2),
+        "avg_profit": round(total_pnl / total_trades, 2) if total_trades > 0 else 0,
+        "status": bot.get("status"),
+        "created_at": bot.get("created_at"),
+        "capital": bot.get("config", {}).get("capital", 0)
+    }
+
+@app.get("/api/trades/history")
+async def get_trade_history(
+    bot_id: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """Get trade history with filters"""
+    query = {}
+    
+    # Filter by user (admin sees all)
+    is_admin = user.get("role") == "admin"
+    if not is_admin:
+        query["user_id"] = str(user["_id"])
+    
+    # Filter by bot
+    if bot_id:
+        query["bot_id"] = bot_id
+    
+    # Filter by date
+    if start_date or end_date:
+        query["timestamp"] = {}
+        if start_date:
+            query["timestamp"]["$gte"] = datetime.fromisoformat(start_date)
+        if end_date:
+            query["timestamp"]["$lte"] = datetime.fromisoformat(end_date)
+    
+    trades = list(db.db['trades'].find(query).sort("timestamp", -1).limit(100))
+    
+    # Convert ObjectId to string
+    for trade in trades:
+        trade["_id"] = str(trade["_id"])
+        if "timestamp" in trade:
+            trade["timestamp"] = trade["timestamp"].isoformat()
+    
+    return {"trades": trades, "count": len(trades)}
+
 @app.get("/api/bots/{bot_id}/status")
 async def get_bot_status_endpoint(bot_id: str, user: dict = Depends(get_current_user)):
     """Get real-time bot status"""
