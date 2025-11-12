@@ -14,25 +14,32 @@ export default function PaymentScreen({ navigation }: any) {
       return;
     }
 
-    try {
-      setPurchasing(true);
-      
-      // Call backend to create subscription
-      await api.createSubscription(plan, selectedPaymentMethod);
-      
-      Alert.alert(
-        'Success',
-        `${plan.charAt(0).toUpperCase() + plan.slice(1)} subscription activated!`,
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
-    } catch (error: any) {
-      Alert.alert(
-        'Error',
-        error.response?.data?.detail || 'Failed to activate subscription. Please try again.'
-      );
-    } finally {
-      setPurchasing(false);
-    }
+    // Show payment method specific instructions
+    const paymentInstructions = {
+      card: 'Card payment integration coming soon! For now, contact support to upgrade.',
+      crypto: 'Crypto payment integration coming soon! For now, contact support to upgrade.',
+      iap: 'In-app purchases only work in production builds from App Store.'
+    };
+
+    Alert.alert(
+      'Payment Required',
+      paymentInstructions[selectedPaymentMethod],
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Contact Support',
+          onPress: () => {
+            Alert.alert(
+              'Contact Support',
+              'Email: support@gideonstechnology.com\nOr use the chat in the app.'
+            );
+          }
+        }
+      ]
+    );
+
+    // TODO: Implement actual payment processing
+    // For now, don't activate subscription without payment
   };
 
   const plans = [

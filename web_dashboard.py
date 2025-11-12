@@ -288,6 +288,46 @@ async def update_profile(data: ProfileUpdate, user: dict = Depends(get_current_u
     
     return {"message": "Profile updated successfully"}
 
+@app.get("/api/dashboard")
+async def get_dashboard(user: dict = Depends(get_current_user)):
+    """Get dashboard data for mobile app"""
+    is_admin = user.get("role") == "admin"
+    
+    # Get user's bots
+    if is_admin:
+        bots = list(bot_instances_collection.find({}))
+    else:
+        bots = list(bot_instances_collection.find({"user_id": str(user["_id"])}))
+    
+    # Convert ObjectId to string
+    for bot in bots:
+        bot["_id"] = str(bot["_id"])
+    
+    # Get total stats
+    total_capital = sum(bot.get("capital", 0) for bot in bots)
+    active_bots = sum(1 for bot in bots if bot.get("status") == "running")
+    
+    # Get total P&L (simplified)
+    total_pnl = 0.0
+    for bot in bots:
+        total_pnl += bot.get("total_profit", 0.0)
+    
+    return {
+        "stats": {
+            "total_capital": total_capital,
+            "total_pnl": total_pnl,
+            "active_bots": active_bots,
+            "total_bots": len(bots)
+        },
+        "recent_bots": bots[:5],  # Last 5 bots
+        "user": {
+            "email": user["email"],
+            "full_name": user.get("full_name", ""),
+            "subscription": user.get("subscription", "free"),
+            "role": user.get("role", "user")
+        }
+    }
+
 @app.get("/api/users")
 async def get_all_users(admin: dict = Depends(get_admin_user)):
     """Get all users (admin only)"""
