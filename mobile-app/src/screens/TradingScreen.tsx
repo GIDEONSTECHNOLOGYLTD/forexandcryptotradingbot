@@ -151,7 +151,10 @@ export default function TradingScreen({ navigation }: any) {
                     <Text style={styles.actionButtonText}>Start</Text>
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity style={[styles.actionButton, styles.detailsButton]}>
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.detailsButton]}
+                  onPress={() => navigation.navigate('BotDetails', { botId: bot._id })}
+                >
                   <Ionicons name="stats-chart" size={20} color="#667eea" />
                   <Text style={[styles.actionButtonText, { color: '#667eea' }]}>Details</Text>
                 </TouchableOpacity>

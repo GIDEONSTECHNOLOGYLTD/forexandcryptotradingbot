@@ -18,6 +18,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import SignupScreen from './src/screens/SignupScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import BotConfigScreen from './src/screens/BotConfigScreen';
+import BotDetailsScreen from './src/screens/BotDetailsScreen';
 import PaymentScreen from './src/screens/PaymentScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
@@ -87,6 +88,11 @@ export default function App() {
             name="BotConfig" 
             component={BotConfigScreen}
             options={{ presentation: 'modal', headerShown: true, title: 'Create Bot' }}
+          />
+          <Stack.Screen 
+            name="BotDetails" 
+            component={BotDetailsScreen}
+            options={{ headerShown: false }}
           />
           <Stack.Screen 
             name="Payment" 
