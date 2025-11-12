@@ -36,6 +36,16 @@ except ImportError as e:
     print(f"{Fore.YELLOW}⚠️  Advanced trading modules not available: {e}{Style.RESET_ALL}")
     TRADING_MODULES_AVAILABLE = False
 
+# Import bot engine
+try:
+    from bot_engine import bot_engine
+    BOT_ENGINE_AVAILABLE = True
+    print(f"{Fore.GREEN}✅ Bot engine initialized{Style.RESET_ALL}")
+except ImportError as e:
+    print(f"{Fore.YELLOW}⚠️  Bot engine not available: {e}{Style.RESET_ALL}")
+    BOT_ENGINE_AVAILABLE = False
+    bot_engine = None
+
 # Configuration
 SECRET_KEY = config.JWT_SECRET_KEY
 ALGORITHM = "HS256"
@@ -563,24 +573,36 @@ async def start_bot(bot_id: str, user: dict = Depends(get_current_user)):
     if not is_admin and bot.get("user_id") != str(user["_id"]):
         raise HTTPException(status_code=403, detail="Not authorized to control this bot")
     
-    # For now, just update status in database
-    # Bot manager integration will be added later
-    try:
-        bot_instances_collection.update_one(
-            {"_id": bot_obj_id},
-            {"$set": {
+    # Use real bot engine if available
+    if BOT_ENGINE_AVAILABLE and bot_engine:
+        try:
+            result = await bot_engine.start_bot(bot_id, str(user["_id"]), is_admin)
+            return {
+                "message": f"Bot started successfully ({result['mode']} trading)",
                 "status": "running",
-                "last_active": datetime.utcnow(),
-                "started_at": datetime.utcnow()
-            }}
-        )
-        return {
-            "message": "Bot started successfully",
-            "status": "running",
-            "bot_id": bot_id
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to start bot: {str(e)}")
+                "bot_id": bot_id,
+                "mode": result['mode']
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to start bot: {str(e)}")
+    else:
+        # Fallback: just update database
+        try:
+            bot_instances_collection.update_one(
+                {"_id": bot_obj_id},
+                {"$set": {
+                    "status": "running",
+                    "last_active": datetime.utcnow(),
+                    "started_at": datetime.utcnow()
+                }}
+            )
+            return {
+                "message": "Bot started (database only - install bot_engine for real trading)",
+                "status": "running",
+                "bot_id": bot_id
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to start bot: {str(e)}")
 
 @app.post("/api/bots/{bot_id}/stop")
 async def stop_bot(bot_id: str, user: dict = Depends(get_current_user)):
@@ -602,24 +624,35 @@ async def stop_bot(bot_id: str, user: dict = Depends(get_current_user)):
     if not is_admin and bot.get("user_id") != str(user["_id"]):
         raise HTTPException(status_code=403, detail="Not authorized to control this bot")
     
-    # For now, just update status in database
-    # Bot manager integration will be added later
-    try:
-        bot_instances_collection.update_one(
-            {"_id": bot_obj_id},
-            {"$set": {
+    # Use real bot engine if available
+    if BOT_ENGINE_AVAILABLE and bot_engine:
+        try:
+            result = await bot_engine.stop_bot(bot_id)
+            return {
+                "message": "Bot stopped successfully",
                 "status": "stopped",
-                "stopped_at": datetime.utcnow(),
-                "last_active": datetime.utcnow()
-            }}
-        )
-        return {
-            "message": "Bot stopped successfully",
-            "status": "stopped",
-            "bot_id": bot_id
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to stop bot: {str(e)}")
+                "bot_id": bot_id
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to stop bot: {str(e)}")
+    else:
+        # Fallback: just update database
+        try:
+            bot_instances_collection.update_one(
+                {"_id": bot_obj_id},
+                {"$set": {
+                    "status": "stopped",
+                    "stopped_at": datetime.utcnow(),
+                    "last_active": datetime.utcnow()
+                }}
+            )
+            return {
+                "message": "Bot stopped (database only)",
+                "status": "stopped",
+                "bot_id": bot_id
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to stop bot: {str(e)}")
 
 @app.get("/api/bots/{bot_id}/status")
 async def get_bot_status_endpoint(bot_id: str, user: dict = Depends(get_current_user)):
