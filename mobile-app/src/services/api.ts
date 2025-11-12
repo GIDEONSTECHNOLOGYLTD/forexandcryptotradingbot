@@ -93,6 +93,22 @@ export const deleteBot = async (botId: string) => {
   return response.data;
 };
 
+export const getAISuggestions = async () => {
+  const response = await api.get('/ai/suggestions');
+  return response.data;
+};
+
+export const getBotAnalytics = async (botId: string) => {
+  const response = await api.get(`/bots/${botId}/analytics`);
+  return response.data;
+};
+
+export const getTradeHistory = async (botId?: string) => {
+  const params = botId ? { bot_id: botId } : {};
+  const response = await api.get('/trades/history', { params });
+  return response.data;
+};
+
 // Trading
 export const getTrades = async () => {
   const response = await api.get('/trades');

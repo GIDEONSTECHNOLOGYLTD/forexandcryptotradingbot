@@ -8,9 +8,11 @@ export default function BotDetailsScreen({ route, navigation }: any) {
   const { botId } = route.params;
   const { isAdmin } = useUser();
   const [bot, setBot] = useState<any>(null);
+  const [analytics, setAnalytics] = useState<any>(null);
 
   useEffect(() => {
     loadBot();
+    loadAnalytics();
   }, []);
 
   const loadBot = async () => {
@@ -22,6 +24,15 @@ export default function BotDetailsScreen({ route, navigation }: any) {
       else navigation.goBack();
     } catch (error) {
       navigation.goBack();
+    }
+  };
+
+  const loadAnalytics = async () => {
+    try {
+      const data = await api.getBotAnalytics(botId);
+      setAnalytics(data);
+    } catch (error) {
+      console.error('Error loading analytics:', error);
     }
   };
 
@@ -72,6 +83,40 @@ export default function BotDetailsScreen({ route, navigation }: any) {
             </Text>
           </View>
         </View>
+
+        {analytics && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>📊 Performance Analytics</Text>
+            <View style={styles.row}>
+              <Text style={styles.label}>Total Trades:</Text>
+              <Text style={styles.value}>{analytics.total_trades}</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Win Rate:</Text>
+              <Text style={[styles.value, { color: analytics.win_rate > 50 ? '#10b981' : '#ef4444' }]}>
+                {analytics.win_rate}%
+              </Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Total P&L:</Text>
+              <Text style={[styles.value, { color: analytics.total_pnl > 0 ? '#10b981' : '#ef4444' }]}>
+                ${analytics.total_pnl}
+              </Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Avg Profit:</Text>
+              <Text style={styles.value}>${analytics.avg_profit}</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Winning Trades:</Text>
+              <Text style={[styles.value, { color: '#10b981' }]}>{analytics.winning_trades}</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Losing Trades:</Text>
+              <Text style={[styles.value, { color: '#ef4444' }]}>{analytics.losing_trades}</Text>
+            </View>
+          </View>
+        )}
       </ScrollView>
     </View>
   );

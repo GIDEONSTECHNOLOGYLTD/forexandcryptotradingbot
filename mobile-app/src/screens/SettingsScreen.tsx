@@ -71,6 +71,13 @@ export default function SettingsScreen({ navigation }: any) {
       {/* Regular Settings */}
       <Text style={styles.sectionTitle}>{isAdmin ? 'PERSONAL SETTINGS' : 'SETTINGS'}</Text>
       
+      <TouchableOpacity style={styles.item} onPress={() => navigation.navigate('AISuggestions')}>
+        <Ionicons name="sparkles" size={24} color="#667eea" />
+        <Text style={styles.itemText}>AI Suggestions</Text>
+        <Text style={styles.itemBadge}>NEW</Text>
+        <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.item} onPress={() => navigation.navigate('Payment')}>
         <Ionicons name="card-outline" size={24} color="#667eea" />
         <Text style={styles.itemText}>Subscription</Text>
