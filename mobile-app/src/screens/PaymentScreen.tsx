@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Linking, Modal, Clipboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import QRCode from 'react-native-qrcode-svg';
 import * as api from '../services/api';
 import { useUser } from '../context/UserContext';
 
@@ -16,6 +17,8 @@ export default function PaymentScreen({ navigation }: any) {
   const [purchasing, setPurchasing] = useState(false);
   const [cryptoAddress, setCryptoAddress] = useState('');
   const [cryptoCurrency, setCryptoCurrency] = useState('USDT');
+  const [showCryptoModal, setShowCryptoModal] = useState(false);
+  const [cryptoAmount, setCryptoAmount] = useState(0);
 
   useEffect(() => {
     // No initialization needed - IAP will be loaded on demand
@@ -66,20 +69,18 @@ export default function PaymentScreen({ navigation }: any) {
       const amount = response.crypto_amount || response.amount || (plan === 'pro' ? 29 : 99);
       
       setCryptoAddress(address);
-      
-      Alert.alert(
-        'Crypto Payment',
-        `Send ${amount} ${cryptoCurrency} to:\n\n${address}\n\nPayment will be confirmed automatically.`,
-        [
-          { text: 'Copy Address', onPress: () => {} },
-          { text: 'OK' }
-        ]
-      );
+      setCryptoAmount(amount);
+      setShowCryptoModal(true);
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.detail || 'Crypto payment not configured yet. Please use Card payment.');
     } finally {
       setPurchasing(false);
     }
+  };
+
+  const copyToClipboard = () => {
+    Clipboard.setString(cryptoAddress);
+    Alert.alert('Copied!', 'Address copied to clipboard');
   };
 
   const handleInAppPurchase = async (plan: string) => {
@@ -190,6 +191,60 @@ export default function PaymentScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
       ))}
+
+      {/* Crypto Payment Modal */}
+      <Modal
+        visible={showCryptoModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowCryptoModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Crypto Payment</Text>
+              <TouchableOpacity onPress={() => setShowCryptoModal(false)}>
+                <Ionicons name="close" size={24} color="#111827" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.qrCodeContainer}>
+              {cryptoAddress && cryptoAddress !== 'Address generation failed' ? (
+                <QRCode
+                  value={cryptoAddress}
+                  size={200}
+                  backgroundColor="white"
+                />
+              ) : (
+                <View style={styles.qrPlaceholder}>
+                  <Ionicons name="alert-circle" size={64} color="#ef4444" />
+                  <Text style={styles.qrErrorText}>Failed to generate address</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.paymentInfo}>
+              <Text style={styles.paymentLabel}>Amount</Text>
+              <Text style={styles.paymentValue}>{cryptoAmount} {cryptoCurrency}</Text>
+            </View>
+
+            <View style={styles.paymentInfo}>
+              <Text style={styles.paymentLabel}>Address</Text>
+              <Text style={styles.paymentAddress} numberOfLines={2}>{cryptoAddress}</Text>
+            </View>
+
+            <TouchableOpacity style={styles.copyButton} onPress={copyToClipboard}>
+              <Ionicons name="copy" size={20} color="#fff" />
+              <Text style={styles.copyButtonText}>Copy Address</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.paymentInstructions}>
+              Send exactly {cryptoAmount} {cryptoCurrency} to the address above.{'\n\n'}
+              Payment will be confirmed automatically within 10-30 minutes.
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -248,4 +303,88 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   buttonDisabled: { opacity: 0.5 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  qrCodeContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  qrPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  qrErrorText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#ef4444',
+    textAlign: 'center',
+  },
+  paymentInfo: {
+    marginBottom: 16,
+  },
+  paymentLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 4,
+    fontWeight: '600',
+  },
+  paymentValue: {
+    fontSize: 18,
+    color: '#111827',
+    fontWeight: 'bold',
+  },
+  paymentAddress: {
+    fontSize: 12,
+    color: '#111827',
+    fontFamily: 'monospace',
+  },
+  copyButton: {
+    backgroundColor: '#667eea',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+  },
+  copyButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  paymentInstructions: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
 });
