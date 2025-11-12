@@ -499,11 +499,8 @@ async def create_bot(config: BotConfig, user: dict = Depends(get_current_user)):
                 detail=f"Bot limit reached ({features['max_bots']} bots). Upgrade to Pro for 3 bots or Enterprise for unlimited."
             )
         
-        if not config.paper_trading and not features["real_trading"]:
-            raise HTTPException(
-                status_code=403,
-                detail="Real trading requires Pro ($29/month) or Enterprise ($99/month) subscription. Upgrade in Settings."
-            )
+        # Free users can create real trading bots (but limited to 1 trade)
+        # No restriction here - limit enforced when bot executes trades
     
     bot_instance = {
         "user_id": str(user["_id"]),  # Use authenticated user's ID, not from config
@@ -799,6 +796,15 @@ async def paystack_callback(reference: str):
 from okx_payment_handler import payment_handler
 from balance_fetcher import balance_fetcher
 
+@app.get("/api/payments/crypto/networks")
+async def get_crypto_networks():
+    """Get all supported USDT networks"""
+    try:
+        networks = payment_handler.get_all_usdt_networks()
+        return {"networks": networks}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch networks: {str(e)}")
+
 @app.post("/api/payments/crypto/initialize")
 async def initialize_crypto_payment(payment: CryptoPayment, user: dict = Depends(get_current_user)):
     """Initialize crypto payment - FULLY IMPLEMENTED"""
@@ -952,7 +958,8 @@ def get_plan_features(plan: str) -> dict:
     features = {
         "free": {
             "paper_trading": True,
-            "real_trading": False,
+            "real_trading": True,  # Allow real trading
+            "max_real_trades": 1,  # But only 1 trade (trial)
             "max_bots": 1,
             "strategies": ["momentum"],
             "support": "community"
@@ -960,6 +967,7 @@ def get_plan_features(plan: str) -> dict:
         "pro": {
             "paper_trading": True,
             "real_trading": True,
+            "max_real_trades": -1,  # Unlimited
             "max_bots": 3,
             "strategies": ["all"],
             "support": "priority"
@@ -967,11 +975,23 @@ def get_plan_features(plan: str) -> dict:
         "enterprise": {
             "paper_trading": True,
             "real_trading": True,
+            "max_real_trades": -1,  # Unlimited
             "max_bots": 999,
             "strategies": ["all"],
             "support": "dedicated",
             "api_access": True,
             "custom_strategies": True
+        },
+        "admin": {
+            "paper_trading": True,
+            "real_trading": True,
+            "max_real_trades": -1,  # Unlimited
+            "max_bots": 999,
+            "strategies": ["all"],
+            "support": "dedicated",
+            "api_access": True,
+            "custom_strategies": True,
+            "admin_access": True
         }
     }
     return features.get(plan, features["free"])
@@ -1356,11 +1376,18 @@ async def startup_event():
         print(f"{Fore.YELLOW}⚠️  Default admin created: admin@tradingbot.com / admin123{Style.RESET_ALL}")
         print(f"{Fore.YELLOW}⚠️  CHANGE THIS PASSWORD IMMEDIATELY!{Style.RESET_ALL}")
     else:
-        # Update existing admin to have exchange_connected flag
+        # Update existing admin to ensure correct settings
         users_collection.update_one(
             {"email": "admin@tradingbot.com"},
-            {"$set": {"exchange_connected": True, "paper_trading": False}}
+            {"$set": {
+                "role": "admin",
+                "subscription": "enterprise",  # Admin always has enterprise
+                "exchange_connected": True,
+                "paper_trading": False,
+                "is_active": True
+            }}
         )
+        print(f"{Fore.GREEN}✅ Admin account updated with enterprise subscription{Style.RESET_ALL}")
 
 
 if __name__ == "__main__":

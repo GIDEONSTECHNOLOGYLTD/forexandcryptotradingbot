@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Switch } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import * as api from '../services/api';
+import { useUser } from '../context/UserContext';
 
 export default function BotConfigScreen({ navigation }: any) {
+  const { user, isAdmin } = useUser();
   const [botType, setBotType] = useState('momentum');
   const [symbol, setSymbol] = useState('BTC/USDT');
   const [capital, setCapital] = useState('1000');
-  const [paperTrading, setPaperTrading] = useState(true);
+  // Default to real trading if user has OKX connected, otherwise paper trading
+  const [paperTrading, setPaperTrading] = useState(!user?.exchange_connected && !isAdmin);
 
   const handleCreate = async () => {
     try {
@@ -45,6 +48,24 @@ export default function BotConfigScreen({ navigation }: any) {
         keyboardType="numeric"
       />
 
+      <View style={styles.switchContainer}>
+        <View>
+          <Text style={styles.label}>Trading Mode</Text>
+          <Text style={styles.sublabel}>
+            {paperTrading ? 'Paper Trading (Simulated)' : 'Real Trading (Live)'}
+          </Text>
+          {!user?.exchange_connected && !isAdmin && !paperTrading && (
+            <Text style={styles.warning}>⚠️ Connect OKX in Settings for real trading</Text>
+          )}
+        </View>
+        <Switch
+          value={!paperTrading}
+          onValueChange={(value) => setPaperTrading(!value)}
+          trackColor={{ false: '#d1d5db', true: '#10b981' }}
+          thumbColor={!paperTrading ? '#fff' : '#f4f3f4'}
+        />
+      </View>
+
       <TouchableOpacity style={styles.button} onPress={handleCreate}>
         <Text style={styles.buttonText}>Create Bot</Text>
       </TouchableOpacity>
@@ -55,6 +76,8 @@ export default function BotConfigScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#fff' },
   label: { fontSize: 16, fontWeight: '600', marginTop: 16, marginBottom: 8 },
+  sublabel: { fontSize: 14, color: '#6b7280', marginTop: 4 },
+  warning: { fontSize: 12, color: '#ef4444', marginTop: 4 },
   input: {
     borderWidth: 1,
     borderColor: '#d1d5db',
@@ -63,6 +86,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   picker: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8 },
+  switchContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+  },
   button: {
     backgroundColor: '#667eea',
     padding: 16,

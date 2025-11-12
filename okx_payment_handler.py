@@ -68,37 +68,51 @@ class OKXPaymentHandler:
         
         return round(crypto_amount, 8)
     
-    def create_deposit_address(self, crypto: str) -> Dict:
+    def get_all_usdt_networks(self) -> List[Dict]:
+        """Get all supported USDT networks on OKX"""
+        return [
+            {'network': 'TRC20', 'name': 'Tron (TRC20)', 'fee': 'Low (~1 USDT)'},
+            {'network': 'ERC20', 'name': 'Ethereum (ERC20)', 'fee': 'High (~5-20 USDT)'},
+            {'network': 'BEP20', 'name': 'BSC (BEP20)', 'fee': 'Low (~0.5 USDT)'},
+            {'network': 'Polygon', 'name': 'Polygon', 'fee': 'Very Low (~0.1 USDT)'},
+            {'network': 'Arbitrum', 'name': 'Arbitrum One', 'fee': 'Low (~1 USDT)'},
+            {'network': 'Optimism', 'name': 'Optimism', 'fee': 'Low (~1 USDT)'},
+            {'network': 'Avalanche', 'name': 'Avalanche C-Chain', 'fee': 'Low (~0.5 USDT)'},
+        ]
+    
+    def create_deposit_address(self, crypto: str, network: str = None) -> Dict:
         """Get deposit address for crypto from admin OKX account"""
         try:
-            # For OKX, we need to specify the network/chain
-            # Common networks for each crypto
-            networks = {
+            # Default networks for each crypto
+            default_networks = {
                 'BTC': 'Bitcoin',
                 'ETH': 'ERC20',
-                'USDT': 'TRC20',  # Tron network (lower fees)
+                'USDT': 'TRC20',  # Default to TRC20 (lowest fees)
                 'USDC': 'ERC20',
                 'SOL': 'Solana',
                 'BNB': 'BSC'
             }
             
-            network = networks.get(crypto, 'default')
+            # Use provided network or default
+            selected_network = network or default_networks.get(crypto, 'default')
             
             # Fetch deposit address with network
-            deposit_address = self.exchange.fetch_deposit_address(crypto, {'network': network})
+            deposit_address = self.exchange.fetch_deposit_address(crypto, {'network': selected_network})
             
             return {
                 'address': deposit_address['address'],
-                'tag': deposit_address.get('tag'),  # For currencies that need memo/tag
-                'network': network
+                'tag': deposit_address.get('tag'),
+                'network': selected_network,
+                'crypto': crypto
             }
         except Exception as e:
-            print(f"Error creating deposit address for {crypto}: {e}")
+            print(f"Error creating deposit address for {crypto} on {network}: {e}")
             # For testing/demo, return a clear message
             return {
                 'address': 'DEMO_MODE_CONTACT_SUPPORT',
                 'tag': None,
-                'network': networks.get(crypto, 'default'),
+                'network': network or default_networks.get(crypto, 'default'),
+                'crypto': crypto,
                 'error': 'Deposit address generation requires OKX account verification'
             }
     
