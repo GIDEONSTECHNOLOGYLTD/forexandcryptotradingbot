@@ -27,6 +27,7 @@ import ExchangeConnectionScreen from './src/screens/ExchangeConnectionScreen';
 import ManageUsersScreen from './src/screens/ManageUsersScreen';
 import SystemAnalyticsScreen from './src/screens/SystemAnalyticsScreen';
 import SystemSettingsScreen from './src/screens/SystemSettingsScreen';
+import SecurityScreen from './src/screens/SecurityScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -135,6 +136,11 @@ export default function App() {
           <Stack.Screen 
             name="SystemSettings" 
             component={SystemSettingsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen 
+            name="Security" 
+            component={SecurityScreen}
             options={{ headerShown: false }}
           />
         </Stack.Navigator>

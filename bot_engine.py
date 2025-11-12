@@ -1,32 +1,60 @@
 """
-Trading Bot Engine - Real & Paper Trading
+Trading Bot Engine - COMPLETE Real & Paper Trading Implementation
+Handles all bot lifecycle, trading logic, and real-time execution
 """
 import ccxt
 import asyncio
+import time
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, Optional, List
+from decimal import Decimal
 import config
 from mongodb_database import MongoTradingDatabase
 from bson import ObjectId
+from cryptography.fernet import Fernet
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class TradingBotEngine:
+    """Complete trading bot engine with real-time execution"""
+    
     def __init__(self):
         self.db = MongoTradingDatabase()
         self.active_bots: Dict[str, 'BotInstance'] = {}
         self.system_exchange = self._init_system_exchange()
+        self.cipher_suite = Fernet(config.ENCRYPTION_KEY.encode()) if hasattr(config, 'ENCRYPTION_KEY') else None
+        logger.info("✅ Bot engine initialized")
         
     def _init_system_exchange(self):
-        """Initialize system OKX for admin"""
+        """Initialize system OKX exchange for admin bots"""
         try:
-            return ccxt.okx({
+            if not all([config.OKX_API_KEY, config.OKX_SECRET_KEY, config.OKX_PASSPHRASE]):
+                logger.warning("⚠️ System OKX credentials not configured")
+                return None
+                
+            exchange = ccxt.okx({
                 'apiKey': config.OKX_API_KEY,
                 'secret': config.OKX_SECRET_KEY,
                 'password': config.OKX_PASSPHRASE,
-                'enableRateLimit': True
+                'enableRateLimit': True,
+                'options': {'defaultType': 'spot'}
             })
+            
+            # Test connection
+            exchange.load_markets()
+            logger.info("✅ System OKX exchange connected")
+            return exchange
         except Exception as e:
-            print(f"❌ System OKX init failed: {e}")
+            logger.error(f"❌ System OKX init failed: {e}")
             return None
+    
+    def _decrypt_credentials(self, encrypted_data: str) -> str:
+        """Decrypt user OKX credentials"""
+        if not self.cipher_suite:
+            raise ValueError("Encryption not configured")
+        return self.cipher_suite.decrypt(encrypted_data.encode()).decode()
     
     async def start_bot(self, bot_id: str, user_id: str, is_admin: bool = False):
         """Start bot"""
