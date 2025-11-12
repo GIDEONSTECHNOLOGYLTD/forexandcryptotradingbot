@@ -33,7 +33,17 @@ export default function HomeScreen({ navigation }: any) {
   const fetchDashboardData = async () => {
     try {
       const response = await api.getDashboard();
-      setStats(response.stats);
+      
+      // Map backend response to frontend structure
+      const mappedStats = {
+        totalBalance: response.stats?.total_capital || 0,
+        todayPnL: response.stats?.total_pnl || 0,
+        totalTrades: response.stats?.total_trades || 0,
+        winRate: response.stats?.win_rate || 0,
+        activeBots: response.stats?.active_bots || 0,
+      };
+      
+      setStats(mappedStats);
       setChartData(response.chartData || [0, 0, 0, 0, 0, 0, 0]);
     } catch (error) {
       console.error('Error fetching dashboard:', error);

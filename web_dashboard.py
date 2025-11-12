@@ -312,20 +312,39 @@ async def get_dashboard(user: dict = Depends(get_current_user)):
     for bot in bots:
         total_pnl += bot.get("total_profit", 0.0)
     
+    # Get trade stats (if trades collection exists)
+    total_trades = 0
+    winning_trades = 0
+    try:
+        if is_admin:
+            total_trades = db.db['trades'].count_documents({})
+            winning_trades = db.db['trades'].count_documents({"profit": {"$gt": 0}})
+        else:
+            total_trades = db.db['trades'].count_documents({"user_id": str(user["_id"])})
+            winning_trades = db.db['trades'].count_documents({"user_id": str(user["_id"]), "profit": {"$gt": 0}})
+    except:
+        pass
+    
+    win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
+    
     return {
         "stats": {
             "total_capital": total_capital,
             "total_pnl": total_pnl,
             "active_bots": active_bots,
-            "total_bots": len(bots)
+            "total_bots": len(bots),
+            "total_trades": total_trades,
+            "win_rate": win_rate
         },
         "recent_bots": bots[:5],  # Last 5 bots
         "user": {
             "email": user["email"],
             "full_name": user.get("full_name", ""),
             "subscription": user.get("subscription", "free"),
-            "role": user.get("role", "user")
-        }
+            "role": user.get("role", "user"),
+            "exchange_connected": user.get("exchange_connected", False)
+        },
+        "chartData": [0, 0, 0, 0, 0, 0, 0]  # TODO: Calculate real 7-day data
     }
 
 @app.get("/api/users")
