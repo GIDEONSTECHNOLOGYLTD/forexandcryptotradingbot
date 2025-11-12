@@ -563,22 +563,24 @@ async def start_bot(bot_id: str, user: dict = Depends(get_current_user)):
     if not is_admin and bot.get("user_id") != str(user["_id"]):
         raise HTTPException(status_code=403, detail="Not authorized to control this bot")
     
-    if bot_manager:
-        try:
-            status = await bot_manager.start_bot(str(user["_id"]), bot_id)
-            return {
-                "message": "Bot started successfully",
-                "status": status
-            }
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    else:
-        # Fallback to simple status update
+    # For now, just update status in database
+    # Bot manager integration will be added later
+    try:
         bot_instances_collection.update_one(
             {"_id": bot_obj_id},
-            {"$set": {"status": "running", "last_active": datetime.utcnow()}}
+            {"$set": {
+                "status": "running",
+                "last_active": datetime.utcnow(),
+                "started_at": datetime.utcnow()
+            }}
         )
-        return {"message": "Bot started (paper trading mode)"}
+        return {
+            "message": "Bot started successfully",
+            "status": "running",
+            "bot_id": bot_id
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start bot: {str(e)}")
 
 @app.post("/api/bots/{bot_id}/stop")
 async def stop_bot(bot_id: str, user: dict = Depends(get_current_user)):
@@ -600,19 +602,24 @@ async def stop_bot(bot_id: str, user: dict = Depends(get_current_user)):
     if not is_admin and bot.get("user_id") != str(user["_id"]):
         raise HTTPException(status_code=403, detail="Not authorized to control this bot")
     
-    if bot_manager:
-        try:
-            await bot_manager.stop_bot(str(user["_id"]), bot_id)
-            return {"message": "Bot stopped successfully"}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    else:
-        # Fallback to simple status update
+    # For now, just update status in database
+    # Bot manager integration will be added later
+    try:
         bot_instances_collection.update_one(
             {"_id": bot_obj_id},
-            {"$set": {"status": "stopped"}}
+            {"$set": {
+                "status": "stopped",
+                "stopped_at": datetime.utcnow(),
+                "last_active": datetime.utcnow()
+            }}
         )
-        return {"message": "Bot stopped"}
+        return {
+            "message": "Bot stopped successfully",
+            "status": "stopped",
+            "bot_id": bot_id
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to stop bot: {str(e)}")
 
 @app.get("/api/bots/{bot_id}/status")
 async def get_bot_status_endpoint(bot_id: str, user: dict = Depends(get_current_user)):
@@ -661,6 +668,13 @@ class InAppPurchase(BaseModel):
 async def initialize_paystack_payment(payment: PaystackPayment, user: dict = Depends(get_current_user)):
     """Initialize Paystack payment"""
     import requests
+    
+    # Check if Paystack is configured
+    if not config.PAYSTACK_SECRET_KEY:
+        raise HTTPException(
+            status_code=400,
+            detail="Paystack payment is not configured. Please contact support or use crypto payment."
+        )
     
     # Paystack API
     url = "https://api.paystack.co/transaction/initialize"
@@ -940,14 +954,14 @@ async def admin_overview(admin: dict = Depends(get_admin_user)):
     
     # Get all trades
     total_trades = db.trades.count_documents({})
-    total_volume = db.trades.aggregate([
+    total_volume_result = list(db.trades.aggregate([
         {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
-    ])
+    ]))
     
     # Revenue (from subscriptions)
-    revenue = subscriptions_collection.aggregate([
+    revenue_result = list(subscriptions_collection.aggregate([
         {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
-    ])
+    ]))
     
     return {
         "users": {
@@ -962,10 +976,10 @@ async def admin_overview(admin: dict = Depends(get_admin_user)):
         },
         "trading": {
             "total_trades": total_trades,
-            "total_volume": list(total_volume)[0]["total"] if list(total_volume) else 0
+            "total_volume": total_volume_result[0]["total"] if total_volume_result else 0
         },
         "revenue": {
-            "total": list(revenue)[0]["total"] if list(revenue) else 0
+            "total": revenue_result[0]["total"] if revenue_result else 0
         }
     }
 

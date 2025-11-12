@@ -39,6 +39,10 @@ class OKXPaymentHandler:
     
     def get_crypto_price(self, crypto: str) -> float:
         """Get current crypto price in USD"""
+        # Stablecoins are always $1
+        if crypto in ['USDT', 'USDC', 'DAI', 'BUSD']:
+            return 1.0
+            
         try:
             ticker = self.exchange.fetch_ticker(f'{crypto}/USDT')
             return ticker['last']
@@ -50,8 +54,6 @@ class OKXPaymentHandler:
                 'ETH': 3000,
                 'SOL': 100,
                 'BNB': 300,
-                'USDT': 1,
-                'USDC': 1
             }
             return fallback_prices.get(crypto, 1)
     
