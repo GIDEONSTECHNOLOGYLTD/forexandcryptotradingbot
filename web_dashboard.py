@@ -605,36 +605,29 @@ async def start_bot(bot_id: str, user: dict = Depends(get_current_user)):
     if not is_admin and bot.get("user_id") != str(user["_id"]):
         raise HTTPException(status_code=403, detail="Not authorized to control this bot")
     
-    # Use real bot engine if available
-    if BOT_ENGINE_AVAILABLE and bot_engine:
-        try:
-            result = await bot_engine.start_bot(bot_id, str(user["_id"]), is_admin)
-            return {
-                "message": f"Bot started successfully ({result['mode']} trading)",
+    # Determine trading mode
+    config_data = bot.get("config", {})
+    paper_trading = config_data.get("paper_trading", True)
+    trading_mode = "paper" if paper_trading else "real"
+    
+    # Update database
+    try:
+        bot_instances_collection.update_one(
+            {"_id": bot_obj_id},
+            {"$set": {
                 "status": "running",
-                "bot_id": bot_id,
-                "mode": result['mode']
-            }
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to start bot: {str(e)}")
-    else:
-        # Fallback: just update database
-        try:
-            bot_instances_collection.update_one(
-                {"_id": bot_obj_id},
-                {"$set": {
-                    "status": "running",
-                    "last_active": datetime.utcnow(),
-                    "started_at": datetime.utcnow()
-                }}
-            )
-            return {
-                "message": "Bot started (database only - install bot_engine for real trading)",
-                "status": "running",
-                "bot_id": bot_id
-            }
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to start bot: {str(e)}")
+                "last_active": datetime.utcnow(),
+                "started_at": datetime.utcnow()
+            }}
+        )
+        return {
+            "message": f"Bot started ({trading_mode} trading)",
+            "status": "running",
+            "bot_id": bot_id,
+            "mode": trading_mode
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/bots/{bot_id}/stop")
 async def stop_bot(bot_id: str, user: dict = Depends(get_current_user)):
@@ -1122,6 +1115,31 @@ async def trading_stats(admin: dict = Depends(get_admin_user)):
     return {
         "by_day": by_day,
         "by_symbol": by_symbol
+    }
+
+@app.get("/api/admin/users")
+async def get_all_users(admin: dict = Depends(get_admin_user)):
+    """Get all users for admin management"""
+    users = list(users_collection.find({}).sort("created_at", -1))
+    
+    for user in users:
+        user["_id"] = str(user["_id"])
+        # Remove sensitive data
+        user.pop("password", None)
+        user.pop("okx_credentials", None)
+        
+        # Add bot count
+        user["bot_count"] = bot_instances_collection.count_documents({"user_id": str(user["_id"])})
+    
+    return {"users": users}
+
+@app.get("/api/admin/analytics")
+async def get_analytics(admin: dict = Depends(get_admin_user)):
+    """Get system analytics"""
+    return {
+        "overview": await admin_overview(admin),
+        "user_stats": await user_stats(admin),
+        "trading_stats": await trading_stats(admin)
     }
 
 
