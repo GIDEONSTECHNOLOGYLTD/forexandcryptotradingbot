@@ -1,12 +1,21 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useUser } from '../context/UserContext';
 
 export default function PortfolioScreen() {
+  const { isAdmin } = useUser();
+
   return (
     <ScrollView style={styles.container}>
+      {isAdmin && (
+        <View style={styles.adminBadge}>
+          <Ionicons name="shield-checkmark" size={16} color="#fff" />
+          <Text style={styles.adminBadgeText}>ADMIN - System Portfolio</Text>
+        </View>
+      )}
       <View style={styles.header}>
-        <Text style={styles.title}>Portfolio</Text>
+        <Text style={styles.title}>{isAdmin ? 'System Portfolio' : 'Portfolio'}</Text>
       </View>
       
       <View style={styles.card}>
@@ -34,6 +43,19 @@ export default function PortfolioScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f9fafb' },
+  adminBadge: {
+    backgroundColor: '#10b981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    gap: 8,
+  },
+  adminBadgeText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
   header: { padding: 20, backgroundColor: '#fff' },
   title: { fontSize: 24, fontWeight: 'bold' },
   card: { backgroundColor: '#fff', margin: 16, padding: 20, borderRadius: 12 },

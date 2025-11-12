@@ -18,7 +18,7 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.gtechldt.tradingbot",
-      buildNumber: "3",
+      buildNumber: "4",
       infoPlist: {
         CFBundleIconName: "AppIcon",
         NSCameraUsageDescription: "This app uses the camera to scan QR codes for payments",

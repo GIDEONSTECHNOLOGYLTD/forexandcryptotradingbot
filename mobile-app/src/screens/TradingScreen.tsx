@@ -30,21 +30,29 @@ export default function TradingScreen({ navigation }: any) {
 
   const handleStartBot = async (botId: string) => {
     try {
-      await api.startBot(botId);
+      console.log('Starting bot:', botId);
+      const result = await api.startBot(botId);
+      console.log('Start result:', result);
       Alert.alert('Success', 'Bot started successfully');
       loadBots();
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.detail || 'Failed to start bot');
+      console.error('Start bot error:', error);
+      const errorMsg = error.response?.data?.detail || error.message || 'Failed to start bot';
+      Alert.alert('Error', errorMsg);
     }
   };
 
   const handleStopBot = async (botId: string) => {
     try {
-      await api.stopBot(botId);
+      console.log('Stopping bot:', botId);
+      const result = await api.stopBot(botId);
+      console.log('Stop result:', result);
       Alert.alert('Success', 'Bot stopped successfully');
       loadBots();
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.detail || 'Failed to stop bot');
+      console.error('Stop bot error:', error);
+      const errorMsg = error.response?.data?.detail || error.message || 'Failed to stop bot';
+      Alert.alert('Error', errorMsg);
     }
   };
 
@@ -61,8 +69,16 @@ export default function TradingScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
+      {/* Admin Badge */}
+      {isAdmin && (
+        <View style={styles.adminBadge}>
+          <Ionicons name="shield-checkmark" size={16} color="#fff" />
+          <Text style={styles.adminBadgeText}>ADMIN - All Users' Bots</Text>
+        </View>
+      )}
+
       <View style={styles.header}>
-        <Text style={styles.title}>My Trading Bots</Text>
+        <Text style={styles.title}>{isAdmin ? 'All Trading Bots' : 'My Trading Bots'}</Text>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => navigation.navigate('BotConfig')}
@@ -152,6 +168,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9fafb',
+  },
+  adminBadge: {
+    backgroundColor: '#10b981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    gap: 8,
+  },
+  adminBadgeText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   header: {
     flexDirection: 'row',
