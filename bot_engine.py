@@ -128,20 +128,105 @@ class BotInstance:
             self.task.cancel()
     
     async def trading_loop(self):
-        """Main trading loop"""
+        """Main trading loop with real execution"""
+        position = None
+        
         while self.running:
             try:
                 ticker = self.exchange.fetch_ticker(self.symbol)
                 price = ticker['last']
                 
-                # Simple strategy placeholder
-                print(f"Bot {self.bot_id}: Price {price} ({'paper' if self.paper_trading else 'real'})")
+                # Simple momentum strategy
+                if not position:
+                    # Open position
+                    amount = (self.balance * 0.9) / price
+                    if self.paper_trading:
+                        logger.info(f"📝 PAPER BUY: {amount:.6f} {self.symbol} @ ${price:.2f}")
+                    else:
+                        order = self.exchange.create_market_order(self.symbol, 'buy', amount)
+                        logger.info(f"💰 REAL BUY: {amount:.6f} {self.symbol} @ ${price:.2f}")
+                    
+                    position = {'entry': price, 'amount': amount, 'time': datetime.utcnow()}
+                    
+                    # Save trade
+                    trade_doc = {
+                        'bot_id': self.bot_id,
+                        'user_id': self.user_id,
+                        'symbol': self.symbol,
+                        'side': 'buy',
+                        'amount': amount,
+                        'price': price,
+                        'is_paper': self.paper_trading,
+                        'timestamp': datetime.utcnow()
+                    }
+                    self.db.db['trades'].insert_one(trade_doc)
+                    
+                    # Broadcast via WebSocket
+                    try:
+                        from web_dashboard import manager
+                        await manager.broadcast({
+                            'type': 'trade',
+                            'data': {
+                                'bot_id': self.bot_id,
+                                'symbol': self.symbol,
+                                'side': 'buy',
+                                'price': price,
+                                'amount': amount,
+                                'mode': 'paper' if self.paper_trading else 'real'
+                            }
+                        })
+                    except:
+                        pass
+                
+                elif position:
+                    # Check exit conditions
+                    pnl_pct = ((price - position['entry']) / position['entry']) * 100
+                    
+                    if pnl_pct >= 2.0 or pnl_pct <= -1.0:  # 2% profit or 1% loss
+                        if self.paper_trading:
+                            logger.info(f"📝 PAPER SELL: {position['amount']:.6f} @ ${price:.2f} | PnL: {pnl_pct:.2f}%")
+                        else:
+                            order = self.exchange.create_market_order(self.symbol, 'sell', position['amount'])
+                            logger.info(f"💰 REAL SELL: {position['amount']:.6f} @ ${price:.2f} | PnL: {pnl_pct:.2f}%")
+                        
+                        # Save trade
+                        self.db.db['trades'].insert_one({
+                            'bot_id': self.bot_id,
+                            'user_id': self.user_id,
+                            'symbol': self.symbol,
+                            'side': 'sell',
+                            'amount': position['amount'],
+                            'price': price,
+                            'pnl_percent': pnl_pct,
+                            'is_paper': self.paper_trading,
+                            'timestamp': datetime.utcnow()
+                        })
+                        
+                        # Broadcast via WebSocket
+                        try:
+                            from web_dashboard import manager
+                            await manager.broadcast({
+                                'type': 'trade',
+                                'data': {
+                                    'bot_id': self.bot_id,
+                                    'symbol': self.symbol,
+                                    'side': 'sell',
+                                    'price': price,
+                                    'amount': position['amount'],
+                                    'pnl': pnl_pct,
+                                    'mode': 'paper' if self.paper_trading else 'real'
+                                }
+                            })
+                        except:
+                            pass
+                        
+                        position = None
                 
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                print(f"Error: {e}")
+                logger.error(f"Error: {e}")
                 await asyncio.sleep(60)
 
 # Global instance

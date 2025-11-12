@@ -620,6 +620,15 @@ async def start_bot(bot_id: str, user: dict = Depends(get_current_user)):
                 "started_at": datetime.utcnow()
             }}
         )
+        
+        # Start bot engine
+        try:
+            await bot_engine.start_bot(bot_id, str(user["_id"]), is_admin)
+            logger.info(f"✅ Bot {bot_id} started in bot engine")
+        except Exception as e:
+            logger.error(f"❌ Bot engine start failed: {e}")
+            # Continue anyway - bot status updated
+        
         return {
             "message": f"Bot started ({trading_mode} trading)",
             "status": "running",
@@ -633,6 +642,13 @@ async def start_bot(bot_id: str, user: dict = Depends(get_current_user)):
 async def stop_bot(bot_id: str, user: dict = Depends(get_current_user)):
     """Stop bot instance"""
     from bson import ObjectId
+    
+    # Stop bot engine
+    try:
+        await bot_engine.stop_bot(bot_id)
+        logger.info(f"✅ Bot {bot_id} stopped in bot engine")
+    except Exception as e:
+        logger.error(f"❌ Bot engine stop failed: {e}")
     
     # Verify bot exists and belongs to user
     try:
