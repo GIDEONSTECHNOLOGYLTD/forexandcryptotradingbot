@@ -24,7 +24,11 @@ export default function PaymentScreen({ navigation }: any) {
     }
     return () => {
       if (selectedPaymentMethod === 'iap') {
-        InAppPurchases.disconnectAsync();
+        try {
+          InAppPurchases.disconnectAsync();
+        } catch (error) {
+          // IAP not available in Expo Go
+        }
       }
     };
   }, [selectedPaymentMethod]);
@@ -34,6 +38,11 @@ export default function PaymentScreen({ navigation }: any) {
       await InAppPurchases.connectAsync();
     } catch (error) {
       console.error('IAP initialization error:', error);
+      Alert.alert(
+        'In-App Purchase Not Available',
+        'In-app purchases only work in production builds from App Store. Please use Card or Crypto payment instead.',
+        [{ text: 'OK', onPress: () => setSelectedPaymentMethod('card') }]
+      );
     }
   };
 
@@ -98,6 +107,19 @@ export default function PaymentScreen({ navigation }: any) {
   const handleInAppPurchase = async (plan: string) => {
     try {
       setPurchasing(true);
+      
+      // Check if IAP is available
+      try {
+        await InAppPurchases.connectAsync();
+      } catch (connectError) {
+        Alert.alert(
+          'Not Available',
+          'In-app purchases only work in production builds. Please use Card or Crypto payment.',
+          [{ text: 'OK', onPress: () => setSelectedPaymentMethod('card') }]
+        );
+        return;
+      }
+      
       const productId = plan === 'pro' ? PRODUCT_IDS.pro : PRODUCT_IDS.enterprise;
       await InAppPurchases.purchaseItemAsync(productId);
       
@@ -110,7 +132,7 @@ export default function PaymentScreen({ navigation }: any) {
       await refreshUser();
     } catch (error: any) {
       if (error.code !== 'E_USER_CANCELLED') {
-        Alert.alert('Error', 'Purchase failed. Please try again.');
+        Alert.alert('Error', 'Purchase failed. Please try again or use another payment method.');
       }
     } finally {
       setPurchasing(false);
