@@ -112,9 +112,24 @@ export default function TradingScreen({ navigation }: any) {
           bots.map((bot) => (
             <View key={bot._id} style={styles.botCard}>
               <View style={styles.botHeader}>
-                <View>
-                  <Text style={styles.botName}>{bot.config?.bot_type || 'Trading Bot'}</Text>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={styles.botName}>{bot.config?.bot_type || 'Trading Bot'}</Text>
+                    {isAdmin && !bot.is_my_bot && (
+                      <View style={styles.userBadge}>
+                        <Text style={styles.userBadgeText}>USER</Text>
+                      </View>
+                    )}
+                    {isAdmin && bot.is_my_bot && (
+                      <View style={styles.myBotBadge}>
+                        <Text style={styles.myBotBadgeText}>MINE</Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={styles.botSymbol}>{bot.config?.symbol || 'BTC/USDT'}</Text>
+                  {isAdmin && bot.owner_email && (
+                    <Text style={styles.ownerText}>👤 {bot.owner_email}</Text>
+                  )}
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: getStatusColor(bot.status) }]}>
                   <Text style={styles.statusText}>{bot.status}</Text>
@@ -263,6 +278,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     marginTop: 4,
+  },
+  ownerText: {
+    fontSize: 12,
+    color: '#667eea',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  userBadge: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  userBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  myBotBadge: {
+    backgroundColor: '#10b981',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  myBotBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   statusBadge: {
     paddingHorizontal: 12,

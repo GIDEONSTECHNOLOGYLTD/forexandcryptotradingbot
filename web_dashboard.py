@@ -520,6 +520,8 @@ async def create_bot(config: BotConfig, user: dict = Depends(get_current_user)):
 @app.get("/api/bots/my-bots")
 async def get_my_bots(user: dict = Depends(get_current_user)):
     """Get user's bot instances"""
+    from bson import ObjectId
+    
     # Admin can see all bots, regular users see only their own
     is_admin = user.get("role") == "admin"
     
@@ -532,8 +534,37 @@ async def get_my_bots(user: dict = Depends(get_current_user)):
         bots = list(bot_instances_collection.find({"user_id": str(user["_id"])}))
         print(f"👤 User viewing their bots: {len(bots)} bots")
     
+    # Enrich bots with owner information
     for bot in bots:
         bot["_id"] = str(bot["_id"])
+        
+        # Add owner info for admin
+        if is_admin and bot.get("user_id"):
+            try:
+                # Try to find owner by ObjectId first
+                owner = None
+                try:
+                    owner = users_collection.find_one({"_id": ObjectId(bot["user_id"])})
+                except:
+                    # If that fails, try as string
+                    owner = users_collection.find_one({"_id": bot["user_id"]})
+                
+                if owner:
+                    bot["owner_email"] = owner.get("email", "Unknown")
+                    bot["owner_name"] = owner.get("full_name", owner.get("email", "Unknown"))
+                    bot["is_my_bot"] = str(owner["_id"]) == str(user["_id"])
+                else:
+                    bot["owner_email"] = "Unknown User"
+                    bot["owner_name"] = "Unknown User"
+                    bot["is_my_bot"] = False
+            except Exception as e:
+                print(f"Error fetching owner for bot {bot['_id']}: {e}")
+                bot["owner_email"] = "Error loading"
+                bot["owner_name"] = "Error loading"
+                bot["is_my_bot"] = False
+        else:
+            # For regular users, mark all as their own
+            bot["is_my_bot"] = True
     
     return bots  # Return array directly, not wrapped in object
 
