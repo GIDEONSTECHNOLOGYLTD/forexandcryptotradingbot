@@ -917,6 +917,7 @@ class StripeCheckout(BaseModel):
 class CryptoPayment(BaseModel):
     plan: str
     crypto_currency: str  # BTC, ETH, USDT
+    network: Optional[str] = None  # TRC20, ERC20, BEP20, etc.
     amount: float
     tx_hash: Optional[str] = None
 
@@ -1179,12 +1180,13 @@ async def get_crypto_networks():
 
 @app.post("/api/payments/crypto/initialize")
 async def initialize_crypto_payment(payment: CryptoPayment, user: dict = Depends(get_current_user)):
-    """Initialize crypto payment - FULLY IMPLEMENTED"""
+    """Initialize crypto payment - FULLY IMPLEMENTED with network selection"""
     try:
         result = payment_handler.initialize_payment(
             user_id=str(user["_id"]),
             plan=payment.plan,
-            crypto=payment.crypto_currency
+            crypto=payment.crypto_currency,
+            network=payment.network  # Pass network parameter
         )
         return result
     except ValueError as e:

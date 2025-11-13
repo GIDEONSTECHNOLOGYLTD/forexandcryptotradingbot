@@ -116,7 +116,7 @@ class OKXPaymentHandler:
                 'error': 'Deposit address generation requires OKX account verification'
             }
     
-    def initialize_payment(self, user_id: str, plan: str, crypto: str) -> Dict:
+    def initialize_payment(self, user_id: str, plan: str, crypto: str, network: str = None) -> Dict:
         """Initialize a new crypto payment"""
         
         # Validate inputs
@@ -133,8 +133,8 @@ class OKXPaymentHandler:
         crypto_amount = self.calculate_crypto_amount(plan, crypto)
         usd_amount = self.plan_prices[plan]
         
-        # Get deposit address
-        deposit_info = self.create_deposit_address(crypto)
+        # Get deposit address with specified network
+        deposit_info = self.create_deposit_address(crypto, network)
         
         # Create payment record
         payment_record = {
