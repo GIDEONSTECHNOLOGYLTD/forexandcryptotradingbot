@@ -23,15 +23,28 @@ export default function PortfolioScreen() {
   });
 
   useEffect(() => {
-    fetchPortfolioData();
+    fetchPortfolioData(true); // Show loader on initial load
+    
+    // Auto-refresh every 5 seconds for real-time balance updates
+    const interval = setInterval(() => {
+      fetchPortfolioData(false); // No loader on auto-refresh
+    }, 5000);
+    
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchPortfolioData = async () => {
+  const fetchPortfolioData = async (showLoader = false) => {
     try {
-      setLoading(true);
+      if (showLoader) {
+        setLoading(true);
+      }
       
-      // Fetch balance
-      const balanceData = await api.getUserBalance();
+      // Fetch balance and dashboard in parallel for speed
+      const [balanceData, dashboardData] = await Promise.all([
+        api.getUserBalance(),
+        api.getDashboard(),
+      ]);
+      
       setBalance({
         total: balanceData.total || 0,
         available: balanceData.available || 0,
@@ -39,8 +52,6 @@ export default function PortfolioScreen() {
         unrealized_pnl: balanceData.unrealized_pnl || 0,
       });
 
-      // Fetch dashboard stats
-      const dashboardData = await api.getDashboard();
       setStats({
         totalTrades: dashboardData.stats?.total_trades || 0,
         winRate: dashboardData.stats?.win_rate || 0,

@@ -51,6 +51,10 @@ class BalanceFetcher:
             
             return {
                 'success': True,
+                'total': total_usdt,
+                'available': balance['free'].get('USDT', 0),
+                'locked': balance['used'].get('USDT', 0),
+                'unrealized_pnl': 0,
                 'total_usdt': total_usdt,
                 'assets': assets,
                 'account_type': 'admin'
@@ -114,6 +118,10 @@ class BalanceFetcher:
             
             return {
                 'success': True,
+                'total': total_usdt,
+                'available': balance['free'].get('USDT', 0),
+                'locked': balance['used'].get('USDT', 0),
+                'unrealized_pnl': 0,
                 'total_usdt': total_usdt,
                 'assets': assets,
                 'account_type': 'user',

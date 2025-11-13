@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
+import * as LocalAuthentication from 'expo-local-authentication';
 
 export default function SplashScreen({ navigation }: any) {
   useEffect(() => {
@@ -22,7 +23,35 @@ export default function SplashScreen({ navigation }: any) {
       if (!onboardingComplete) {
         navigation.replace('Onboarding');
       } else if (token) {
-        navigation.replace('MainTabs');
+        // Check if biometric is enabled
+        const biometricEnabled = await SecureStore.getItemAsync('biometricEnabled');
+        
+        if (biometricEnabled === 'true') {
+          // Trigger biometric authentication
+          const hasHardware = await LocalAuthentication.hasHardwareAsync();
+          const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+          
+          if (hasHardware && isEnrolled) {
+            const result = await LocalAuthentication.authenticateAsync({
+              promptMessage: 'Authenticate to access Trading Bot',
+              fallbackLabel: 'Use Passcode',
+              cancelLabel: 'Cancel',
+            });
+            
+            if (result.success) {
+              navigation.replace('MainTabs');
+            } else {
+              Alert.alert('Authentication Failed', 'Please try again or use your password.');
+              navigation.replace('Login');
+            }
+          } else {
+            // Biometric not available, proceed without it
+            navigation.replace('MainTabs');
+          }
+        } else {
+          // Biometric not enabled, proceed normally
+          navigation.replace('MainTabs');
+        }
       } else {
         navigation.replace('Login');
       }

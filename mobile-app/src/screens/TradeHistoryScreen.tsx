@@ -47,10 +47,10 @@ export default function TradeHistoryScreen() {
   useEffect(() => {
     loadTrades();
     
-    // Auto-refresh every 15 seconds
+    // Auto-refresh every 5 seconds for real-time trade updates
     const interval = setInterval(() => {
       loadTrades();
-    }, 15000);
+    }, 5000);
     
     return () => clearInterval(interval);
   }, []);

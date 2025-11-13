@@ -48,10 +48,10 @@ export default function AdminBotScreen() {
   useEffect(() => {
     loadData();
     
-    // Auto-refresh every 10 seconds
+    // Auto-refresh every 5 seconds for real-time bot status
     const interval = setInterval(() => {
       loadData();
-    }, 10000);
+    }, 5000);
     
     return () => clearInterval(interval);
   }, []);

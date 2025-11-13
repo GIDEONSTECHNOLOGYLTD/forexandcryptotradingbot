@@ -30,6 +30,13 @@ export default function HomeScreen({ navigation }: any) {
 
   useEffect(() => {
     fetchDashboardData();
+    
+    // Auto-refresh every 5 seconds for real-time updates
+    const interval = setInterval(() => {
+      fetchDashboardData();
+    }, 5000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const fetchDashboardData = async () => {

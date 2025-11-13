@@ -128,6 +128,16 @@ export default function PaymentScreen({ navigation }: any) {
       setPurchasing(true);
       const productId = plan === 'pro' ? PRODUCT_IDS.pro : PRODUCT_IDS.enterprise;
       
+      // MUST query products first before purchasing
+      await InAppPurchases.connectAsync();
+      const { responseCode, results } = await InAppPurchases.getProductsAsync([productId]);
+      
+      if (responseCode !== InAppPurchases.IAPResponseCode.OK || !results || results.length === 0) {
+        Alert.alert('Error', 'Product not available. Please try again.');
+        setPurchasing(false);
+        return;
+      }
+      
       await InAppPurchases.purchaseItemAsync(productId);
       
       // Listen for purchase updates
