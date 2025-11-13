@@ -36,8 +36,8 @@ class NewListingBot:
         # Configuration
         self.check_interval = 60  # Check every 60 seconds
         self.buy_amount_usdt = 50  # Amount to invest per new listing
-        self.take_profit_percent = 50  # Sell at 50% profit
-        self.stop_loss_percent = 20  # Stop loss at 20% loss
+        self.take_profit_percent = 30  # Sell at 30% profit
+        self.stop_loss_percent = 15  # Stop loss at 15% loss
         self.max_hold_time = 3600  # Max hold time: 1 hour
         
         # Initialize known markets

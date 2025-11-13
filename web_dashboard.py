@@ -1853,8 +1853,8 @@ async def get_available_permissions():
 # ============================================================================
 
 class NewListingConfig(BaseModel):
-    buy_amount_usdt: float = 10  # Reasonable for $16.78 balance (leaves buffer)
-    take_profit_percent: float = 50  # 50% profit target
+    buy_amount_usdt: float = 50  # Investment per new listing
+    take_profit_percent: float = 30  # 30% profit target
     stop_loss_percent: float = 15  # 15% max loss
     max_hold_time: int = 3600  # 1 hour max hold
 
