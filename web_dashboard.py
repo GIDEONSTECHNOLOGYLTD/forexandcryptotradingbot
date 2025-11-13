@@ -60,18 +60,16 @@ except ImportError as e:
     PUSH_NOTIFICATIONS_AVAILABLE = False
     push_service = None
 
-# Import API service
+# Import API service (will initialize after db is created)
 try:
     from api_service import APIKeyManager, APIRateLimiter
-    api_key_manager = APIKeyManager(db) if MONGODB_AVAILABLE else None
-    api_rate_limiter = APIRateLimiter()
     API_SERVICE_AVAILABLE = True
-    print(f"{Fore.GREEN}✅ API service initialized{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}✅ API service imported{Style.RESET_ALL}")
 except ImportError as e:
     print(f"{Fore.YELLOW}⚠️  API service not available: {e}{Style.RESET_ALL}")
     API_SERVICE_AVAILABLE = False
-    api_key_manager = None
-    api_rate_limiter = None
+    APIKeyManager = None
+    APIRateLimiter = None
 
 # Import new listing bot
 try:
@@ -121,6 +119,15 @@ db = MongoTradingDatabase()
 users_collection = db.db['users']
 subscriptions_collection = db.db['subscriptions']
 bot_instances_collection = db.db['bot_instances']
+
+# Initialize API service now that db exists
+if API_SERVICE_AVAILABLE:
+    api_key_manager = APIKeyManager(db)
+    api_rate_limiter = APIRateLimiter()
+    print(f"{Fore.GREEN}✅ API service initialized{Style.RESET_ALL}")
+else:
+    api_key_manager = None
+    api_rate_limiter = None
 
 # Initialize trading managers
 if TRADING_MODULES_AVAILABLE:
