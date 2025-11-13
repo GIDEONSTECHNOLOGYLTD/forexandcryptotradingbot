@@ -36,6 +36,30 @@ except ImportError as e:
     TELEGRAM_AVAILABLE = False
     logger.warning(f"⚠️ Telegram not available: {e}")
 
+# Import advanced strategies
+try:
+    from advanced_strategies import (
+        GridTradingStrategy,
+        DCAStrategy,
+        ArbitrageDetector,
+        MultiTimeframeAnalyzer,
+        StrategySelector
+    )
+    ADVANCED_STRATEGIES_AVAILABLE = True
+    logger.info("✅ Advanced strategies imported (Grid, DCA, Arbitrage)")
+except ImportError as e:
+    ADVANCED_STRATEGIES_AVAILABLE = False
+    logger.warning(f"⚠️ Advanced strategies not available: {e}")
+
+# Import enhanced risk manager
+try:
+    from enhanced_risk_manager import EnhancedRiskManager
+    ENHANCED_RISK_AVAILABLE = True
+    logger.info("✅ Enhanced risk manager imported (Kelly Criterion)")
+except ImportError as e:
+    ENHANCED_RISK_AVAILABLE = False
+    logger.warning(f"⚠️ Enhanced risk manager not available: {e}")
+
 class TradingBotEngine:
     """Complete trading bot engine with real-time execution"""
     
