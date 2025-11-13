@@ -17,15 +17,16 @@ const TRADING_PAIRS = {
   ]
 };
 
-export default function BotConfigScreen({ navigation }: any) {
+export default function BotConfigScreen({ route, navigation }: any) {
   const { user, isAdmin } = useUser();
+  const { bot, isEditing } = route.params || {};
   
-  // Basic Config
-  const [botType, setBotType] = useState('momentum');
-  const [pairCategory, setPairCategory] = useState('crypto');
-  const [symbol, setSymbol] = useState('BTC/USDT');
-  const [capital, setCapital] = useState('20');
-  const [paperTrading, setPaperTrading] = useState(!user?.exchange_connected && !isAdmin);
+  // Basic Config - Pre-fill if editing
+  const [botType, setBotType] = useState(bot?.config?.bot_type || 'momentum');
+  const [pairCategory, setPairCategory] = useState(bot?.config?.symbol?.includes('/') ? 'crypto' : 'crypto');
+  const [symbol, setSymbol] = useState(bot?.config?.symbol || 'BTC/USDT');
+  const [capital, setCapital] = useState(bot?.config?.capital?.toString() || '20');
+  const [paperTrading, setPaperTrading] = useState(bot?.config?.paper_trading ?? (!user?.exchange_connected && !isAdmin));
   
   // Advanced Config (matching backend)
   const [initialCapital, setInitialCapital] = useState('10000');
@@ -53,7 +54,13 @@ export default function BotConfigScreen({ navigation }: any) {
       return;
     }
 
-    // Check trial limits for free users
+    // Skip trial check if editing
+    if (isEditing) {
+      await saveBotNow();
+      return;
+    }
+
+    // Check trial limits for free users (only for new bots)
     if (!paperTrading && user?.subscription === 'free' && !isAdmin) {
       Alert.alert(
         '🎁 Free Trial',
@@ -107,6 +114,34 @@ export default function BotConfigScreen({ navigation }: any) {
       } else {
         Alert.alert('Error', errorMsg);
       }
+    }
+  };
+
+  const saveBotNow = async () => {
+    try {
+      const config = {
+        bot_type: botType,
+        symbol: symbol.toUpperCase().trim(),
+        capital: parseFloat(capital),
+        initial_capital: parseFloat(initialCapital),
+        max_position_size: parseFloat(maxPositionSize),
+        stop_loss_percent: parseFloat(stopLoss),
+        take_profit_percent: parseFloat(takeProfit),
+        max_open_positions: parseInt(maxOpenPositions),
+        timeframe: timeframe,
+        paper_trading: paperTrading,
+      };
+      
+      // Update bot via API (you'll need to add this endpoint)
+      await api.updateBot(bot._id || bot.id, config);
+      
+      Alert.alert(
+        '✅ Bot Updated Successfully!',
+        `${botType.toUpperCase()} bot for ${symbol.toUpperCase()}\nCapital: $${capital}\nMode: ${paperTrading ? 'Paper Trading' : 'Real Trading'}\nStop Loss: ${stopLoss}% | Take Profit: ${takeProfit}%`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.detail || 'Failed to update bot');
     }
   };
 
@@ -236,7 +271,7 @@ export default function BotConfigScreen({ navigation }: any) {
       )}
 
       <TouchableOpacity style={styles.button} onPress={handleCreate}>
-        <Text style={styles.buttonText}>Create Bot</Text>
+        <Text style={styles.buttonText}>{isEditing ? 'Update Bot' : 'Create Bot'}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

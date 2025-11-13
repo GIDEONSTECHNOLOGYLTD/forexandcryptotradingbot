@@ -128,13 +128,11 @@ export default function TradingScreen({ navigation }: any) {
   };
 
   const handleUpdateBot = (bot: any) => {
-    Alert.alert(
-      'Update Bot',
-      'Bot update feature coming soon! You can create a new bot with updated settings.',
-      [{ text: 'OK' }]
-    );
-    // TODO: Navigate to edit screen with bot data pre-filled
-    // navigation.navigate('BotConfig', { bot });
+    // Navigate to BotConfig screen with bot data for editing
+    navigation.navigate('BotConfig', { 
+      bot: bot,
+      isEditing: true 
+    });
   };
 
   const getStatusColor = (status: string) => {

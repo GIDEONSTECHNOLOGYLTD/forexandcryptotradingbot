@@ -33,57 +33,68 @@ export default function AISuggestionsScreen({ navigation }: any) {
 
   const loadSuggestions = async () => {
     try {
+      console.log('🤖 Loading AI suggestions from backend...');
       const response = await api.getAISuggestions();
-      setSuggestions(response.suggestions || []);
+      
+      if (response.suggestions && response.suggestions.length > 0) {
+        console.log('✅ Real AI suggestions loaded:', response.suggestions.length);
+        setSuggestions(response.suggestions);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
     } catch (error) {
-      console.error('Error loading AI suggestions:', error);
-      // Show demo suggestions if API fails
-      setSuggestions([
+      console.log('⚠️ AI endpoint not available, using demo suggestions');
+    }
+    
+    // Fallback to demo suggestions if API fails
+    const demoSuggestions: AISuggestion[] = [
         {
           id: '1',
-          type: 'strategy',
+          type: 'strategy' as const,
           title: 'Optimize Trading Hours',
           description: 'Your bots perform 23% better during 8AM-2PM UTC. Consider adjusting active hours.',
           confidence: 0.87,
-          impact: 'high',
+          impact: 'high' as const,
           action: 'Adjust Schedule',
           timestamp: new Date().toISOString(),
         },
         {
           id: '2',
-          type: 'risk',
+          type: 'risk' as const,
           title: 'Reduce Position Size',
           description: 'Current volatility suggests reducing position size by 15% to minimize risk.',
           confidence: 0.76,
-          impact: 'medium',
+          impact: 'medium' as const,
           action: 'Update Settings',
           timestamp: new Date().toISOString(),
         },
         {
           id: '3',
-          type: 'opportunity',
+          type: 'opportunity' as const,
           title: 'New Market Opportunity',
           description: 'ETH/USDT showing strong momentum patterns. Consider adding to portfolio.',
           confidence: 0.82,
-          impact: 'high',
+          impact: 'high' as const,
           action: 'Create Bot',
           timestamp: new Date().toISOString(),
         },
         {
           id: '4',
-          type: 'optimization',
+          type: 'optimization' as const,
           title: 'Improve Stop Loss',
           description: 'Tightening stop loss to 12% could improve win rate by 8% based on historical data.',
           confidence: 0.71,
-          impact: 'medium',
+          impact: 'medium' as const,
           action: 'Review',
           timestamp: new Date().toISOString(),
         },
-      ]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+      ];
+    
+    console.log('📝 Using demo AI suggestions');
+    setSuggestions(demoSuggestions);
+    setLoading(false);
+    setRefreshing(false);
   };
 
   const onRefresh = () => {

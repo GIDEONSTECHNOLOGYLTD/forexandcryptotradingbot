@@ -10,6 +10,7 @@ export default function ManageSubscriptionsScreen({ navigation }: any) {
   const [users, setUsers] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadUsers();
@@ -17,15 +18,23 @@ export default function ManageSubscriptionsScreen({ navigation }: any) {
 
   const loadUsers = async () => {
     try {
+      setLoading(true);
+      setError(null);
       const token = await SecureStore.getItemAsync('authToken');
-      const response = await axios.get(`${API_BASE_URL}/admin/users`, {
+      
+      console.log('📊 Loading users for subscription management...');
+      const response = await axios.get(`${API_BASE_URL}/users`, {
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 30000,
+        timeout: 120000,
       });
-      setUsers(response.data.users || []);
-    } catch (error) {
-      console.error('Error loading users:', error);
-      Alert.alert('Error', 'Failed to load users');
+      
+      console.log('✅ Users loaded:', response.data.length || 0);
+      setUsers(response.data || []);
+      setError(null);
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.detail || error.message || 'Failed to load users';
+      console.error('❌ Error loading users:', errorMsg);
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -76,12 +85,54 @@ export default function ManageSubscriptionsScreen({ navigation }: any) {
     }
   };
 
+  // Show loading
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#111827" />
+          </TouchableOpacity>
+          <Text style={styles.title}>Manage Subscriptions</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={[styles.container, styles.centerContent]}>
+          <Ionicons name="sync" size={48} color="#667eea" />
+          <Text style={styles.loadingText}>Loading users...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Show error
+  if (error && !loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#111827" />
+          </TouchableOpacity>
+          <Text style={styles.title}>Manage Subscriptions</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={[styles.container, styles.centerContent]}>
+          <Ionicons name="alert-circle" size={48} color="#ef4444" />
+          <Text style={styles.errorText}>Failed to Load</Text>
+          <Text style={styles.errorSubtext}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadUsers}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
+          </TouchableOpacity>
         <Text style={styles.title}>Manage Subscriptions</Text>
         <TouchableOpacity onPress={loadUsers}>
           <Ionicons name="refresh" size={24} color="#667eea" />
@@ -92,7 +143,13 @@ export default function ManageSubscriptionsScreen({ navigation }: any) {
         style={styles.scrollView}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {users.map((user) => (
+        {users.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="people-outline" size={64} color="#9ca3af" />
+            <Text style={styles.emptyText}>No users found</Text>
+          </View>
+        ) : (
+          users.map((user) => (
           <View key={user._id} style={styles.userCard}>
             <View style={styles.userHeader}>
               <View style={{ flex: 1 }}>
@@ -125,7 +182,8 @@ export default function ManageSubscriptionsScreen({ navigation }: any) {
               <Text style={styles.updateButtonText}>Update Subscription</Text>
             </TouchableOpacity>
           </View>
-        ))}
+        ))
+        )}
       </ScrollView>
     </View>
   );
@@ -190,4 +248,50 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   updateButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    color: '#667eea',
+  },
+  errorText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 20,
+    color: '#ef4444',
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 10,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  retryButton: {
+    backgroundColor: '#667eea',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginTop: 20,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 60,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#9ca3af',
+    marginTop: 16,
+  },
 });

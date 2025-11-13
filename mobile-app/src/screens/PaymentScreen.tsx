@@ -103,41 +103,39 @@ export default function PaymentScreen({ navigation }: any) {
     try {
       setPurchasing(true);
       
-      // Show demo address if backend not configured
-      const demoAddresses = {
-        'TRC20': 'TXYZa1b2c3d4e5f6g7h8i9j0k1l2m3n4o5',
-        'ERC20': '0x1234567890abcdef1234567890abcdef12345678',
-        'BEP20': '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-      };
+      console.log('🔐 Initializing REAL crypto payment...');
+      console.log('Network:', cryptoNetwork);
+      console.log('Currency:', cryptoCurrency);
+      console.log('Plan:', plan);
       
-      try {
-        const response = await api.initializeCryptoPayment({
-          plan: plan,
-          crypto_currency: cryptoCurrency,
-          network: cryptoNetwork,
-          amount: plan === 'pro' ? 29 : 99
-        });
-        
-        const address = response.deposit_address || response.address;
-        const amount = response.crypto_amount || response.amount || (plan === 'pro' ? 29 : 99);
-        
-        setCryptoAddress(address);
-        setCryptoAmount(amount);
-      } catch (apiError) {
-        // Use demo address if API fails
-        setCryptoAddress(demoAddresses[cryptoNetwork as keyof typeof demoAddresses] || demoAddresses.TRC20);
-        setCryptoAmount(plan === 'pro' ? 29 : 99);
-        
-        Alert.alert(
-          'Demo Mode',
-          'Crypto payment is in demo mode. Contact support at ceo@gideonstechnology.com to activate real crypto payments.',
-          [{ text: 'OK' }]
-        );
-      }
+      const response = await api.initializeCryptoPayment({
+        plan: plan,
+        crypto_currency: cryptoCurrency,
+        network: cryptoNetwork,
+        amount: plan === 'pro' ? 29 : 99
+      });
       
+      console.log('✅ Real OKX address received:', response);
+      
+      const address = response.deposit_address || response.address;
+      const amount = response.crypto_amount || response.amount || (plan === 'pro' ? 29 : 99);
+      
+      setCryptoAddress(address);
+      setCryptoAmount(amount);
       setShowCryptoModal(true);
+      
+      Alert.alert(
+        'Payment Address Generated',
+        `Send exactly ${amount} ${cryptoCurrency} to the address shown. Payment will be confirmed automatically.`,
+        [{ text: 'OK' }]
+      );
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to initialize crypto payment. Please try Card or App Store payment.');
+      console.error('❌ Crypto payment error:', error);
+      Alert.alert(
+        'Error',
+        error.response?.data?.detail || 'Failed to generate payment address. Please try again or contact support.',
+        [{ text: 'OK' }]
+      );
     } finally {
       setPurchasing(false);
     }

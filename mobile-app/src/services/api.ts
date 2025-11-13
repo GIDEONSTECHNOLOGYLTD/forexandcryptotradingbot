@@ -113,6 +113,11 @@ export const stopBot = async (botId: string) => {
   return response.data;
 };
 
+export const updateBot = async (botId: string, config: any) => {
+  const response = await api.put(`/bots/${botId}`, config);
+  return response.data;
+};
+
 export const deleteBot = async (botId: string) => {
   const response = await api.delete(`/bots/${botId}`);
   return response.data;
@@ -287,6 +292,7 @@ export default {
   createBot,
   startBot,
   stopBot,
+  updateBot,
   deleteBot,
   getTrades,
   getPerformance,
