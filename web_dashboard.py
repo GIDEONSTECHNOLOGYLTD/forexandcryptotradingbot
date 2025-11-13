@@ -1967,7 +1967,7 @@ async def start_new_listing_bot(config: NewListingConfig, user: dict = Depends(g
         import ccxt
         exchange = ccxt.okx({
             'apiKey': user.get('okx_api_key'),
-            'secret': user.get('okx_api_secret'),
+            'secret': user.get('okx_secret_key'),  # Fixed: was okx_api_secret
             'password': user.get('okx_passphrase'),
             'enableRateLimit': True
         })
