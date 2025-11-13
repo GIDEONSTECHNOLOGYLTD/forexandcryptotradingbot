@@ -2764,12 +2764,125 @@ async def get_recommended_strategy(symbol: str):
         }
 
 
+# ============================================================================
+# ADMIN CONFIGURATION ENDPOINTS
+# ============================================================================
+
+@app.get("/api/admin/bot-settings")
+async def get_admin_bot_settings(user: dict = Depends(get_current_user)):
+    """Get admin bot configuration settings"""
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    settings = db.db['admin_settings'].find_one({"_id": "bot_config"}) or {
+        "min_position_size": 10.0,  # $10 minimum
+        "max_position_size": 1000.0,  # $1000 maximum
+        "default_position_size": 20.0,  # $20 default
+        "flexible_sizing": True,
+        "auto_compound": True,  # Reinvest profits
+        "profit_withdrawal_threshold": 0,  # Withdraw when profit > this
+        "max_drawdown_percent": 20,  # Stop if down 20%
+    }
+    
+    return settings
+
+@app.put("/api/admin/bot-settings")
+async def update_admin_bot_settings(
+    min_position_size: float = 10.0,
+    max_position_size: float = 1000.0,
+    default_position_size: float = 20.0,
+    auto_compound: bool = True,
+    profit_withdrawal_threshold: float = 0,
+    user: dict = Depends(get_current_user)
+):
+    """Update admin bot configuration"""
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    settings = {
+        "_id": "bot_config",
+        "min_position_size": min_position_size,
+        "max_position_size": max_position_size,
+        "default_position_size": default_position_size,
+        "flexible_sizing": True,
+        "auto_compound": auto_compound,
+        "profit_withdrawal_threshold": profit_withdrawal_threshold,
+        "updated_at": datetime.utcnow(),
+        "updated_by": user['email']
+    }
+    
+    db.db['admin_settings'].update_one(
+        {"_id": "bot_config"},
+        {"$set": settings},
+        upsert=True
+    )
+    
+    return {"success": True, "settings": settings}
+
+@app.post("/api/admin/test-okx-connection")
+async def test_okx_connection(user: dict = Depends(get_current_user)):
+    """Test OKX API connection for admin"""
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    try:
+        import ccxt
+        print(f"{Fore.CYAN}🔄 Testing connection to OKX...{Style.RESET_ALL}")
+        
+        # Check if we have OKX credentials
+        if not config.OKX_API_KEY or not config.OKX_SECRET_KEY:
+            return {
+                "success": False,
+                "message": "OKX credentials not configured in environment",
+                "status": "missing_credentials"
+            }
+        
+        exchange = ccxt.okx({
+            'apiKey': config.OKX_API_KEY,
+            'secret': config.OKX_SECRET_KEY,
+            'password': config.OKX_PASSPHRASE,
+            'enableRateLimit': True,
+        })
+        
+        # Test fetching balance
+        balance = exchange.fetch_balance()
+        
+        # Test fetching ticker
+        ticker = exchange.fetch_ticker('BTC/USDT')
+        
+        print(f"{Fore.GREEN}✅ OKX Connection Successful!{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}📊 USDT Balance: ${balance['USDT']['free']:.2f}{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}💰 BTC Price: ${ticker['last']:.2f}{Style.RESET_ALL}")
+        
+        return {
+            "success": True,
+            "message": "OKX connection successful",
+            "status": "connected",
+            "balance": {
+                "USDT": balance['USDT']['free'] if 'USDT' in balance else 0,
+                "total_usdt": balance['total'].get('USDT', 0)
+            },
+            "btc_price": ticker['last'],
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"{Fore.RED}❌ OKX Connection Failed: {e}{Style.RESET_ALL}")
+        return {
+            "success": False,
+            "message": f"Connection failed: {str(e)}",
+            "status": "error",
+            "error": str(e)
+        }
+
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize on startup"""
     print(f"{Fore.GREEN}✅ Trading Bot API Started{Style.RESET_ALL}")
     print(f"{Fore.CYAN}📊 Admin Dashboard: http://localhost:8000/docs{Style.RESET_ALL}")
     print(f"{Fore.CYAN}🔌 WebSocket: ws://localhost:8000/ws/trades{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}💰 Flexible Position Sizing: $10-$1000{Style.RESET_ALL}")
     
     # Update existing admin accounts (does NOT change password)
     admin_emails = ["admin@tradingbot.com", "ceo@gideonstechnology.com"]
@@ -2785,10 +2898,12 @@ async def startup_event():
                     "subscription": "enterprise",
                     "exchange_connected": True,
                     "paper_trading": False,
-                    "is_active": True
+                    "is_active": True,
+                    "all_features_free": True,  # Admin gets everything free!
+                    "balance": 1000.0  # Starting admin balance
                 }}
             )
-            print(f"{Fore.GREEN}✅ Admin account updated: {admin_email} → Enterprise (password unchanged){Style.RESET_ALL}")
+            print(f"{Fore.GREEN}✅ Admin account updated: {admin_email} → Full Access (FREE){Style.RESET_ALL}")
         else:
             # Admin account doesn't exist - they need to signup first
             print(f"{Fore.YELLOW}⚠️  Admin account not found: {admin_email} - Please signup first{Style.RESET_ALL}")
