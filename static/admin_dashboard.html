@@ -518,7 +518,15 @@
 
             await loadOverview();
             await loadUsers();
+            await loadBotStatus();
+            await loadAdminBalance();
             initCharts();
+            
+            // Refresh bot status every 30 seconds
+            setInterval(() => {
+                loadBotStatus();
+                loadAdminBalance();
+            }, 30000);
         }
 
         async function loadOverview() {
@@ -696,8 +704,8 @@
                     document.getElementById('botStatus').textContent = 'Not Running';
                 }
 
-                document.getElementById('botTrades').textContent = data.total_trades || 0;
-                document.getElementById('botPnL').textContent = '$' + (data.total_pnl || 0).toFixed(2);
+                document.getElementById('botTrades').textContent = data.stats?.total_trades || 0;
+                document.getElementById('botPnL').textContent = '$' + (data.stats?.total_pnl || 0).toFixed(2);
 
                 // Load config if exists
                 if (data.config) {
@@ -735,17 +743,6 @@
             event.preventDefault();
             hideBotConfig();
             alert('✅ Configuration saved! Click "Start Bot" to begin trading.');
-        }
-
-        // Load bot status on dashboard load
-        if (token) {
-            loadBotStatus();
-            loadAdminBalance();
-            // Refresh every 30 seconds
-            setInterval(() => {
-                loadBotStatus();
-                loadAdminBalance();
-            }, 30000);
         }
     </script>
 </body>
