@@ -50,6 +50,29 @@ except ImportError as e:
     BOT_ENGINE_AVAILABLE = False
     bot_engine = None
 
+# Import push notifications
+try:
+    from push_notifications import push_service
+    PUSH_NOTIFICATIONS_AVAILABLE = True
+    print(f"{Fore.GREEN}✅ Push notifications initialized{Style.RESET_ALL}")
+except ImportError as e:
+    print(f"{Fore.YELLOW}⚠️  Push notifications not available: {e}{Style.RESET_ALL}")
+    PUSH_NOTIFICATIONS_AVAILABLE = False
+    push_service = None
+
+# Import API service
+try:
+    from api_service import APIKeyManager, APIRateLimiter
+    api_key_manager = APIKeyManager(db) if MONGODB_AVAILABLE else None
+    api_rate_limiter = APIRateLimiter()
+    API_SERVICE_AVAILABLE = True
+    print(f"{Fore.GREEN}✅ API service initialized{Style.RESET_ALL}")
+except ImportError as e:
+    print(f"{Fore.YELLOW}⚠️  API service not available: {e}{Style.RESET_ALL}")
+    API_SERVICE_AVAILABLE = False
+    api_key_manager = None
+    api_rate_limiter = None
+
 # Configuration
 SECRET_KEY = config.JWT_SECRET_KEY
 ALGORITHM = "HS256"
@@ -852,12 +875,27 @@ async def get_bot_status_endpoint(bot_id: str, user: dict = Depends(get_current_
 # PAYMENT & SUBSCRIPTION ENDPOINTS
 # ============================================================================
 
+# Import Stripe payment processor
+try:
+    from payment_integration import PaymentProcessor, SUBSCRIPTION_PLANS
+    payment_processor = PaymentProcessor()
+    STRIPE_AVAILABLE = True
+except Exception as e:
+    print(f"{Fore.YELLOW}⚠️  Stripe not configured: {e}{Style.RESET_ALL}")
+    payment_processor = None
+    STRIPE_AVAILABLE = False
+
 # Payment models
 class PaystackPayment(BaseModel):
     email: EmailStr
     amount: float
     plan: str
     reference: Optional[str] = None
+
+class StripeCheckout(BaseModel):
+    plan: str  # pro or enterprise
+    success_url: Optional[str] = None
+    cancel_url: Optional[str] = None
 
 class CryptoPayment(BaseModel):
     plan: str
@@ -869,6 +907,150 @@ class InAppPurchase(BaseModel):
     plan: str
     receipt_data: str  # iOS receipt or Android purchase token
     platform: str  # ios or android
+
+# ============================================================================
+# STRIPE PAYMENT INTEGRATION
+# ============================================================================
+
+@app.post("/api/payments/stripe/create-checkout")
+async def create_stripe_checkout(checkout: StripeCheckout, user: dict = Depends(get_current_user)):
+    """Create Stripe checkout session"""
+    if not STRIPE_AVAILABLE or not payment_processor:
+        raise HTTPException(
+            status_code=503,
+            detail="Stripe payment is not configured. Please use alternative payment methods."
+        )
+    
+    try:
+        import stripe
+        
+        # Get plan details
+        plan_info = SUBSCRIPTION_PLANS.get(checkout.plan)
+        if not plan_info:
+            raise HTTPException(status_code=400, detail="Invalid plan")
+        
+        price_id = plan_info.get('price_id')
+        if not price_id:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Stripe Price ID not configured for {checkout.plan} plan. Please contact support."
+            )
+        
+        # Create or get Stripe customer
+        customer_id = user.get('stripe_customer_id')
+        if not customer_id:
+            customer_id = payment_processor.create_customer(
+                email=user['email'],
+                name=user.get('full_name', user['email']),
+                metadata={'user_id': str(user['_id'])}
+            )
+            # Save customer ID
+            users_collection.update_one(
+                {"_id": user["_id"]},
+                {"$set": {"stripe_customer_id": customer_id}}
+            )
+        
+        # Create checkout session
+        success_url = checkout.success_url or f"{config.API_URL}/payment/success?session_id={{CHECKOUT_SESSION_ID}}"
+        cancel_url = checkout.cancel_url or f"{config.API_URL}/payment/cancelled"
+        
+        session = stripe.checkout.Session.create(
+            customer=customer_id,
+            payment_method_types=['card'],
+            line_items=[{
+                'price': price_id,
+                'quantity': 1,
+            }],
+            mode='subscription',
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata={
+                'user_id': str(user['_id']),
+                'plan': checkout.plan
+            }
+        )
+        
+        return {
+            "checkout_url": session.url,
+            "session_id": session.id
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Checkout creation failed: {str(e)}")
+
+@app.post("/api/payments/stripe/webhook")
+async def stripe_webhook(request: dict):
+    """Handle Stripe webhook events"""
+    if not STRIPE_AVAILABLE or not payment_processor:
+        raise HTTPException(status_code=503, detail="Stripe not configured")
+    
+    try:
+        # Get raw body and signature
+        payload = await request.body()
+        sig_header = request.headers.get('stripe-signature')
+        
+        # Handle webhook
+        result = payment_processor.handle_webhook(payload, sig_header)
+        
+        if result and result.get('action') == 'subscription_created':
+            # Update user subscription
+            subscription_id = result.get('subscription_id')
+            # Get subscription details from Stripe
+            import stripe
+            subscription = stripe.Subscription.retrieve(subscription_id)
+            user_id = subscription.metadata.get('user_id')
+            plan = subscription.metadata.get('plan')
+            
+            if user_id and plan:
+                users_collection.update_one(
+                    {"_id": user_id},
+                    {"$set": {
+                        "subscription": plan,
+                        "stripe_subscription_id": subscription_id,
+                        "subscription_start": datetime.utcnow(),
+                        "subscription_end": datetime.fromtimestamp(subscription.current_period_end)
+                    }}
+                )
+        
+        return {"status": "success"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/payments/stripe/plans")
+async def get_stripe_plans():
+    """Get available Stripe subscription plans"""
+    return {
+        "plans": SUBSCRIPTION_PLANS,
+        "stripe_available": STRIPE_AVAILABLE
+    }
+
+@app.post("/api/payments/stripe/cancel-subscription")
+async def cancel_stripe_subscription(user: dict = Depends(get_current_user)):
+    """Cancel user's Stripe subscription"""
+    if not STRIPE_AVAILABLE or not payment_processor:
+        raise HTTPException(status_code=503, detail="Stripe not configured")
+    
+    subscription_id = user.get('stripe_subscription_id')
+    if not subscription_id:
+        raise HTTPException(status_code=404, detail="No active subscription found")
+    
+    try:
+        success = payment_processor.cancel_subscription(subscription_id)
+        if success:
+            # Update user
+            users_collection.update_one(
+                {"_id": user["_id"]},
+                {"$set": {
+                    "subscription": "free",
+                    "subscription_cancelled_at": datetime.utcnow()
+                }}
+            )
+            return {"message": "Subscription cancelled successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to cancel subscription")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Paystack Integration
 @app.post("/api/payments/paystack/initialize")
@@ -1519,6 +1701,105 @@ async def list_strategy_for_sale(strategy_data: dict, user: dict = Depends(get_c
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
     raise HTTPException(status_code=503, detail="Marketplace not available")
+
+
+# ============================================================================
+# PUSH NOTIFICATIONS ENDPOINTS
+# ============================================================================
+
+class PushTokenUpdate(BaseModel):
+    push_token: str
+
+@app.post("/api/notifications/register-token")
+async def register_push_token(token_data: PushTokenUpdate, user: dict = Depends(get_current_user)):
+    """Register user's push notification token"""
+    try:
+        users_collection.update_one(
+            {"_id": user["_id"]},
+            {"$set": {"push_token": token_data.push_token, "push_token_updated": datetime.utcnow()}}
+        )
+        return {"message": "Push token registered successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/notifications/test")
+async def test_push_notification(user: dict = Depends(get_current_user)):
+    """Send test push notification"""
+    if not PUSH_NOTIFICATIONS_AVAILABLE or not push_service:
+        raise HTTPException(status_code=503, detail="Push notifications not available")
+    
+    push_token = user.get('push_token')
+    if not push_token:
+        raise HTTPException(status_code=400, detail="No push token registered")
+    
+    try:
+        result = push_service.send_notification(
+            push_token=push_token,
+            title="Test Notification",
+            body="Your push notifications are working!",
+            data={'type': 'test'}
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# API KEY MANAGEMENT ENDPOINTS
+# ============================================================================
+
+class APIKeyCreate(BaseModel):
+    name: str
+    permissions: Optional[List[str]] = None
+
+@app.post("/api/keys/generate")
+async def generate_api_key(key_data: APIKeyCreate, user: dict = Depends(get_current_user)):
+    """Generate new API key"""
+    if not API_SERVICE_AVAILABLE or not api_key_manager:
+        raise HTTPException(status_code=503, detail="API service not available")
+    
+    try:
+        key = api_key_manager.generate_api_key(
+            user_id=str(user["_id"]),
+            name=key_data.name,
+            permissions=key_data.permissions
+        )
+        return key
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/keys/list")
+async def list_api_keys(user: dict = Depends(get_current_user)):
+    """List user's API keys"""
+    if not API_SERVICE_AVAILABLE or not api_key_manager:
+        raise HTTPException(status_code=503, detail="API service not available")
+    
+    try:
+        keys = api_key_manager.list_user_api_keys(str(user["_id"]))
+        return {"keys": keys}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/keys/{api_key}")
+async def revoke_api_key(api_key: str, user: dict = Depends(get_current_user)):
+    """Revoke an API key"""
+    if not API_SERVICE_AVAILABLE or not api_key_manager:
+        raise HTTPException(status_code=503, detail="API service not available")
+    
+    try:
+        success = api_key_manager.revoke_api_key(api_key, str(user["_id"]))
+        if success:
+            return {"message": "API key revoked successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="API key not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/keys/permissions")
+async def get_available_permissions():
+    """Get list of available API permissions"""
+    from api_service import API_PERMISSIONS
+    return {"permissions": API_PERMISSIONS}
 
 
 # ============================================================================

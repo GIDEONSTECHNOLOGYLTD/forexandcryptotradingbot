@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Copy Trading & Marketplace - Trading Bot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .tab {
+            padding: 15px 30px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .tab:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .tab.active {
+            background: white;
+            color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+        }
+        
+        .experts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+        }
+        
+        .expert-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .expert-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+        
+        .expert-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .expert-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        
+        .expert-info h3 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .expert-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            background: #10b981;
+            color: white;
+            border-radius: 5px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        
+        .expert-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-value.positive {
+            color: #10b981;
+        }
+        
+        .stat-label {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .expert-description {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .follow-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .follow-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .follow-btn.following {
+            background: #e5e7eb;
+            color: #666;
+        }
+        
+        .strategies-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+        }
+        
+        .strategy-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .strategy-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+        
+        .strategy-header {
+            margin-bottom: 15px;
+        }
+        
+        .strategy-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .strategy-author {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .strategy-price {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 15px 0;
+        }
+        
+        .strategy-rating {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .stars {
+            color: #fbbf24;
+            font-size: 1.2em;
+        }
+        
+        .rating-count {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .strategy-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 10px;
+        }
+        
+        .strategy-stat {
+            text-align: center;
+        }
+        
+        .strategy-stat-value {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .strategy-stat-label {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 3px;
+        }
+        
+        .buy-btn {
+            width: 100%;
+            padding: 12px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .buy-btn:hover {
+            background: #059669;
+            transform: scale(1.02);
+        }
+        
+        .my-following {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        
+        .my-following h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .following-list {
+            display: grid;
+            gap: 15px;
+        }
+        
+        .following-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 10px;
+        }
+        
+        .following-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .following-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .following-stats {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .following-stat {
+            text-align: center;
+        }
+        
+        .following-stat-value {
+            font-weight: bold;
+            color: #10b981;
+        }
+        
+        .following-stat-label {
+            font-size: 0.8em;
+            color: #666;
+        }
+        
+        .unfollow-btn {
+            padding: 8px 20px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .unfollow-btn:hover {
+            background: #dc2626;
+        }
+        
+        .back-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .back-btn:hover {
+            background: #f0f3ff;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 15px;
+            color: #666;
+        }
+        
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/dashboard" class="back-btn">← Back to Dashboard</a>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('experts')">👥 Expert Traders</button>
+            <button class="tab" onclick="switchTab('marketplace')">🏪 Strategy Marketplace</button>
+            <button class="tab" onclick="switchTab('following')">⭐ My Following</button>
+        </div>
+        
+        <!-- Expert Traders Tab -->
+        <div id="experts" class="tab-content active">
+            <div class="header">
+                <h1>👥 Expert Traders</h1>
+                <p>Follow top performers and automatically copy their trades</p>
+            </div>
+            
+            <div class="experts-grid" id="expertsList">
+                <!-- Experts will be loaded here -->
+            </div>
+        </div>
+        
+        <!-- Strategy Marketplace Tab -->
+        <div id="marketplace" class="tab-content">
+            <div class="header">
+                <h1>🏪 Strategy Marketplace</h1>
+                <p>Buy proven trading strategies from expert traders</p>
+            </div>
+            
+            <div class="strategies-grid" id="strategiesList">
+                <!-- Strategies will be loaded here -->
+            </div>
+        </div>
+        
+        <!-- My Following Tab -->
+        <div id="following" class="tab-content">
+            <div class="header">
+                <h1>⭐ My Following</h1>
+                <p>Manage the experts you're copying</p>
+            </div>
+            
+            <div class="my-following">
+                <h2>Following</h2>
+                <div class="following-list" id="followingList">
+                    <!-- Following list will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName).classList.add('active');
+            
+            // Load data for the tab
+            if (tabName === 'experts') {
+                loadExperts();
+            } else if (tabName === 'marketplace') {
+                loadMarketplace();
+            } else if (tabName === 'following') {
+                loadFollowing();
+            }
+        }
+        
+        async function loadExperts() {
+            const token = localStorage.getItem('token');
+            const container = document.getElementById('expertsList');
+            
+            try {
+                const response = await fetch('/api/p2p/experts', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const experts = await response.json();
+                
+                if (!experts || experts.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">👥</div>
+                            <h3>No expert traders yet</h3>
+                            <p>Be the first to become an expert trader!</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = experts.map(expert => `
+                    <div class="expert-card">
+                        <div class="expert-header">
+                            <div class="expert-avatar">${expert.name ? expert.name[0].toUpperCase() : 'E'}</div>
+                            <div class="expert-info">
+                                <h3>${expert.name || 'Expert Trader'}</h3>
+                                <span class="expert-badge">✓ Verified</span>
+                            </div>
+                        </div>
+                        <div class="expert-stats">
+                            <div class="stat">
+                                <div class="stat-value positive">+${expert.roi || 150}%</div>
+                                <div class="stat-label">ROI</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">${expert.followers || 50}</div>
+                                <div class="stat-label">Followers</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">${expert.win_rate || 75}%</div>
+                                <div class="stat-label">Win Rate</div>
+                            </div>
+                        </div>
+                        <div class="expert-description">
+                            ${expert.description || 'Experienced trader specializing in crypto markets with proven track record.'}
+                        </div>
+                        <button class="follow-btn" onclick="followExpert('${expert._id || expert.id}')">
+                            Follow & Copy Trades
+                        </button>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Failed to load experts:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <h3>Failed to load experts</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function loadMarketplace() {
+            const token = localStorage.getItem('token');
+            const container = document.getElementById('strategiesList');
+            
+            try {
+                const response = await fetch('/api/p2p/marketplace', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const strategies = await response.json();
+                
+                if (!strategies || strategies.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🏪</div>
+                            <h3>No strategies available yet</h3>
+                            <p>Check back soon for new strategies!</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = strategies.map(strategy => `
+                    <div class="strategy-card">
+                        <div class="strategy-header">
+                            <div class="strategy-name">${strategy.name || 'Trading Strategy'}</div>
+                            <div class="strategy-author">by ${strategy.author || 'Expert Trader'}</div>
+                        </div>
+                        <div class="strategy-price">$${strategy.price || 50}</div>
+                        <div class="strategy-rating">
+                            <div class="stars">★★★★★</div>
+                            <div class="rating-count">(${strategy.sales || 100} sales)</div>
+                        </div>
+                        <div class="strategy-stats">
+                            <div class="strategy-stat">
+                                <div class="strategy-stat-value">+${strategy.roi || 120}%</div>
+                                <div class="strategy-stat-label">ROI</div>
+                            </div>
+                            <div class="strategy-stat">
+                                <div class="strategy-stat-value">${strategy.win_rate || 78}%</div>
+                                <div class="strategy-stat-label">Win Rate</div>
+                            </div>
+                        </div>
+                        <button class="buy-btn" onclick="buyStrategy('${strategy._id || strategy.id}')">
+                            Buy Strategy
+                        </button>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Failed to load marketplace:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <h3>Failed to load strategies</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function loadFollowing() {
+            const token = localStorage.getItem('token');
+            const container = document.getElementById('followingList');
+            
+            try {
+                const response = await fetch('/api/p2p/my-following', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                const following = data.following || [];
+                
+                if (following.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">⭐</div>
+                            <h3>Not following anyone yet</h3>
+                            <p>Start following expert traders to copy their trades</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = following.map(expert => `
+                    <div class="following-item">
+                        <div class="following-info">
+                            <div class="following-avatar">${expert.name ? expert.name[0].toUpperCase() : 'E'}</div>
+                            <div>
+                                <div style="font-weight: bold; color: #333;">${expert.name || 'Expert Trader'}</div>
+                                <div style="font-size: 0.9em; color: #666;">Following since ${new Date(expert.since || Date.now()).toLocaleDateString()}</div>
+                            </div>
+                        </div>
+                        <div class="following-stats">
+                            <div class="following-stat">
+                                <div class="following-stat-value">+${expert.roi || 0}%</div>
+                                <div class="following-stat-label">Your ROI</div>
+                            </div>
+                            <div class="following-stat">
+                                <div class="following-stat-value">${expert.copied_trades || 0}</div>
+                                <div class="following-stat-label">Trades Copied</div>
+                            </div>
+                        </div>
+                        <button class="unfollow-btn" onclick="unfollowExpert('${expert.id}')">Unfollow</button>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Failed to load following:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <h3>Failed to load following list</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function followExpert(expertId) {
+            const token = localStorage.getItem('token');
+            
+            try {
+                const response = await fetch(`/api/p2p/follow/${expertId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        copy_percentage: 10, // Copy 10% of capital
+                        max_position_size: 1000
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('Successfully following expert trader!');
+                    event.target.textContent = 'Following';
+                    event.target.classList.add('following');
+                } else {
+                    const error = await response.json();
+                    alert('Failed to follow: ' + (error.detail || 'Unknown error'));
+                }
+                
+            } catch (error) {
+                alert('Failed to follow expert: ' + error.message);
+            }
+        }
+        
+        async function unfollowExpert(expertId) {
+            const token = localStorage.getItem('token');
+            
+            if (!confirm('Are you sure you want to unfollow this expert?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/p2p/unfollow/${expertId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    alert('Unfollowed successfully');
+                    loadFollowing(); // Reload the list
+                } else {
+                    const error = await response.json();
+                    alert('Failed to unfollow: ' + (error.detail || 'Unknown error'));
+                }
+                
+            } catch (error) {
+                alert('Failed to unfollow: ' + error.message);
+            }
+        }
+        
+        async function buyStrategy(strategyId) {
+            alert('Strategy purchase will redirect to payment page');
+            // TODO: Implement payment flow
+        }
+        
+        // Load initial data
+        loadExperts();
+    </script>
+</body>
+</html>

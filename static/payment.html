@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upgrade Subscription - Trading Bot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .plan-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .plan-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        
+        .plan-card.popular {
+            border: 3px solid #667eea;
+        }
+        
+        .popular-badge {
+            position: absolute;
+            top: 20px;
+            right: -35px;
+            background: #667eea;
+            color: white;
+            padding: 5px 40px;
+            transform: rotate(45deg);
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        
+        .plan-name {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .plan-price {
+            font-size: 3em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .plan-price span {
+            font-size: 0.4em;
+            color: #666;
+        }
+        
+        .plan-features {
+            list-style: none;
+            margin: 30px 0;
+        }
+        
+        .plan-features li {
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+            color: #555;
+        }
+        
+        .plan-features li:before {
+            content: "✓";
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .upgrade-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .upgrade-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .upgrade-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .current-plan {
+            background: #f0f0f0;
+            color: #666;
+        }
+        
+        .payment-methods {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin-top: 40px;
+        }
+        
+        .payment-methods h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .payment-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .payment-option {
+            padding: 20px;
+            border: 2px solid #eee;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .payment-option:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        
+        .payment-option.selected {
+            border-color: #667eea;
+            background: #f0f3ff;
+        }
+        
+        .payment-option img {
+            width: 60px;
+            height: 60px;
+            margin-bottom: 10px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: white;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .back-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .back-btn:hover {
+            background: #f0f3ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/dashboard" class="back-btn">← Back to Dashboard</a>
+        
+        <div class="header">
+            <h1>🚀 Upgrade Your Trading</h1>
+            <p>Choose the perfect plan for your trading journey</p>
+        </div>
+        
+        <div class="plans-grid">
+            <!-- Free Plan -->
+            <div class="plan-card">
+                <div class="plan-name">Free</div>
+                <div class="plan-price">$0<span>/month</span></div>
+                <ul class="plan-features">
+                    <li>Paper Trading</li>
+                    <li>1 Bot Limit</li>
+                    <li>Basic Strategies</li>
+                    <li>Community Support</li>
+                    <li>1 Real Trade (Trial)</li>
+                </ul>
+                <button class="upgrade-btn current-plan" disabled>Current Plan</button>
+            </div>
+            
+            <!-- Pro Plan -->
+            <div class="plan-card popular">
+                <div class="popular-badge">POPULAR</div>
+                <div class="plan-name">Pro</div>
+                <div class="plan-price">$29<span>/month</span></div>
+                <ul class="plan-features">
+                    <li>Live Trading</li>
+                    <li>3 Bots</li>
+                    <li>All Strategies</li>
+                    <li>Telegram Alerts</li>
+                    <li>Priority Support</li>
+                    <li>Advanced Analytics</li>
+                </ul>
+                <button class="upgrade-btn" onclick="selectPlan('pro')">Upgrade to Pro</button>
+            </div>
+            
+            <!-- Enterprise Plan -->
+            <div class="plan-card">
+                <div class="plan-name">Enterprise</div>
+                <div class="plan-price">$99<span>/month</span></div>
+                <ul class="plan-features">
+                    <li>Everything in Pro</li>
+                    <li>Unlimited Bots</li>
+                    <li>Custom Strategies</li>
+                    <li>API Access</li>
+                    <li>White-Label Option</li>
+                    <li>24/7 Dedicated Support</li>
+                </ul>
+                <button class="upgrade-btn" onclick="selectPlan('enterprise')">Upgrade to Enterprise</button>
+            </div>
+        </div>
+        
+        <div class="payment-methods">
+            <h2>💳 Payment Methods</h2>
+            <div class="payment-options">
+                <div class="payment-option" onclick="selectPaymentMethod('stripe')">
+                    <div style="font-size: 40px;">💳</div>
+                    <div><strong>Credit Card</strong></div>
+                    <div style="font-size: 0.9em; color: #666;">Stripe</div>
+                </div>
+                <div class="payment-option" onclick="selectPaymentMethod('crypto')">
+                    <div style="font-size: 40px;">₿</div>
+                    <div><strong>Crypto</strong></div>
+                    <div style="font-size: 0.9em; color: #666;">BTC, ETH, USDT</div>
+                </div>
+                <div class="payment-option" onclick="selectPaymentMethod('paystack')">
+                    <div style="font-size: 40px;">🏦</div>
+                    <div><strong>Paystack</strong></div>
+                    <div style="font-size: 0.9em; color: #666;">Nigeria</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing payment...</p>
+        </div>
+    </div>
+    
+    <script>
+        let selectedPlan = null;
+        let selectedPaymentMethod = null;
+        
+        function selectPlan(plan) {
+            selectedPlan = plan;
+            if (selectedPaymentMethod) {
+                processPayment();
+            } else {
+                alert('Please select a payment method');
+            }
+        }
+        
+        function selectPaymentMethod(method) {
+            selectedPaymentMethod = method;
+            // Highlight selected option
+            document.querySelectorAll('.payment-option').forEach(el => {
+                el.classList.remove('selected');
+            });
+            event.target.closest('.payment-option').classList.add('selected');
+        }
+        
+        async function processPayment() {
+            if (!selectedPlan || !selectedPaymentMethod) {
+                alert('Please select both a plan and payment method');
+                return;
+            }
+            
+            document.getElementById('loading').classList.add('active');
+            
+            const token = localStorage.getItem('token');
+            
+            try {
+                if (selectedPaymentMethod === 'stripe') {
+                    // Stripe checkout
+                    const response = await fetch('/api/payments/stripe/create-checkout', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            plan: selectedPlan,
+                            success_url: window.location.origin + '/payment/success',
+                            cancel_url: window.location.origin + '/payment'
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.checkout_url) {
+                        // Redirect to Stripe checkout
+                        window.location.href = data.checkout_url;
+                    } else {
+                        throw new Error(data.detail || 'Checkout creation failed');
+                    }
+                } else if (selectedPaymentMethod === 'crypto') {
+                    // Crypto payment
+                    const response = await fetch('/api/payments/crypto/initialize', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            plan: selectedPlan,
+                            crypto_currency: 'USDT',
+                            amount: selectedPlan === 'pro' ? 29 : 99
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    alert(`Send ${data.amount} ${data.crypto} to:\n${data.address}\n\nYour subscription will activate after confirmation.`);
+                    window.location.href = '/dashboard';
+                } else if (selectedPaymentMethod === 'paystack') {
+                    // Paystack payment
+                    const response = await fetch('/api/payments/paystack/initialize', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            email: localStorage.getItem('email'),
+                            amount: selectedPlan === 'pro' ? 29 : 99,
+                            plan: selectedPlan
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.authorization_url) {
+                        window.location.href = data.authorization_url;
+                    } else {
+                        throw new Error('Payment initialization failed');
+                    }
+                }
+            } catch (error) {
+                alert('Payment failed: ' + error.message);
+                document.getElementById('loading').classList.remove('active');
+            }
+        }
+        
+        // Load current subscription
+        async function loadCurrentPlan() {
+            const token = localStorage.getItem('token');
+            try {
+                const response = await fetch('/api/subscription/status', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const data = await response.json();
+                
+                // Update UI to show current plan
+                const currentPlan = data.plan || 'free';
+                document.querySelectorAll('.plan-card').forEach(card => {
+                    const btn = card.querySelector('.upgrade-btn');
+                    const planName = card.querySelector('.plan-name').textContent.toLowerCase();
+                    
+                    if (planName === currentPlan) {
+                        btn.textContent = 'Current Plan';
+                        btn.classList.add('current-plan');
+                        btn.disabled = true;
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to load subscription:', error);
+            }
+        }
+        
+        loadCurrentPlan();
+    </script>
+</body>
+</html>
