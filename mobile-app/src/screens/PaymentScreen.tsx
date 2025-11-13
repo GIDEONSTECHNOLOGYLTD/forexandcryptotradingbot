@@ -17,12 +17,28 @@ export default function PaymentScreen({ navigation }: any) {
   const [purchasing, setPurchasing] = useState(false);
   const [cryptoAddress, setCryptoAddress] = useState('');
   const [cryptoCurrency, setCryptoCurrency] = useState('USDT');
+  const [cryptoNetwork, setCryptoNetwork] = useState('TRC20');
+  const [availableNetworks, setAvailableNetworks] = useState<string[]>([]);
   const [showCryptoModal, setShowCryptoModal] = useState(false);
+  const [showNetworkSelector, setShowNetworkSelector] = useState(false);
   const [cryptoAmount, setCryptoAmount] = useState(0);
 
   useEffect(() => {
-    // No initialization needed - IAP will be loaded on demand
+    if (selectedPaymentMethod === 'crypto') {
+      loadCryptoNetworks();
+    }
   }, [selectedPaymentMethod]);
+
+  const loadCryptoNetworks = async () => {
+    try {
+      const response = await api.getCryptoNetworks();
+      const networks = response.networks || ['TRC20', 'ERC20', 'BEP20', 'Polygon', 'Arbitrum', 'Optimism'];
+      setAvailableNetworks(networks);
+    } catch (error) {
+      console.error('Failed to load networks:', error);
+      setAvailableNetworks(['TRC20', 'ERC20', 'BEP20']);
+    }
+  };
 
   const handlePaystackPayment = async (plan: string) => {
     try {
@@ -62,6 +78,7 @@ export default function PaymentScreen({ navigation }: any) {
       const response = await api.initializeCryptoPayment({
         plan: plan,
         crypto_currency: cryptoCurrency,
+        network: cryptoNetwork,
         amount: plan === 'pro' ? 29 : 99
       });
       
@@ -84,11 +101,14 @@ export default function PaymentScreen({ navigation }: any) {
   };
 
   const handleInAppPurchase = async (plan: string) => {
-    // IAP not available - show message
     Alert.alert(
-      'Coming Soon',
-      'In-app purchases are being configured.\n\nPlease use Card (Paystack) or Crypto payment for now.',
-      [{ text: 'OK', onPress: () => setSelectedPaymentMethod('card') }]
+      'App Store Purchase',
+      'In-app purchases will be available in the next update.\n\nPlease use:\n• Card (Paystack)\n• Crypto (USDT on multiple networks)',
+      [
+        { text: 'Use Card', onPress: () => setSelectedPaymentMethod('card') },
+        { text: 'Use Crypto', onPress: () => setSelectedPaymentMethod('crypto') },
+        { text: 'Cancel', style: 'cancel' }
+      ]
     );
   };
 

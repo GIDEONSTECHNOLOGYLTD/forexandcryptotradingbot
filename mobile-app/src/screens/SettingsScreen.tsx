@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as api from '../services/api';
 import { useUser } from '../context/UserContext';
 
@@ -14,8 +16,31 @@ export default function SettingsScreen({ navigation }: any) {
         text: 'Logout',
         style: 'destructive',
         onPress: async () => {
-          await api.logout();
-          navigation.replace('Login');
+          try {
+            // Call API logout
+            await api.logout();
+            
+            // Clear ALL storage
+            await SecureStore.deleteItemAsync('token');
+            await SecureStore.deleteItemAsync('user');
+            await AsyncStorage.clear();
+            
+            // Reset navigation stack to login
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Login' }],
+            });
+          } catch (error) {
+            console.error('Logout error:', error);
+            // Even if API fails, clear local data
+            await SecureStore.deleteItemAsync('token');
+            await SecureStore.deleteItemAsync('user');
+            await AsyncStorage.clear();
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Login' }],
+            });
+          }
         },
       },
     ]);

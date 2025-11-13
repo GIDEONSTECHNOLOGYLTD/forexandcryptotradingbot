@@ -877,14 +877,27 @@
             if (filter === 'all') {
                 document.getElementById('filterAll').classList.add('bg-blue-500', 'text-white');
                 displayTrades(allTrades);
+                updateTradeStats(allTrades);
             } else if (filter === 'admin') {
                 document.getElementById('filterAdmin').classList.add('bg-blue-500', 'text-white');
-                const adminTrades = allTrades.filter(t => t.bot_name && t.bot_name.includes('Admin'));
+                const adminTrades = allTrades.filter(t => 
+                    t.bot_type === 'admin' || 
+                    t.bot_id === 'admin_auto_trader' ||
+                    t.bot_id === 'new_listing_bot' ||
+                    (t.bot_name && t.bot_name.includes('Admin'))
+                );
                 displayTrades(adminTrades);
+                updateTradeStats(adminTrades);
             } else if (filter === 'users') {
                 document.getElementById('filterUsers').classList.add('bg-blue-500', 'text-white');
-                const userTrades = allTrades.filter(t => !t.bot_name || !t.bot_name.includes('Admin'));
+                const userTrades = allTrades.filter(t => 
+                    t.bot_type === 'user' || 
+                    (t.bot_id !== 'admin_auto_trader' && 
+                     t.bot_id !== 'new_listing_bot' && 
+                     (!t.bot_name || !t.bot_name.includes('Admin')))
+                );
                 displayTrades(userTrades);
+                updateTradeStats(userTrades);
             }
         }
 

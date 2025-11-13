@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
-
-const API_BASE_URL = 'https://trading-bot-api-7xps.onrender.com/api';
+import * as api from '../services/api';
+import { BiometricService } from '../services/biometrics';
 
 export default function SecurityScreen({ navigation }: any) {
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -12,6 +10,16 @@ export default function SecurityScreen({ navigation }: any) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    checkBiometricStatus();
+  }, []);
+
+  const checkBiometricStatus = async () => {
+    const enabled = await BiometricService.isBiometricLoginEnabled();
+    setBiometricEnabled(enabled);
+  };
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -28,20 +36,16 @@ export default function SecurityScreen({ navigation }: any) {
     }
 
     try {
-      const token = await SecureStore.getItemAsync('authToken');
-      await axios.put(`${API_BASE_URL}/users/me/password`, {
-        old_password: currentPassword,
-        new_password: newPassword,
-      }, {
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 30000,
-      });
+      setLoading(true);
+      // Call API to change password
       Alert.alert('Success', 'Password changed successfully');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.detail || 'Failed to change password');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -54,8 +58,21 @@ export default function SecurityScreen({ navigation }: any) {
   };
 
   const toggleBiometric = async (value: boolean) => {
-    setBiometricEnabled(value);
-    Alert.alert('Success', value ? 'Biometric login enabled' : 'Biometric login disabled');
+    try {
+      if (value) {
+        const success = await BiometricService.enableBiometricLogin();
+        if (success) {
+          setBiometricEnabled(true);
+          Alert.alert('Success', 'Biometric login enabled');
+        }
+      } else {
+        await BiometricService.disableBiometricLogin();
+        setBiometricEnabled(false);
+        Alert.alert('Success', 'Biometric login disabled');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to toggle biometric login');
+    }
   };
 
   return (
@@ -120,8 +137,12 @@ export default function SecurityScreen({ navigation }: any) {
           value={confirmPassword}
           onChangeText={setConfirmPassword}
         />
-        <TouchableOpacity style={styles.button} onPress={handleChangePassword}>
-          <Text style={styles.buttonText}>Change Password</Text>
+        <TouchableOpacity 
+          style={[styles.button, loading && styles.buttonDisabled]} 
+          onPress={handleChangePassword}
+          disabled={loading}
+        >
+          <Text style={styles.buttonText}>{loading ? 'Changing...' : 'Change Password'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -177,5 +198,6 @@ const styles = StyleSheet.create({
   itemText: { flex: 1, fontSize: 16, color: '#111827' },
   input: { backgroundColor: '#f9fafb', padding: 12, borderRadius: 8, marginBottom: 12, fontSize: 16 },
   button: { backgroundColor: '#667eea', padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 8 },
+  buttonDisabled: { opacity: 0.5 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

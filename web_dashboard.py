@@ -860,11 +860,38 @@ async def get_trade_history(
     
     trades = list(db.db['trades'].find(query).sort("timestamp", -1).limit(100))
     
-    # Convert ObjectId to string
+    # Convert ObjectId to string and enrich with bot information
     for trade in trades:
         trade["_id"] = str(trade["_id"])
         if "timestamp" in trade:
             trade["timestamp"] = trade["timestamp"].isoformat()
+        
+        # Add bot_name and bot_type if missing
+        if not trade.get("bot_name"):
+            bot_id = trade.get("bot_id")
+            if bot_id == "admin_auto_trader" or bot_id == "new_listing_bot":
+                trade["bot_name"] = "Admin Auto-Trader"
+                trade["bot_type"] = "admin"
+            else:
+                # Look up bot name from bot_instances
+                try:
+                    from bson import ObjectId
+                    bot = bot_instances_collection.find_one({"_id": ObjectId(bot_id) if bot_id else None})
+                    if bot:
+                        trade["bot_name"] = bot.get("config", {}).get("bot_type", "Trading Bot")
+                        trade["bot_type"] = "user"
+                    else:
+                        trade["bot_name"] = "Unknown Bot"
+                        trade["bot_type"] = "user"
+                except:
+                    trade["bot_name"] = "Unknown Bot"
+                    trade["bot_type"] = "user"
+        elif not trade.get("bot_type"):
+            # Set bot_type based on bot_name if missing
+            if "Admin" in trade.get("bot_name", ""):
+                trade["bot_type"] = "admin"
+            else:
+                trade["bot_type"] = "user"
     
     return {"trades": trades, "count": len(trades)}
 

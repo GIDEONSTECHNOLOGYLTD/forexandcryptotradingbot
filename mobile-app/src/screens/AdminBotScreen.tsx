@@ -47,6 +47,13 @@ export default function AdminBotScreen() {
 
   useEffect(() => {
     loadData();
+    
+    // Auto-refresh every 10 seconds
+    const interval = setInterval(() => {
+      loadData();
+    }, 10000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const loadData = async () => {

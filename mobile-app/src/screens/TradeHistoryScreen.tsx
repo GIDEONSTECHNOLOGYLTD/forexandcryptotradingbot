@@ -21,6 +21,8 @@ interface Trade {
   timestamp: string;
   entry_time?: string;
   bot_name: string;
+  bot_id?: string;
+  bot_type?: string;
   symbol: string;
   side: string;
   entry_price: number;
@@ -44,6 +46,13 @@ export default function TradeHistoryScreen() {
 
   useEffect(() => {
     loadTrades();
+    
+    // Auto-refresh every 15 seconds
+    const interval = setInterval(() => {
+      loadTrades();
+    }, 15000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -71,9 +80,19 @@ export default function TradeHistoryScreen() {
     let filtered = trades;
     
     if (filter === 'admin') {
-      filtered = trades.filter(t => t.bot_name && t.bot_name.includes('Admin'));
+      filtered = trades.filter(t => 
+        t.bot_type === 'admin' || 
+        t.bot_id === 'admin_auto_trader' ||
+        t.bot_id === 'new_listing_bot' ||
+        (t.bot_name && t.bot_name.includes('Admin'))
+      );
     } else if (filter === 'users') {
-      filtered = trades.filter(t => !t.bot_name || !t.bot_name.includes('Admin'));
+      filtered = trades.filter(t => 
+        t.bot_type === 'user' || 
+        (t.bot_id !== 'admin_auto_trader' && 
+         t.bot_id !== 'new_listing_bot' && 
+         (!t.bot_name || !t.bot_name.includes('Admin')))
+      );
     }
     
     setFilteredTrades(filtered);

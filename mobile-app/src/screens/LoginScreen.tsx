@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import * as api from '../services/api';
+import { BiometricService } from '../services/biometrics';
 
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
@@ -16,6 +17,36 @@ export default function LoginScreen({ navigation }: any) {
     try {
       setLoading(true);
       await api.login(email, password);
+      
+      // Check and prompt for biometric authentication
+      const biometricEnabled = await BiometricService.isBiometricLoginEnabled();
+      if (!biometricEnabled) {
+        const available = await BiometricService.isAvailable();
+        if (available) {
+          // Prompt to enable biometric after successful login
+          setTimeout(() => {
+            Alert.alert(
+              'Enable Biometric Login?',
+              'Would you like to use Face ID/Touch ID for faster login next time?',
+              [
+                { text: 'Not Now', style: 'cancel' },
+                {
+                  text: 'Enable',
+                  onPress: async () => {
+                    try {
+                      await BiometricService.enableBiometricLogin();
+                      Alert.alert('Success', 'Biometric login enabled!');
+                    } catch (error) {
+                      console.error('Failed to enable biometric:', error);
+                    }
+                  }
+                }
+              ]
+            );
+          }, 500);
+        }
+      }
+      
       navigation.replace('MainTabs');
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.detail || 'Login failed');

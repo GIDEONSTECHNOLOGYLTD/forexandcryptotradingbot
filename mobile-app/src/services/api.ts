@@ -185,9 +185,15 @@ export const initializePaystackPayment = async (data: {
 };
 
 // Crypto Payment
+export const getCryptoNetworks = async () => {
+  const response = await api.get('/payments/crypto/networks');
+  return response.data;
+};
+
 export const initializeCryptoPayment = async (data: {
   plan: string;
   crypto_currency: string;
+  network?: string;
   amount: number;
 }) => {
   const response = await api.post('/payments/crypto/initialize', data);
@@ -245,6 +251,7 @@ export default {
   disconnectExchange,
   getExchangeStatus,
   initializePaystackPayment,
+  getCryptoNetworks,
   initializeCryptoPayment,
   checkCryptoPaymentStatus,
   getNewListingBotStatus,
