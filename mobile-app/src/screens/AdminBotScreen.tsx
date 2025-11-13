@@ -23,8 +23,8 @@ export default function AdminBotScreen() {
   const [botStatus, setBotStatus] = useState({
     enabled: false,
     config: {
-      buy_amount_usdt: 10,
-      take_profit_percent: 50,
+      buy_amount_usdt: 50,
+      take_profit_percent: 30,
       stop_loss_percent: 15,
       max_hold_time: 3600,
     },
@@ -39,8 +39,8 @@ export default function AdminBotScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [configModalVisible, setConfigModalVisible] = useState(false);
   const [config, setConfig] = useState({
-    buy_amount_usdt: 10,
-    take_profit_percent: 50,
+    buy_amount_usdt: 50,
+    take_profit_percent: 30,
     stop_loss_percent: 15,
     max_hold_time: 60, // In minutes for UI
   });
@@ -68,8 +68,8 @@ export default function AdminBotScreen() {
       
       if (statusData.config) {
         setConfig({
-          buy_amount_usdt: statusData.config.buy_amount_usdt || 10,
-          take_profit_percent: statusData.config.take_profit_percent || 50,
+          buy_amount_usdt: statusData.config.buy_amount_usdt || 50,
+          take_profit_percent: statusData.config.take_profit_percent || 30,
           stop_loss_percent: statusData.config.stop_loss_percent || 15,
           max_hold_time: (statusData.config.max_hold_time || 3600) / 60,
         });
@@ -219,7 +219,7 @@ export default function AdminBotScreen() {
         <View style={styles.infoBox}>
           <Ionicons name="information-circle" size={16} color="#6b7280" />
           <Text style={styles.infoText}>
-            Bot invests $10 per new listing, targets +50% profit (+$5), stops at -15% loss (-$1.50)
+            Bot invests $50 per new listing, targets +30% profit (+$15), stops at -15% loss (-$7.50)
           </Text>
         </View>
       </View>
@@ -244,13 +244,13 @@ export default function AdminBotScreen() {
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>3</Text>
             </View>
-            <Text style={styles.stepText}>Buys $10 worth automatically</Text>
+            <Text style={styles.stepText}>Buys $50 worth automatically</Text>
           </View>
           <View style={styles.step}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>4</Text>
             </View>
-            <Text style={styles.stepText}>Sells at +50% profit or -15% stop loss</Text>
+            <Text style={styles.stepText}>Sells at +30% profit or -15% stop loss</Text>
           </View>
           <View style={styles.step}>
             <View style={styles.stepNumber}>
@@ -308,11 +308,11 @@ export default function AdminBotScreen() {
                 <TextInput
                   style={styles.input}
                   value={config.buy_amount_usdt.toString()}
-                  onChangeText={(text) => setConfig({ ...config, buy_amount_usdt: parseFloat(text) || 10 })}
+                  onChangeText={(text) => setConfig({ ...config, buy_amount_usdt: parseFloat(text) || 50 })}
                   keyboardType="decimal-pad"
-                  placeholder="10"
+                  placeholder="50"
                 />
-                <Text style={styles.inputHint}>Recommended: $10 (leaves $6.78 buffer)</Text>
+                <Text style={styles.inputHint}>Recommended: $50 per new listing</Text>
               </View>
 
               <View style={styles.inputGroup}>
@@ -320,9 +320,9 @@ export default function AdminBotScreen() {
                 <TextInput
                   style={styles.input}
                   value={config.take_profit_percent.toString()}
-                  onChangeText={(text) => setConfig({ ...config, take_profit_percent: parseFloat(text) || 50 })}
+                  onChangeText={(text) => setConfig({ ...config, take_profit_percent: parseFloat(text) || 30 })}
                   keyboardType="decimal-pad"
-                  placeholder="50"
+                  placeholder="30"
                 />
                 <Text style={styles.inputHint}>Sell when profit reaches this %</Text>
               </View>
