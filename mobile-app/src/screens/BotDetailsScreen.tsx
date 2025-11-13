@@ -17,15 +17,27 @@ export default function BotDetailsScreen({ route, navigation }: any) {
   }, []);
 
   const loadBotData = async () => {
+    // Safety timeout - force loading to false after 10 seconds
+    const safetyTimeout = setTimeout(() => {
+      console.warn('⚠️ Safety timeout triggered - forcing loading to false');
+      setLoading(false);
+      if (!bot) {
+        setError('Request timeout - please try again');
+      }
+    }, 10000);
+
     try {
       setLoading(true);
       setError(null);
-      await Promise.all([loadBot(), loadAnalytics()]);
+      // Load bot first (required), then analytics (optional)
+      await loadBot();
+      await loadAnalytics(); // Don't fail if this fails
     } catch (error: any) {
       const errorMsg = error.response?.data?.detail || error.message || 'Failed to load bot details';
       console.error('❌ Error loading bot details:', errorMsg);
       setError(errorMsg);
     } finally {
+      clearTimeout(safetyTimeout); // Clear safety timeout
       setLoading(false);
     }
   };

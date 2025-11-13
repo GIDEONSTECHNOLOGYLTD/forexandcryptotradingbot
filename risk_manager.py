@@ -153,7 +153,10 @@ class RiskManager:
                 'total_pnl_percent': 0,
                 'avg_win': 0,
                 'avg_loss': 0,
-                'profit_factor': 0
+                'profit_factor': 0,
+                'current_capital': self.current_capital,
+                'daily_pnl': self.daily_pnl,
+                'open_positions': len(self.open_positions)
             }
         
         winning_trades = [t for t in self.trade_history if t['pnl'] > 0]

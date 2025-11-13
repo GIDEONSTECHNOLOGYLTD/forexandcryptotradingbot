@@ -239,15 +239,22 @@ export default function TradingScreen({ navigation }: any) {
               <View style={styles.botStats}>
                 <View style={styles.stat}>
                   <Text style={styles.statLabel}>Capital</Text>
-                  <Text style={styles.statValue}>${bot.config?.capital || 0}</Text>
+                  <Text style={styles.statValue}>
+                    ${Number(bot.config?.capital || bot.capital || 0).toFixed(2)}
+                  </Text>
                 </View>
                 <View style={styles.stat}>
                   <Text style={styles.statLabel}>P&L</Text>
-                  <Text style={[styles.statValue, { color: '#10b981' }]}>+$0.00</Text>
+                  <Text style={[
+                    styles.statValue,
+                    { color: (bot.total_profit || 0) >= 0 ? '#10b981' : '#ef4444' }
+                  ]}>
+                    {(bot.total_profit || 0) >= 0 ? '+' : ''}${Number(bot.total_profit || 0).toFixed(2)}
+                  </Text>
                 </View>
                 <View style={styles.stat}>
                   <Text style={styles.statLabel}>Trades</Text>
-                  <Text style={styles.statValue}>0</Text>
+                  <Text style={styles.statValue}>{bot.total_trades || 0}</Text>
                 </View>
               </View>
 

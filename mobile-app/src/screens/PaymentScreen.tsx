@@ -23,17 +23,22 @@ export default function PaymentScreen({ navigation }: any) {
   const [showCryptoModal, setShowCryptoModal] = useState(false);
   const [showNetworkSelector, setShowNetworkSelector] = useState(false);
   const [cryptoAmount, setCryptoAmount] = useState(0);
+  const [isLoadingNetworks, setIsLoadingNetworks] = useState(false);
+  const [isInitializingIAP, setIsInitializingIAP] = useState(false);
 
   useEffect(() => {
-    if (selectedPaymentMethod === 'crypto') {
+    if (selectedPaymentMethod === 'crypto' && !isLoadingNetworks) {
       loadCryptoNetworks();
-    } else if (selectedPaymentMethod === 'iap') {
+    } else if (selectedPaymentMethod === 'iap' && !isInitializingIAP) {
       initializeIAP();
     }
   }, [selectedPaymentMethod]);
 
   const initializeIAP = async () => {
+    if (isInitializingIAP) return; // Prevent double initialization
+    
     try {
+      setIsInitializingIAP(true);
       await InAppPurchases.connectAsync();
       const { responseCode, results } = await InAppPurchases.getProductsAsync([
         PRODUCT_IDS.pro,
@@ -44,17 +49,32 @@ export default function PaymentScreen({ navigation }: any) {
       }
     } catch (error) {
       console.error('IAP initialization error:', error);
+    } finally {
+      setIsInitializingIAP(false);
     }
   };
 
   const loadCryptoNetworks = async () => {
+    if (isLoadingNetworks) return; // Prevent double loading
+    
     try {
+      setIsLoadingNetworks(true);
       const response = await api.getCryptoNetworks();
-      const networks = response.networks || ['TRC20', 'ERC20', 'BEP20', 'Polygon', 'Arbitrum', 'Optimism'];
+      
+      // Handle both string arrays and object arrays
+      let networks = response.networks || ['TRC20', 'ERC20', 'BEP20', 'Polygon', 'Arbitrum', 'Optimism'];
+      
+      // If networks is array of objects, extract network names
+      if (Array.isArray(networks) && networks.length > 0 && typeof networks[0] === 'object') {
+        networks = networks.map((n: any) => n.network || n.name || String(n));
+      }
+      
       setAvailableNetworks(networks);
     } catch (error) {
       console.error('Failed to load networks:', error);
       setAvailableNetworks(['TRC20', 'ERC20', 'BEP20']);
+    } finally {
+      setIsLoadingNetworks(false);
     }
   };
 
@@ -251,21 +271,25 @@ export default function PaymentScreen({ navigation }: any) {
           <View style={styles.networkSelector}>
             <Text style={styles.networkLabel}>Select Network:</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.networkScroll}>
-              {availableNetworks.map((network) => (
-                <TouchableOpacity
-                  key={network}
-                  style={[
-                    styles.networkChip,
-                    cryptoNetwork === network && styles.networkChipSelected
-                  ]}
-                  onPress={() => setCryptoNetwork(network)}
-                >
-                  <Text style={[
-                    styles.networkChipText,
-                    cryptoNetwork === network && styles.networkChipTextSelected
-                  ]}>{network}</Text>
-                </TouchableOpacity>
-              ))}
+              {availableNetworks.map((network) => {
+                // Ensure network is a string
+                const networkStr = typeof network === 'string' ? network : String(network);
+                return (
+                  <TouchableOpacity
+                    key={networkStr}
+                    style={[
+                      styles.networkChip,
+                      cryptoNetwork === networkStr && styles.networkChipSelected
+                    ]}
+                    onPress={() => setCryptoNetwork(networkStr)}
+                  >
+                    <Text style={[
+                      styles.networkChipText,
+                      cryptoNetwork === networkStr && styles.networkChipTextSelected
+                    ]}>{networkStr}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
         )}

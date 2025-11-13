@@ -148,7 +148,12 @@ export default function BotConfigScreen({ route, navigation }: any) {
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.label}>Bot Type</Text>
-      <Picker selectedValue={botType} onValueChange={setBotType} style={styles.picker}>
+      <Picker 
+        selectedValue={botType} 
+        onValueChange={setBotType} 
+        style={styles.picker}
+        itemStyle={styles.pickerItem}
+      >
         <Picker.Item label="Momentum" value="momentum" />
         <Picker.Item label="Grid Trading" value="grid" />
         <Picker.Item label="DCA (Dollar Cost Average)" value="dca" />
@@ -162,13 +167,19 @@ export default function BotConfigScreen({ route, navigation }: any) {
           setSymbol(TRADING_PAIRS[value][0]);
         }} 
         style={styles.picker}
+        itemStyle={styles.pickerItem}
       >
         <Picker.Item label="Cryptocurrency" value="crypto" />
         <Picker.Item label="Forex" value="forex" />
       </Picker>
 
       <Text style={styles.label}>Trading Pair</Text>
-      <Picker selectedValue={symbol} onValueChange={setSymbol} style={styles.picker}>
+      <Picker 
+        selectedValue={symbol} 
+        onValueChange={setSymbol} 
+        style={styles.picker}
+        itemStyle={styles.pickerItem}
+      >
         {TRADING_PAIRS[pairCategory].map(pair => (
           <Picker.Item key={pair} label={pair} value={pair} />
         ))}
@@ -308,7 +319,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 8,
   },
-  picker: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8 },
+  picker: { 
+    borderWidth: 1, 
+    borderColor: '#d1d5db', 
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    minHeight: 50,
+    paddingHorizontal: 10,
+  },
+  pickerItem: {
+    fontSize: 16,
+    height: 50,
+    color: '#111827',
+  },
   switchContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',

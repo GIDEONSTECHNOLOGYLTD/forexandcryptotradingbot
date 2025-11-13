@@ -38,12 +38,16 @@ export default function SecurityScreen({ navigation }: any) {
     try {
       setLoading(true);
       // Call API to change password
-      Alert.alert('Success', 'Password changed successfully');
+      await api.changePassword({
+        current_password: currentPassword,
+        new_password: newPassword
+      });
+      Alert.alert('✅ Success', 'Password changed successfully! Please log in again with your new password.');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.detail || 'Failed to change password');
+      Alert.alert('Error', error.response?.data?.detail || 'Failed to change password. Make sure current password is correct.');
     } finally {
       setLoading(false);
     }
@@ -51,9 +55,55 @@ export default function SecurityScreen({ navigation }: any) {
 
   const toggleTwoFactor = async (value: boolean) => {
     if (value) {
-      Alert.alert('Coming Soon', '2FA will be available in the next update');
+      // Enable 2FA
+      Alert.alert(
+        '🔐 Enable 2FA',
+        'Two-factor authentication adds an extra layer of security.\n\nWe\'ll send a verification code to your email every time you log in.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Enable', 
+            onPress: async () => {
+              try {
+                setLoading(true);
+                // Call API to enable 2FA
+                await api.enableTwoFactor();
+                setTwoFactorEnabled(true);
+                Alert.alert('✅ Success', '2FA enabled! You\'ll receive a code on your next login.');
+              } catch (error: any) {
+                Alert.alert('Error', error.response?.data?.detail || 'Failed to enable 2FA');
+              } finally {
+                setLoading(false);
+              }
+            }
+          },
+        ]
+      );
     } else {
-      setTwoFactorEnabled(value);
+      // Disable 2FA
+      Alert.alert(
+        '⚠️ Disable 2FA',
+        'This will reduce your account security. Are you sure?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Disable', 
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                setLoading(true);
+                await api.disableTwoFactor();
+                setTwoFactorEnabled(false);
+                Alert.alert('Success', '2FA disabled');
+              } catch (error: any) {
+                Alert.alert('Error', error.response?.data?.detail || 'Failed to disable 2FA');
+              } finally {
+                setLoading(false);
+              }
+            }
+          },
+        ]
+      );
     }
   };
 
@@ -119,23 +169,32 @@ export default function SecurityScreen({ navigation }: any) {
         <TextInput
           style={styles.input}
           placeholder="Current Password"
+          placeholderTextColor="#9ca3af"
           secureTextEntry
           value={currentPassword}
           onChangeText={setCurrentPassword}
+          autoCapitalize="none"
+          autoCorrect={false}
         />
         <TextInput
           style={styles.input}
           placeholder="New Password"
+          placeholderTextColor="#9ca3af"
           secureTextEntry
           value={newPassword}
           onChangeText={setNewPassword}
+          autoCapitalize="none"
+          autoCorrect={false}
         />
         <TextInput
           style={styles.input}
           placeholder="Confirm New Password"
+          placeholderTextColor="#9ca3af"
           secureTextEntry
           value={confirmPassword}
           onChangeText={setConfirmPassword}
+          autoCapitalize="none"
+          autoCorrect={false}
         />
         <TouchableOpacity 
           style={[styles.button, loading && styles.buttonDisabled]} 
@@ -149,12 +208,12 @@ export default function SecurityScreen({ navigation }: any) {
       {/* Session Management */}
       <Text style={styles.section}>SESSION MANAGEMENT</Text>
       <View style={styles.card}>
-        <TouchableOpacity style={styles.item} onPress={() => Alert.alert('Coming Soon', 'Active sessions management')}>
+        <TouchableOpacity style={styles.item} onPress={() => navigation.navigate('ActiveSessions')}>
           <Ionicons name="phone-portrait" size={24} color="#667eea" />
           <Text style={styles.itemText}>Active Sessions</Text>
           <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.item} onPress={() => Alert.alert('Coming Soon', 'Login history')}>
+        <TouchableOpacity style={styles.item} onPress={() => navigation.navigate('LoginHistory')}>
           <Ionicons name="time" size={24} color="#667eea" />
           <Text style={styles.itemText}>Login History</Text>
           <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
@@ -172,7 +231,25 @@ export default function SecurityScreen({ navigation }: any) {
               'Are you sure? This action cannot be undone.',
               [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'Delete', style: 'destructive', onPress: () => Alert.alert('Coming Soon') },
+                { 
+                  text: 'Delete', 
+                  style: 'destructive', 
+                  onPress: async () => {
+                    try {
+                      setLoading(true);
+                      await api.deleteAccount();
+                      Alert.alert(
+                        'Account Deleted',
+                        'Your account has been permanently deleted. All your data has been removed.',
+                        [{ text: 'OK', onPress: () => navigation.replace('Login') }]
+                      );
+                    } catch (error: any) {
+                      Alert.alert('Error', error.response?.data?.detail || 'Failed to delete account');
+                    } finally {
+                      setLoading(false);
+                    }
+                  }
+                },
               ]
             )
           }
@@ -196,7 +273,16 @@ const styles = StyleSheet.create({
   itemTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
   itemSubtitle: { fontSize: 14, color: '#6b7280', marginTop: 2 },
   itemText: { flex: 1, fontSize: 16, color: '#111827' },
-  input: { backgroundColor: '#f9fafb', padding: 12, borderRadius: 8, marginBottom: 12, fontSize: 16 },
+  input: { 
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    fontSize: 16,
+    color: '#111827',
+  },
   button: { backgroundColor: '#667eea', padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 8 },
   buttonDisabled: { opacity: 0.5 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },

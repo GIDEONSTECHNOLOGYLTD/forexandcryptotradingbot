@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { apiCache, requestDeduplicator } from './ApiCache';
 
 // Backend API URL
 // ALWAYS use production backend for testing
@@ -84,12 +85,32 @@ export const signup = async (email: string, password: string, full_name: string)
 
 export const logout = async () => {
   await SecureStore.deleteItemAsync('authToken');
+  // Clear cache on logout
+  apiCache.clearAll();
 };
 
-// Dashboard
-export const getDashboard = async () => {
-  const response = await api.get('/dashboard');
-  return response.data;
+// Clear API cache (call when user manually refreshes)
+export const clearApiCache = () => {
+  apiCache.clearAll();
+  console.log('🗑️ API cache cleared');
+};
+
+// Dashboard (OPTIMIZED with caching + deduplication)
+export const getDashboard = async (forceRefresh: boolean = false) => {
+  const cacheKey = 'dashboard';
+  
+  // Check cache first (unless force refresh)
+  if (!forceRefresh) {
+    const cached = apiCache.get(cacheKey);
+    if (cached) return cached;
+  }
+  
+  // Deduplicate concurrent requests
+  return requestDeduplicator.fetch(cacheKey, async () => {
+    const response = await api.get('/dashboard');
+    apiCache.set(cacheKey, response.data);
+    return response.data;
+  });
 };
 
 // Bots
@@ -177,9 +198,21 @@ export const getPortfolio = async () => {
   return response.data;
 };
 
-export const getUserBalance = async () => {
-  const response = await api.get('/user/balance');
-  return response.data;
+export const getUserBalance = async (forceRefresh: boolean = false) => {
+  const cacheKey = 'user_balance';
+  
+  // Check cache first (unless force refresh)
+  if (!forceRefresh) {
+    const cached = apiCache.get(cacheKey);
+    if (cached) return cached;
+  }
+  
+  // Deduplicate concurrent requests
+  return requestDeduplicator.fetch(cacheKey, async () => {
+    const response = await api.get('/user/balance');
+    apiCache.set(cacheKey, response.data);
+    return response.data;
+  });
 };
 
 // Payments
@@ -311,6 +344,42 @@ export const updateSystemSettings = async (settings: any) => {
 // Subscription Verification
 export const verifySubscriptionPayment = async (paymentData: any) => {
   const response = await api.post('/subscriptions/verify-payment', paymentData);
+  return response.data;
+};
+
+// Security Settings
+export const changePassword = async (data: { current_password: string; new_password: string }) => {
+  const response = await api.put('/user/change-password', data);
+  return response.data;
+};
+
+export const enableTwoFactor = async () => {
+  const response = await api.post('/user/enable-2fa');
+  return response.data;
+};
+
+export const disableTwoFactor = async () => {
+  const response = await api.post('/user/disable-2fa');
+  return response.data;
+};
+
+export const deleteAccount = async () => {
+  const response = await api.delete('/user/account');
+  return response.data;
+};
+
+export const getActiveSessions = async () => {
+  const response = await api.get('/user/sessions');
+  return response.data;
+};
+
+export const getLoginHistory = async () => {
+  const response = await api.get('/user/login-history');
+  return response.data;
+};
+
+export const revokeSession = async (sessionId: string) => {
+  const response = await api.delete(`/user/sessions/${sessionId}`);
   return response.data;
 };
 

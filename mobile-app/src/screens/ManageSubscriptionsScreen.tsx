@@ -17,15 +17,28 @@ export default function ManageSubscriptionsScreen({ navigation }: any) {
   }, []);
 
   const loadUsers = async () => {
+    // Safety timeout - force loading to false after 15 seconds
+    const safetyTimeout = setTimeout(() => {
+      console.warn('⚠️ Safety timeout triggered - forcing loading to false');
+      setLoading(false);
+      if (users.length === 0) {
+        setError('Request timeout - please try again');
+      }
+    }, 15000);
+
     try {
       setLoading(true);
       setError(null);
       const token = await SecureStore.getItemAsync('authToken');
       
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+      
       console.log('📊 Loading users for subscription management...');
       const response = await axios.get(`${API_BASE_URL}/users`, {
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 30000, // Reduce to 30 seconds
+        timeout: 12000, // Reduce to 12 seconds
       });
       
       console.log('✅ Raw response:', JSON.stringify(response.data));
@@ -51,6 +64,7 @@ export default function ManageSubscriptionsScreen({ navigation }: any) {
       // Set empty array on error so we don't get stuck loading
       setUsers([]);
     } finally {
+      clearTimeout(safetyTimeout); // Clear safety timeout
       setLoading(false);
     }
   };

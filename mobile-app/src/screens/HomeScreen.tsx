@@ -24,6 +24,8 @@ export default function HomeScreen({ navigation }: any) {
   const [stats, setStats] = useState({
     totalBalance: 0,
     todayPnL: 0,
+    unrealizedPnL: 0,
+    openPositions: 0,
     totalTrades: 0,
     winRate: 0,
     activeBots: 0,
@@ -33,27 +35,23 @@ export default function HomeScreen({ navigation }: any) {
   useEffect(() => {
     fetchDashboardData();
     
-    // Auto-refresh every 5 seconds for real-time updates
-    const interval = setInterval(() => {
-      fetchDashboardData(true); // Silent refresh
-    }, 5000);
-    
-    return () => clearInterval(interval);
+    // NO AUTO-REFRESH - Only manual refresh via pull-to-refresh
+    // This prevents overwhelming the backend with requests
   }, []);
 
-  const fetchDashboardData = async (silent = false) => {
+  const fetchDashboardData = async (silent = false, forceRefresh = false) => {
     try {
       if (!silent) {
         setLoading(true);
         setError(null);
       }
       
-      console.log('📊 Fetching dashboard data...');
+      console.log(`📊 Fetching dashboard data... ${forceRefresh ? '(FORCE REFRESH)' : '(cached if available)'}`);
       
       // Fetch both dashboard and balance in parallel for speed
       const [dashboardResponse, balanceResponse] = await Promise.allSettled([
-        api.getDashboard(),
-        api.getUserBalance().catch(() => ({ total: 0 }))
+        api.getDashboard(forceRefresh),
+        api.getUserBalance(forceRefresh).catch(() => ({ total: 0 }))
       ]);
       
       const response = dashboardResponse.status === 'fulfilled' ? dashboardResponse.value : null;
@@ -76,6 +74,8 @@ export default function HomeScreen({ navigation }: any) {
       const mappedStats = {
         totalBalance: totalBalance,
         todayPnL: Number(response.stats?.total_pnl) || 0,
+        unrealizedPnL: Number(response.stats?.unrealized_pnl) || 0,
+        openPositions: Number(response.stats?.open_positions) || 0,
         totalTrades: Number(response.stats?.total_trades) || 0,
         winRate: Number(response.stats?.win_rate) || 0,
         activeBots: Number(response.stats?.active_bots) || 0,
@@ -96,6 +96,8 @@ export default function HomeScreen({ navigation }: any) {
       setStats({
         totalBalance: 0,
         todayPnL: 0,
+        unrealizedPnL: 0,
+        openPositions: 0,
         totalTrades: 0,
         winRate: 0,
         activeBots: 0,
@@ -109,7 +111,8 @@ export default function HomeScreen({ navigation }: any) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchDashboardData();
+    // Force refresh bypasses cache
+    await fetchDashboardData(false, true); // silent=false, forceRefresh=true
     setRefreshing(false);
   };
 
@@ -218,16 +221,16 @@ export default function HomeScreen({ navigation }: any) {
           color="#f093fb"
         />
         <StatCard
-          icon="rocket"
-          title="Active Bots"
-          value={stats.activeBots.toString()}
-          color="#4facfe"
+          icon="briefcase"
+          title="Open Positions"
+          value={stats.openPositions.toString()}
+          color="#ff6b6b"
         />
         <StatCard
-          icon="flash"
-          title="Status"
-          value="Active"
-          color="#43e97b"
+          icon="trending-up"
+          title="Unrealized P&L"
+          value={`$${stats.unrealizedPnL.toFixed(2)}`}
+          color={stats.unrealizedPnL >= 0 ? "#43e97b" : "#ff6b6b"}
         />
       </View>
 

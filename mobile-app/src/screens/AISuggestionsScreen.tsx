@@ -37,11 +37,18 @@ export default function AISuggestionsScreen({ navigation }: any) {
       const response = await api.getAISuggestions();
       
       if (response.suggestions && response.suggestions.length > 0) {
-        console.log('✅ Real AI suggestions loaded:', response.suggestions.length);
-        setSuggestions(response.suggestions);
-        setLoading(false);
-        setRefreshing(false);
-        return;
+        // Validate each suggestion has required fields
+        const validSuggestions = response.suggestions.filter((s: any) => 
+          s && s.id && s.title && s.description && s.type && s.impact && s.confidence !== undefined
+        );
+        
+        if (validSuggestions.length > 0) {
+          console.log('✅ Real AI suggestions loaded:', validSuggestions.length);
+          setSuggestions(validSuggestions);
+          setLoading(false);
+          setRefreshing(false);
+          return;
+        }
       }
     } catch (error) {
       console.log('⚠️ AI endpoint not available, using demo suggestions');
