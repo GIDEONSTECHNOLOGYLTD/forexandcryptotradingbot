@@ -35,8 +35,9 @@ export default function AdminBotScreen() {
       total_pnl: 0,
     },
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [configModalVisible, setConfigModalVisible] = useState(false);
   const [config, setConfig] = useState({
     buy_amount_usdt: 50,
@@ -48,20 +49,28 @@ export default function AdminBotScreen() {
   useEffect(() => {
     loadData();
     
-    // Auto-refresh every 5 seconds for real-time bot status
+    // Auto-refresh every 10 seconds for real-time bot status (silent refresh)
     const interval = setInterval(() => {
-      loadData();
-    }, 5000);
+      loadData(true); // Silent refresh
+    }, 10000);
     
     return () => clearInterval(interval);
   }, []);
 
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
     try {
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
+      
+      console.log('📊 Loading admin bot data...');
       const [balanceData, statusData] = await Promise.all([
         api.getUserBalance(),
         api.getNewListingBotStatus(),
       ]);
+      
+      console.log('✅ Admin bot data loaded:', { balance: balanceData.total, enabled: statusData.enabled });
       
       setBalance(balanceData.total || 16.78);
       setBotStatus(statusData);
@@ -74,8 +83,18 @@ export default function AdminBotScreen() {
           max_hold_time: (statusData.config.max_hold_time || 3600) / 60,
         });
       }
-    } catch (error) {
-      console.error('Error loading data:', error);
+      
+      setError(null);
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.detail || error.message || 'Failed to load admin bot data';
+      console.error('❌ Error loading admin bot data:', errorMsg);
+      if (!silent) {
+        setError(errorMsg);
+      }
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -143,6 +162,31 @@ export default function AdminBotScreen() {
       [{ text: 'OK' }]
     );
   };
+
+  // Show loading on first load
+  if (loading && !refreshing) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Ionicons name="sync" size={48} color="#10b981" />
+        <Text style={styles.loadingText}>Loading admin bot...</Text>
+        <Text style={styles.loadingSubtext}>Please wait</Text>
+      </View>
+    );
+  }
+
+  // Show error with retry
+  if (error && !loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Ionicons name="alert-circle" size={48} color="#ef4444" />
+        <Text style={styles.errorText}>Failed to Load</Text>
+        <Text style={styles.errorSubtext}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => loadData()}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -605,5 +649,46 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#fff',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    color: '#10b981',
+  },
+  loadingSubtext: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 10,
+  },
+  errorText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 20,
+    color: '#ef4444',
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 10,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  retryButton: {
+    backgroundColor: '#10b981',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginTop: 20,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

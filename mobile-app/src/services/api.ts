@@ -7,7 +7,7 @@ const API_BASE_URL = 'https://trading-bot-api-7xps.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 60000, // Increased to 60 seconds for Render cold starts
+  timeout: 120000, // 2 minutes for Render free tier cold starts
   headers: {
     'Content-Type': 'application/json',
   },
@@ -43,14 +43,25 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
     
-    // Retry on timeout or network errors (max 2 retries)
+    // Retry on timeout or network errors (max 3 retries with exponential backoff)
     if (!config || !config.retry) {
       config.retry = 0;
     }
     
-    if (config.retry < 2 && (error.code === 'ECONNABORTED' || error.message.includes('timeout') || error.message.includes('Network Error'))) {
+    const shouldRetry = 
+      error.code === 'ECONNABORTED' || 
+      error.message.includes('timeout') || 
+      error.message.includes('Network Error') ||
+      error.message.includes('ETIMEDOUT') ||
+      error.response?.status === 503 || // Service unavailable (cold start)
+      error.response?.status === 502;   // Bad gateway
+    
+    if (config.retry < 3 && shouldRetry) {
       config.retry += 1;
-      console.log(`🔄 Retrying request (attempt ${config.retry}/2)...`);
+      const delay = Math.min(1000 * Math.pow(2, config.retry - 1), 5000); // Max 5s delay
+      console.log(`🔄 Retrying request (attempt ${config.retry}/3) after ${delay}ms...`);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
       return api(config);
     }
     
