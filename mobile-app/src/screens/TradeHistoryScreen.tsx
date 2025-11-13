@@ -1,0 +1,445 @@
+/**
+ * Trade History Screen
+ * Shows complete trade history for admin and user bots
+ * Includes filtering and detailed trade information
+ */
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  TouchableOpacity,
+  FlatList,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import api from '../services/api';
+
+interface Trade {
+  _id: string;
+  timestamp: string;
+  entry_time?: string;
+  bot_name: string;
+  symbol: string;
+  side: string;
+  entry_price: number;
+  exit_price: number;
+  amount: number;
+  pnl: number;
+  status: string;
+}
+
+export default function TradeHistoryScreen() {
+  const [trades, setTrades] = useState<Trade[]>([]);
+  const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
+  const [filter, setFilter] = useState<'all' | 'admin' | 'users'>('all');
+  const [refreshing, setRefreshing] = useState(false);
+  const [stats, setStats] = useState({
+    total: 0,
+    winning: 0,
+    losing: 0,
+    totalPnL: 0,
+  });
+
+  useEffect(() => {
+    loadTrades();
+  }, []);
+
+  useEffect(() => {
+    applyFilter();
+  }, [filter, trades]);
+
+  const loadTrades = async () => {
+    try {
+      const response = await api.getTradeHistory();
+      const tradeData = response.trades || [];
+      setTrades(tradeData);
+      calculateStats(tradeData);
+    } catch (error) {
+      console.error('Error loading trades:', error);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadTrades();
+    setRefreshing(false);
+  };
+
+  const applyFilter = () => {
+    let filtered = trades;
+    
+    if (filter === 'admin') {
+      filtered = trades.filter(t => t.bot_name && t.bot_name.includes('Admin'));
+    } else if (filter === 'users') {
+      filtered = trades.filter(t => !t.bot_name || !t.bot_name.includes('Admin'));
+    }
+    
+    setFilteredTrades(filtered);
+    calculateStats(filtered);
+  };
+
+  const calculateStats = (tradeList: Trade[]) => {
+    const total = tradeList.length;
+    const winning = tradeList.filter(t => (t.pnl || 0) > 0).length;
+    const losing = tradeList.filter(t => (t.pnl || 0) < 0).length;
+    const totalPnL = tradeList.reduce((sum, t) => sum + (t.pnl || 0), 0);
+
+    setStats({ total, winning, losing, totalPnL });
+  };
+
+  const renderTrade = ({ item }: { item: Trade }) => {
+    const pnl = item.pnl || 0;
+    const isProfitable = pnl >= 0;
+    const tradeTime = new Date(item.timestamp || item.entry_time || '').toLocaleString();
+
+    return (
+      <View style={styles.tradeCard}>
+        <View style={styles.tradeHeader}>
+          <View style={styles.tradeHeaderLeft}>
+            <Text style={styles.tradeBotName}>{item.bot_name || 'Unknown Bot'}</Text>
+            <Text style={styles.tradeTime}>{tradeTime}</Text>
+          </View>
+          <View style={[styles.pnlBadge, isProfitable ? styles.pnlPositive : styles.pnlNegative]}>
+            <Text style={styles.pnlText}>
+              {isProfitable ? '+' : ''}${pnl.toFixed(2)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.tradeDetails}>
+          <View style={styles.tradeRow}>
+            <Text style={styles.tradeLabel}>Symbol:</Text>
+            <Text style={styles.tradeValue}>{item.symbol}</Text>
+          </View>
+          <View style={styles.tradeRow}>
+            <Text style={styles.tradeLabel}>Type:</Text>
+            <View style={[styles.typeBadge, item.side === 'buy' ? styles.buyBadge : styles.sellBadge]}>
+              <Text style={styles.typeBadgeText}>{(item.side || 'buy').toUpperCase()}</Text>
+            </View>
+          </View>
+          <View style={styles.tradeRow}>
+            <Text style={styles.tradeLabel}>Entry:</Text>
+            <Text style={styles.tradeValue}>${(item.entry_price || 0).toFixed(4)}</Text>
+          </View>
+          <View style={styles.tradeRow}>
+            <Text style={styles.tradeLabel}>Exit:</Text>
+            <Text style={styles.tradeValue}>${(item.exit_price || 0).toFixed(4)}</Text>
+          </View>
+          <View style={styles.tradeRow}>
+            <Text style={styles.tradeLabel}>Amount:</Text>
+            <Text style={styles.tradeValue}>${(item.amount || 0).toFixed(2)}</Text>
+          </View>
+          <View style={styles.tradeRow}>
+            <Text style={styles.tradeLabel}>Status:</Text>
+            <View style={[styles.statusBadge, item.status === 'closed' ? styles.closedBadge : styles.openBadge]}>
+              <Text style={styles.statusBadgeText}>{(item.status || 'open').toUpperCase()}</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* Stats Cards */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Total Trades</Text>
+          <Text style={styles.statValue}>{stats.total}</Text>
+        </View>
+        <View style={[styles.statCard, styles.winningCard]}>
+          <Text style={styles.statLabel}>Winning</Text>
+          <Text style={[styles.statValue, styles.winningText]}>{stats.winning}</Text>
+        </View>
+        <View style={[styles.statCard, styles.losingCard]}>
+          <Text style={styles.statLabel}>Losing</Text>
+          <Text style={[styles.statValue, styles.losingText]}>{stats.losing}</Text>
+        </View>
+        <View style={[styles.statCard, styles.pnlCard]}>
+          <Text style={styles.statLabel}>Total P&L</Text>
+          <Text style={[styles.statValue, stats.totalPnL >= 0 ? styles.winningText : styles.losingText]}>
+            ${stats.totalPnL.toFixed(2)}
+          </Text>
+        </View>
+      </View>
+
+      {/* Filter Buttons */}
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === 'all' && styles.filterButtonActive]}
+          onPress={() => setFilter('all')}
+        >
+          <Text style={[styles.filterButtonText, filter === 'all' && styles.filterButtonTextActive]}>
+            All Trades
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === 'admin' && styles.filterButtonActive]}
+          onPress={() => setFilter('admin')}
+        >
+          <Text style={[styles.filterButtonText, filter === 'admin' && styles.filterButtonTextActive]}>
+            Admin Bot
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === 'users' && styles.filterButtonActive]}
+          onPress={() => setFilter('users')}
+        >
+          <Text style={[styles.filterButtonText, filter === 'users' && styles.filterButtonTextActive]}>
+            User Bots
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* OKX Guide */}
+      <View style={styles.okxGuide}>
+        <View style={styles.okxGuideHeader}>
+          <Ionicons name="information-circle" size={20} color="#3b82f6" />
+          <Text style={styles.okxGuideTitle}>See trades in OKX:</Text>
+        </View>
+        <Text style={styles.okxGuideText}>1. Login to OKX.com or OKX app</Text>
+        <Text style={styles.okxGuideText}>2. Go to Assets → Trading Account</Text>
+        <Text style={styles.okxGuideText}>3. Click Order History / Trade History</Text>
+        <Text style={styles.okxGuideText}>4. All bot trades appear there</Text>
+      </View>
+
+      {/* Trade List */}
+      {filteredTrades.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="bar-chart-outline" size={64} color="#d1d5db" />
+          <Text style={styles.emptyStateText}>No trades yet</Text>
+          <Text style={styles.emptyStateSubtext}>Start the bot to begin trading!</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredTrades}
+          renderItem={renderTrade}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={styles.tradeList}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 16,
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  winningCard: {
+    backgroundColor: '#f0fdf4',
+  },
+  losingCard: {
+    backgroundColor: '#fef2f2',
+  },
+  pnlCard: {
+    backgroundColor: '#faf5ff',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  winningText: {
+    color: '#10b981',
+  },
+  losingText: {
+    color: '#ef4444',
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 8,
+    marginBottom: 16,
+  },
+  filterButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#e5e7eb',
+    alignItems: 'center',
+  },
+  filterButtonActive: {
+    backgroundColor: '#3b82f6',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  filterButtonTextActive: {
+    color: '#fff',
+  },
+  okxGuide: {
+    backgroundColor: '#eff6ff',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#3b82f6',
+  },
+  okxGuideHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  okxGuideTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1e40af',
+  },
+  okxGuideText: {
+    fontSize: 12,
+    color: '#1e40af',
+    marginBottom: 4,
+  },
+  tradeList: {
+    padding: 16,
+    paddingTop: 0,
+  },
+  tradeCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  tradeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  tradeHeaderLeft: {
+    flex: 1,
+  },
+  tradeBotName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  tradeTime: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  pnlBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  pnlPositive: {
+    backgroundColor: '#d1fae5',
+  },
+  pnlNegative: {
+    backgroundColor: '#fee2e2',
+  },
+  pnlText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  tradeDetails: {
+    gap: 8,
+  },
+  tradeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  tradeLabel: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  tradeValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  typeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  buyBadge: {
+    backgroundColor: '#d1fae5',
+  },
+  sellBadge: {
+    backgroundColor: '#fee2e2',
+  },
+  typeBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  closedBadge: {
+    backgroundColor: '#e5e7eb',
+  },
+  openBadge: {
+    backgroundColor: '#dbeafe',
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#6b7280',
+    marginTop: 16,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#9ca3af',
+    marginTop: 8,
+  },
+});

@@ -30,6 +30,7 @@ import SystemSettingsScreen from './src/screens/SystemSettingsScreen';
 import SecurityScreen from './src/screens/SecurityScreen';
 import ManageSubscriptionsScreen from './src/screens/ManageSubscriptionsScreen';
 import AdminBotScreen from './src/screens/AdminBotScreen';
+import TradeHistoryScreen from './src/screens/TradeHistoryScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -154,6 +155,11 @@ export default function App() {
             name="AdminBot" 
             component={AdminBotScreen}
             options={{ headerShown: true, title: '🚀 Admin Auto-Trader' }}
+          />
+          <Stack.Screen 
+            name="TradeHistory" 
+            component={TradeHistoryScreen}
+            options={{ headerShown: true, title: '📊 Trade History' }}
           />
         </Stack.Navigator>
       </NavigationContainer>

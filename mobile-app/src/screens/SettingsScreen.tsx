@@ -64,6 +64,21 @@ export default function SettingsScreen({ navigation }: any) {
             </View>
             <Ionicons name="chevron-forward" size={20} color="#fff" />
           </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.adminToolButton, styles.tradeHistoryButton]} 
+            onPress={() => navigation.navigate('TradeHistory')}
+          >
+            <Ionicons name="bar-chart" size={24} color="#fff" />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.adminToolText, { color: '#fff', fontWeight: 'bold' }]}>
+                📊 Complete Trade History
+              </Text>
+              <Text style={{ color: '#fff', fontSize: 12, opacity: 0.9 }}>
+                View all trades + OKX guide
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#fff" />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.adminToolButton} onPress={() => navigation.navigate('ManageUsers')}>
             <Ionicons name="people-outline" size={24} color="#667eea" />
             <Text style={styles.adminToolText}>Manage Users</Text>
@@ -206,6 +221,16 @@ const styles = StyleSheet.create({
   },
   adminBotButton: {
     backgroundColor: '#10b981',
+    borderRadius: 12,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  tradeHistoryButton: {
+    backgroundColor: '#3b82f6',
     borderRadius: 12,
     marginBottom: 8,
     shadowColor: '#000',

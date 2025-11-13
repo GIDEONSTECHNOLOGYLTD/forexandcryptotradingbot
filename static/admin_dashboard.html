@@ -258,6 +258,109 @@
                 </div>
             </div>
 
+            <!-- Trade History - COMPREHENSIVE -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold">📊 Complete Trade History</h3>
+                    <div class="flex gap-2">
+                        <button onclick="filterTrades('all')" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300" id="filterAll">All Trades</button>
+                        <button onclick="filterTrades('admin')" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300" id="filterAdmin">Admin Bot</button>
+                        <button onclick="filterTrades('users')" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300" id="filterUsers">User Bots</button>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">Total Trades</div>
+                        <div class="text-2xl font-bold" id="totalTradesCount">0</div>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">Winning Trades</div>
+                        <div class="text-2xl font-bold text-green-600" id="winningTradesCount">0</div>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">Losing Trades</div>
+                        <div class="text-2xl font-bold text-red-600" id="losingTradesCount">0</div>
+                    </div>
+                    <div class="bg-purple-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">Total P&L</div>
+                        <div class="text-2xl font-bold" id="totalPnL">$0.00</div>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b">
+                                <th class="text-left py-3 px-4">Time</th>
+                                <th class="text-left py-3 px-4">Bot</th>
+                                <th class="text-left py-3 px-4">Symbol</th>
+                                <th class="text-left py-3 px-4">Type</th>
+                                <th class="text-left py-3 px-4">Entry</th>
+                                <th class="text-left py-3 px-4">Exit</th>
+                                <th class="text-left py-3 px-4">Amount</th>
+                                <th class="text-left py-3 px-4">P&L</th>
+                                <th class="text-left py-3 px-4">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tradesTable">
+                            <tr>
+                                <td colspan="9" class="text-center py-8 text-gray-500">
+                                    <i class="fas fa-chart-line text-4xl mb-2"></i>
+                                    <div>No trades yet. Start the bot to begin trading!</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- OKX Integration Status -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+                <h3 class="text-xl font-bold mb-4">🔗 OKX Integration Status</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="border rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-600">API Connection</span>
+                            <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm" id="okxConnectionStatus">
+                                <i class="fas fa-check-circle"></i> Connected
+                            </span>
+                        </div>
+                        <div class="text-sm text-gray-500">Your OKX account is linked</div>
+                    </div>
+                    <div class="border rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-600">Trading Enabled</span>
+                            <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm" id="okxTradingStatus">
+                                <i class="fas fa-check-circle"></i> Active
+                            </span>
+                        </div>
+                        <div class="text-sm text-gray-500">Bot can execute trades</div>
+                    </div>
+                    <div class="border rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-600">Last Sync</span>
+                            <span class="text-sm font-semibold" id="okxLastSync">Just now</span>
+                        </div>
+                        <div class="text-sm text-gray-500">Balance updated</div>
+                    </div>
+                </div>
+                <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+                    <div class="flex items-start gap-3">
+                        <i class="fas fa-info-circle text-blue-600 mt-1"></i>
+                        <div>
+                            <div class="font-semibold text-blue-900">How to see trades in OKX:</div>
+                            <ol class="text-sm text-blue-800 mt-2 space-y-1">
+                                <li>1. Login to <a href="https://www.okx.com" target="_blank" class="underline">OKX.com</a></li>
+                                <li>2. Go to <strong>Assets → Trading Account</strong></li>
+                                <li>3. Click <strong>Order History</strong> or <strong>Trade History</strong></li>
+                                <li>4. All bot trades appear there in real-time</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Trading Activity -->
             <div class="bg-white rounded-lg shadow-lg p-6">
                 <h3 class="text-xl font-bold mb-4">Recent Trading Activity</h3>
@@ -744,6 +847,117 @@
             hideBotConfig();
             alert('✅ Configuration saved! Click "Start Bot" to begin trading.');
         }
+
+        // Trade History Functions
+        let allTrades = [];
+        let currentFilter = 'all';
+
+        async function loadTradeHistory() {
+            try {
+                const response = await fetch(`${API_URL}/api/trades/history`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                allTrades = data.trades || [];
+                displayTrades(allTrades);
+                updateTradeStats(allTrades);
+            } catch (error) {
+                console.error('Error loading trade history:', error);
+            }
+        }
+
+        function filterTrades(filter) {
+            currentFilter = filter;
+            
+            // Update button styles
+            document.getElementById('filterAll').classList.remove('bg-blue-500', 'text-white');
+            document.getElementById('filterAdmin').classList.remove('bg-blue-500', 'text-white');
+            document.getElementById('filterUsers').classList.remove('bg-blue-500', 'text-white');
+            
+            if (filter === 'all') {
+                document.getElementById('filterAll').classList.add('bg-blue-500', 'text-white');
+                displayTrades(allTrades);
+            } else if (filter === 'admin') {
+                document.getElementById('filterAdmin').classList.add('bg-blue-500', 'text-white');
+                const adminTrades = allTrades.filter(t => t.bot_name && t.bot_name.includes('Admin'));
+                displayTrades(adminTrades);
+            } else if (filter === 'users') {
+                document.getElementById('filterUsers').classList.add('bg-blue-500', 'text-white');
+                const userTrades = allTrades.filter(t => !t.bot_name || !t.bot_name.includes('Admin'));
+                displayTrades(userTrades);
+            }
+        }
+
+        function displayTrades(trades) {
+            const tradesTable = document.getElementById('tradesTable');
+            
+            if (trades.length === 0) {
+                tradesTable.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="text-center py-8 text-gray-500">
+                            <i class="fas fa-chart-line text-4xl mb-2"></i>
+                            <div>No trades yet. Start the bot to begin trading!</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tradesTable.innerHTML = trades.map(trade => {
+                const pnl = trade.pnl || 0;
+                const pnlClass = pnl >= 0 ? 'text-green-600' : 'text-red-600';
+                const statusClass = trade.status === 'closed' ? 'bg-gray-100 text-gray-800' : 'bg-blue-100 text-blue-800';
+                
+                return `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="py-3 px-4 text-sm">${new Date(trade.timestamp || trade.entry_time).toLocaleString()}</td>
+                        <td class="py-3 px-4 text-sm font-semibold">${trade.bot_name || 'Unknown'}</td>
+                        <td class="py-3 px-4 text-sm font-mono">${trade.symbol}</td>
+                        <td class="py-3 px-4 text-sm">
+                            <span class="px-2 py-1 rounded text-xs ${trade.side === 'buy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                ${(trade.side || 'buy').toUpperCase()}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-sm">$${(trade.entry_price || 0).toFixed(4)}</td>
+                        <td class="py-3 px-4 text-sm">$${(trade.exit_price || 0).toFixed(4)}</td>
+                        <td class="py-3 px-4 text-sm">$${(trade.amount || 0).toFixed(2)}</td>
+                        <td class="py-3 px-4 text-sm font-bold ${pnlClass}">
+                            ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}
+                        </td>
+                        <td class="py-3 px-4 text-sm">
+                            <span class="px-2 py-1 rounded text-xs ${statusClass}">
+                                ${(trade.status || 'open').toUpperCase()}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateTradeStats(trades) {
+            const totalTrades = trades.length;
+            const winningTrades = trades.filter(t => (t.pnl || 0) > 0).length;
+            const losingTrades = trades.filter(t => (t.pnl || 0) < 0).length;
+            const totalPnL = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+
+            document.getElementById('totalTradesCount').textContent = totalTrades;
+            document.getElementById('winningTradesCount').textContent = winningTrades;
+            document.getElementById('losingTradesCount').textContent = losingTrades;
+            
+            const pnlElement = document.getElementById('totalPnL');
+            pnlElement.textContent = `$${totalPnL.toFixed(2)}`;
+            pnlElement.className = `text-2xl font-bold ${totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`;
+        }
+
+        // Update loadDashboard to include trade history
+        const originalLoadDashboard = loadDashboard;
+        loadDashboard = async function() {
+            await originalLoadDashboard();
+            await loadTradeHistory();
+            
+            // Refresh trade history every 30 seconds
+            setInterval(loadTradeHistory, 30000);
+        };
     </script>
 </body>
 </html>
