@@ -2819,6 +2819,42 @@ async def update_admin_bot_settings(
     
     return {"success": True, "settings": settings}
 
+@app.post("/api/admin/start-trading-bot")
+async def start_trading_bot(user: dict = Depends(get_current_user)):
+    """Start the admin trading bot"""
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    try:
+        # Import and start the bot
+        import subprocess
+        import sys
+        
+        # Start the bot as a background process
+        process = subprocess.Popen(
+            [sys.executable, 'advanced_trading_bot.py'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        
+        print(f"{Fore.GREEN}🚀 Admin trading bot started (PID: {process.pid}){Style.RESET_ALL}")
+        
+        return {
+            "success": True,
+            "message": "Trading bot started successfully",
+            "status": "running",
+            "pid": process.pid,
+            "info": "Bot will start trading within 5 minutes. Check dashboard for trades."
+        }
+        
+    except Exception as e:
+        print(f"{Fore.RED}❌ Failed to start bot: {e}{Style.RESET_ALL}")
+        return {
+            "success": False,
+            "message": f"Failed to start bot: {str(e)}",
+            "status": "error"
+        }
+
 @app.post("/api/admin/test-okx-connection")
 async def test_okx_connection(user: dict = Depends(get_current_user)):
     """Test OKX API connection for admin"""

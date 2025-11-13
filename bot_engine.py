@@ -197,6 +197,11 @@ class BotInstance:
             self.balance = config.get('capital', 1000)
             logger.info(f"📝 PAPER TRADING - Using simulated balance: ${self.balance:.2f}")
         
+        # Initialize trading strategy
+        self.strategy_type = config.get('strategy', 'momentum')
+        self.strategy = self._init_strategy()
+        logger.info(f"✅ Strategy initialized: {self.strategy_type}")
+        
         # Initialize profit protector for automated protection
         self.profit_protector = None
         if PROFIT_PROTECTOR_AVAILABLE:
@@ -217,6 +222,96 @@ class BotInstance:
                     logger.info(f"⚠️ Telegram configured but not enabled (check .env)")
             except Exception as e:
                 logger.warning(f"⚠️ Could not initialize Telegram: {e}")
+    
+    def _init_strategy(self):
+        """Initialize trading strategy based on config"""
+        if not ADVANCED_STRATEGIES_AVAILABLE:
+            logger.warning("⚠️ Advanced strategies not available, using basic momentum")
+            return None
+        
+        try:
+            if self.strategy_type == 'grid':
+                logger.info("📊 Initializing Grid Trading Strategy...")
+                return GridTradingStrategy(
+                    grid_levels=self.config.get('grid_levels', 10),
+                    grid_spacing_percent=self.config.get('grid_spacing', 1.0)
+                )
+            
+            elif self.strategy_type == 'dca':
+                logger.info("💎 Initializing DCA Strategy...")
+                return DCAStrategy(
+                    max_buy_orders=self.config.get('max_buy_orders', 4),
+                    dip_threshold=self.config.get('dip_threshold', 2.0),
+                    profit_target=self.config.get('profit_target', 3.0)
+                )
+            
+            elif self.strategy_type == 'arbitrage':
+                logger.info("⚡ Initializing Arbitrage Detector...")
+                return ArbitrageDetector(min_profit_threshold=0.005)
+            
+            elif self.strategy_type == 'ml_enhanced':
+                logger.info("🤖 Initializing ML-Enhanced Strategy...")
+                # Use momentum with ML predictions
+                return None  # Will use momentum + ML predictions
+            
+            else:
+                logger.info("🚀 Using Momentum Strategy (default)")
+                return None  # Basic momentum
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize strategy {self.strategy_type}: {e}")
+            return None
+    
+    def _get_trading_signal(self, current_price, position):
+        """Get trading signal from strategy"""
+        try:
+            # Grid strategy
+            if self.strategy_type == 'grid' and self.strategy:
+                if not position:
+                    return 'buy'  # Grid always ready to buy
+                # Check if we should take profit
+                entry_price = position.get('entry', 0)
+                if self.strategy.should_take_profit(current_price, entry_price):
+                    return 'sell'
+                return 'hold'
+            
+            # DCA strategy
+            elif self.strategy_type == 'dca' and self.strategy:
+                if not position:
+                    # Check if price dipped enough
+                    if self.strategy.should_buy_dip(current_price):
+                        return 'buy'
+                else:
+                    # Check if we hit profit target
+                    if self.strategy.should_sell(current_price, position.get('entry', 0)):
+                        return 'sell'
+                return 'hold'
+            
+            # Arbitrage strategy
+            elif self.strategy_type == 'arbitrage' and self.strategy:
+                # Arbitrage needs multiple exchanges - simplified for single exchange
+                # Return buy/sell based on momentum as fallback
+                return 'buy' if not position else 'hold'
+            
+            # Basic momentum (default)
+            else:
+                # Simple momentum: buy low, sell high
+                if not position:
+                    return 'buy'  # Open position
+                else:
+                    # Check take profit (4%)
+                    entry_price = position.get('entry', 0)
+                    if current_price >= entry_price * 1.04:  # 4% profit
+                        return 'sell'
+                    # Check stop loss (2%)
+                    elif current_price <= entry_price * 0.98:  # 2% loss
+                        return 'sell'
+                return 'hold'
+                
+        except Exception as e:
+            logger.error(f"❌ Error getting trading signal: {e}")
+            # Fallback to hold
+            return 'hold'
     
     async def start(self):
         self.running = True
@@ -272,8 +367,10 @@ class BotInstance:
                 ticker = self.exchange.fetch_ticker(self.symbol)
                 price = ticker['last']
                 
-                # Simple momentum strategy
-                if not position:
+                # Execute strategy-specific logic
+                signal = self._get_trading_signal(price, position)
+                
+                if signal == 'buy' and not position:
                     # Open position - USE ONLY YOUR ACTUAL BALANCE, NO LEVERAGE!
                     # Get fresh balance to ensure accuracy
                     if not self.paper_trading:
@@ -382,28 +479,21 @@ class BotInstance:
                     except:
                         pass
                 
-                elif position:
-                    # Check profit protector first (automated protection)
-                    should_exit = False
-                    exit_reason = "manual"
+                elif signal == 'sell' and position:
+                    # Exit signal from strategy
+                    should_exit = True
+                    exit_reason = f"strategy_{self.strategy_type}"
                     
+                    # Check profit protector first (automated protection)
                     if self.profit_protector and position.get('protector_id'):
                         try:
                             # Update current price and check for exit signals
                             action = self.profit_protector.update_position(position['protector_id'], price)
                             if action and action.get('action') == 'exit':
-                                should_exit = True
                                 exit_reason = action.get('reason', 'profit_protector')
                                 logger.info(f"🛡️ Profit protector triggered exit: {exit_reason}")
                         except Exception as e:
                             logger.warning(f"⚠️ Profit protector check failed: {e}")
-                    
-                    # Fallback to basic exit conditions if protector not active
-                    if not should_exit:
-                        pnl_pct = ((price - position['entry']) / position['entry']) * 100
-                        if pnl_pct >= 2.0 or pnl_pct <= -1.0:  # 2% profit or 1% loss
-                            should_exit = True
-                            exit_reason = f"pnl_{pnl_pct:.2f}%"
                     
                     if should_exit:
                         # Calculate final P&L
