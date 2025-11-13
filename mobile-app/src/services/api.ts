@@ -128,6 +128,22 @@ export const getAISuggestions = async () => {
   return response.data;
 };
 
+// Notification endpoints
+export const savePushToken = async (pushToken: string) => {
+  const response = await api.post('/user/push-token', { push_token: pushToken });
+  return response.data;
+};
+
+export const getNotificationSettings = async () => {
+  const response = await api.get('/user/notification-settings');
+  return response.data;
+};
+
+export const updateNotificationSettings = async (settings: any) => {
+  const response = await api.put('/user/notification-settings', settings);
+  return response.data;
+};
+
 export const getBotAnalytics = async (botId: string) => {
   const response = await api.get(`/bots/${botId}/analytics`);
   return response.data;

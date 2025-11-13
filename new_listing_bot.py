@@ -13,6 +13,15 @@ from colorama import Fore, Style
 
 logger = logging.getLogger(__name__)
 
+# Import Telegram notifications
+try:
+    from telegram_notifier import TelegramNotifier
+    TELEGRAM_AVAILABLE = True
+    logger.info("✅ Telegram notifier imported for new listing bot")
+except ImportError as e:
+    TELEGRAM_AVAILABLE = False
+    logger.warning(f"⚠️ Telegram not available for new listing bot: {e}")
+
 
 class NewListingBot:
     """
@@ -53,6 +62,27 @@ class NewListingBot:
         self.take_profit_percent = default_config['take_profit_percent']
         self.stop_loss_percent = default_config['stop_loss_percent']
         self.max_hold_time = default_config['max_hold_time']
+        
+        # Initialize Telegram notifications
+        self.telegram = None
+        if TELEGRAM_AVAILABLE:
+            try:
+                self.telegram = TelegramNotifier()
+                if self.telegram.enabled:
+                    logger.info("✅ Telegram notifications enabled for new listing bot")
+                    # Send bot started message
+                    self.telegram.send_message(
+                        "🚀 **New Listing Bot Started!**\n\n"
+                        f"💰 Buy Amount: ${self.buy_amount_usdt} USDT\n"
+                        f"🎯 Take Profit: {self.take_profit_percent}%\n"
+                        f"🛑 Stop Loss: {self.stop_loss_percent}%\n"
+                        f"⏱️ Max Hold: {self.max_hold_time/60:.0f} minutes\n\n"
+                        f"👀 Monitoring OKX for new listings..."
+                    )
+                else:
+                    logger.info("⚠️ Telegram configured but not enabled")
+            except Exception as e:
+                logger.warning(f"⚠️ Could not initialize Telegram: {e}")
         
         # Initialize known markets
         self._load_known_markets()
@@ -217,6 +247,26 @@ class NewListingBot:
             logger.info(f"   Take Profit: ${take_profit_price:.6f} (+{self.take_profit_percent}%)")
             logger.info(f"   Stop Loss: ${stop_loss_price:.6f} (-{self.stop_loss_percent}%)")
             
+            # Send Telegram notification for NEW LISTING BUY
+            if self.telegram and self.telegram.enabled:
+                try:
+                    message = (
+                        f"🚨 **NEW LISTING DETECTED!**\n"
+                        f"🟢 **BUY Executed**\n\n"
+                        f"🪙 Symbol: {symbol}\n"
+                        f"💰 Price: ${current_price:.6f}\n"
+                        f"📊 Amount: {amount:.4f}\n"
+                        f"💵 Invested: ${self.buy_amount_usdt} USDT\n\n"
+                        f"🎯 Take Profit: ${take_profit_price:.6f} (+{self.take_profit_percent}%)\n"
+                        f"🛑 Stop Loss: ${stop_loss_price:.6f} (-{self.stop_loss_percent}%)\n\n"
+                        f"⏰ Time: {datetime.utcnow().strftime('%H:%M:%S UTC')}\n"
+                        f"✅ Position opened successfully!"
+                    )
+                    self.telegram.send_message(message)
+                    logger.info("📱 Telegram: NEW LISTING BUY notification sent")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to send Telegram notification: {e}")
+            
             # Save to database
             if self.db:
                 self._save_trade(trade)
@@ -297,6 +347,30 @@ class NewListingBot:
                     logger.info(f"   Entry: ${trade['entry_price']:.6f}")
                     logger.info(f"   Exit: ${current_price:.6f}")
                     logger.info(f"   P&L: ${pnl_usdt:.2f} ({pnl_percent:+.2f}%)")
+                    
+                    # Send Telegram notification for SELL
+                    if self.telegram and self.telegram.enabled:
+                        try:
+                            profit_emoji = "🟢" if pnl_usdt > 0 else "🔴"
+                            total_value = trade['amount'] * current_price
+                            
+                            message = (
+                                f"{profit_emoji} **NEW LISTING CLOSED!**\n"
+                                f"🔴 **SELL Executed**\n\n"
+                                f"🪙 Symbol: {symbol}\n"
+                                f"📈 Entry Price: ${trade['entry_price']:.6f}\n"
+                                f"📉 Exit Price: ${current_price:.6f}\n"
+                                f"📊 Amount: {trade['amount']:.4f}\n"
+                                f"💵 Total Value: ${total_value:.2f}\n\n"
+                                f"**💰 P&L: {pnl_usdt:+.2f} USD ({pnl_percent:+.2f}%)**\n\n"
+                                f"📌 Reason: {close_reason}\n"
+                                f"⏰ Time: {datetime.utcnow().strftime('%H:%M:%S UTC')}\n"
+                                f"✅ Position closed!"
+                            )
+                            self.telegram.send_message(message)
+                            logger.info(f"📱 Telegram: SELL notification sent (PnL: {pnl_percent:+.2f}%)")
+                        except Exception as e:
+                            logger.warning(f"⚠️ Failed to send SELL notification: {e}")
                     
                     # Update database
                     if self.db:

@@ -23,8 +23,8 @@ export default function SplashScreen({ navigation }: any) {
       if (!onboardingComplete) {
         navigation.replace('Onboarding');
       } else if (token) {
-        // Check if biometric is enabled
-        const biometricEnabled = await SecureStore.getItemAsync('biometricEnabled');
+        // Check if biometric is enabled (must match BiometricService key!)
+        const biometricEnabled = await SecureStore.getItemAsync('biometric_enabled');
         
         if (biometricEnabled === 'true') {
           // Trigger biometric authentication

@@ -27,6 +27,15 @@ except ImportError as e:
     PROFIT_PROTECTOR_AVAILABLE = False
     logger.warning(f"⚠️ Profit protector not available: {e}")
 
+# Import Telegram notification system
+try:
+    from telegram_notifier import TelegramNotifier
+    TELEGRAM_AVAILABLE = True
+    logger.info("✅ Telegram notifier imported")
+except ImportError as e:
+    TELEGRAM_AVAILABLE = False
+    logger.warning(f"⚠️ Telegram not available: {e}")
+
 class TradingBotEngine:
     """Complete trading bot engine with real-time execution"""
     
@@ -159,10 +168,39 @@ class BotInstance:
                 logger.info(f"✅ Profit protector activated for bot {bot_id}")
             except Exception as e:
                 logger.warning(f"⚠️ Could not initialize profit protector: {e}")
+        
+        # Initialize Telegram notifier for real-time trade alerts
+        self.telegram = None
+        if TELEGRAM_AVAILABLE:
+            try:
+                self.telegram = TelegramNotifier()
+                if self.telegram.enabled:
+                    logger.info(f"✅ Telegram notifications activated for bot {bot_id}")
+                else:
+                    logger.info(f"⚠️ Telegram configured but not enabled (check .env)")
+            except Exception as e:
+                logger.warning(f"⚠️ Could not initialize Telegram: {e}")
     
     async def start(self):
         self.running = True
         self.task = asyncio.create_task(self.trading_loop())
+        
+        # Send bot started notification
+        if self.telegram and self.telegram.enabled:
+            try:
+                mode = "📝 Paper Trading" if self.paper_trading else "💰 Real Trading"
+                message = (
+                    f"🤖 **Bot Started!**\n\n"
+                    f"Symbol: {self.symbol}\n"
+                    f"Mode: {mode}\n"
+                    f"Capital: ${self.balance:.2f}\n"
+                    f"Bot ID: {self.bot_id}\n\n"
+                    f"⏰ Trading loop active. You'll receive alerts for every trade!"
+                )
+                self.telegram.send_message(message)
+                logger.info("📱 Telegram: Bot started notification sent")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to send bot started notification: {e}")
     
     async def stop(self):
         self.running = False
@@ -225,6 +263,26 @@ class BotInstance:
                         'timestamp': datetime.utcnow()
                     }
                     self.db.db['trades'].insert_one(trade_doc)
+                    
+                    # Send Telegram notification for BUY
+                    if self.telegram and self.telegram.enabled:
+                        try:
+                            mode = "📝 PAPER" if self.paper_trading else "💰 REAL"
+                            total_value = amount * price
+                            message = (
+                                f"🟢 **BUY Signal Executed!**\n\n"
+                                f"Symbol: {self.symbol}\n"
+                                f"Mode: {mode}\n"
+                                f"Price: ${price:,.2f}\n"
+                                f"Amount: {amount:.6f}\n"
+                                f"Total Value: ${total_value:,.2f}\n"
+                                f"Time: {datetime.utcnow().strftime('%H:%M:%S UTC')}\n\n"
+                                f"✅ Position opened successfully!"
+                            )
+                            self.telegram.send_message(message)
+                            logger.info("📱 Telegram: BUY notification sent")
+                        except Exception as e:
+                            logger.warning(f"⚠️ Failed to send BUY notification: {e}")
                     
                     # Broadcast via WebSocket
                     try:
@@ -293,6 +351,33 @@ class BotInstance:
                             'is_paper': self.paper_trading,
                             'timestamp': datetime.utcnow()
                         })
+                        
+                        # Send Telegram notification for SELL
+                        if self.telegram and self.telegram.enabled:
+                            try:
+                                mode = "📝 PAPER" if self.paper_trading else "💰 REAL"
+                                total_value = position['amount'] * price
+                                entry_value = position['amount'] * position['entry']
+                                profit_usd = total_value - entry_value
+                                profit_emoji = "🟢" if final_pnl_pct > 0 else "🔴"
+                                
+                                message = (
+                                    f"{profit_emoji} **SELL Signal Executed!**\n\n"
+                                    f"Symbol: {self.symbol}\n"
+                                    f"Mode: {mode}\n"
+                                    f"Entry Price: ${position['entry']:,.2f}\n"
+                                    f"Exit Price: ${price:,.2f}\n"
+                                    f"Amount: {position['amount']:.6f}\n"
+                                    f"Total Value: ${total_value:,.2f}\n\n"
+                                    f"**P&L: {profit_usd:+.2f} USD ({final_pnl_pct:+.2f}%)**\n"
+                                    f"Reason: {exit_reason}\n"
+                                    f"Time: {datetime.utcnow().strftime('%H:%M:%S UTC')}\n\n"
+                                    f"✅ Position closed!"
+                                )
+                                self.telegram.send_message(message)
+                                logger.info(f"📱 Telegram: SELL notification sent (PnL: {final_pnl_pct:+.2f}%)")
+                            except Exception as e:
+                                logger.warning(f"⚠️ Failed to send SELL notification: {e}")
                         
                         # Broadcast via WebSocket
                         try:
