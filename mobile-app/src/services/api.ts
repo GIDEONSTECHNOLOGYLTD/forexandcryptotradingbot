@@ -383,6 +383,63 @@ export const revokeSession = async (sessionId: string) => {
   return response.data;
 };
 
+// Copy Trading APIs
+export const getTopTraders = async (limit = 20) => {
+  const response = await api.get(`/copy-trading/top-traders?limit=${limit}`);
+  return response.data;
+};
+
+export const subscribeToTrader = async (strategyId: string, capital: number) => {
+  const response = await api.post('/copy-trading/subscribe', {
+    strategy_id: strategyId,
+    capital
+  });
+  return response.data;
+};
+
+export const unsubscribeFromTrader = async (strategyId: string) => {
+  const response = await api.post('/copy-trading/unsubscribe', {
+    strategy_id: strategyId
+  });
+  return response.data;
+};
+
+export const getMyCopySubscriptions = async () => {
+  const response = await api.get('/copy-trading/my-subscriptions');
+  return response.data;
+};
+
+export const getMyEarnings = async () => {
+  const response = await api.get('/copy-trading/my-earnings');
+  return response.data;
+};
+
+export const publishStrategy = async (name: string, description: string, profitShare = 10) => {
+  const response = await api.post('/copy-trading/publish-strategy', {
+    name,
+    description,
+    profit_share: profitShare
+  });
+  return response.data;
+};
+
+// AI Assistant APIs
+export const getAIPerformanceAnalysis = async () => {
+  const response = await api.get('/ai/performance-analysis');
+  return response.data;
+};
+
+// Strategy APIs
+export const getAvailableStrategies = async () => {
+  const response = await api.get('/strategies/available');
+  return response.data;
+};
+
+export const getRecommendedStrategy = async (symbol: string) => {
+  const response = await api.get(`/strategies/recommended?symbol=${symbol}`);
+  return response.data;
+};
+
 export default {
   login,
   signup,

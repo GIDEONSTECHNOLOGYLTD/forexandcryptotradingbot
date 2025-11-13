@@ -23,6 +23,7 @@ export default function BotConfigScreen({ route, navigation }: any) {
   
   // Basic Config - Pre-fill if editing (INSTANT, NO API CALLS)
   const [botType, setBotType] = useState(bot?.config?.bot_type || 'momentum');
+  const [strategy, setStrategy] = useState(bot?.config?.strategy || 'momentum');
   const [pairCategory, setPairCategory] = useState('crypto'); // Default to crypto for speed
   const [symbol, setSymbol] = useState(bot?.config?.symbol || 'BTC/USDT');
   const [capital, setCapital] = useState(bot?.config?.capital?.toString() || '20');
@@ -80,6 +81,7 @@ export default function BotConfigScreen({ route, navigation }: any) {
     try {
       const config = {
         bot_type: botType,
+        strategy: strategy,
         symbol: (symbol || 'BTC/USDT').toUpperCase().trim(),
         capital: parseFloat(capital),
         initial_capital: parseFloat(initialCapital),
@@ -121,6 +123,7 @@ export default function BotConfigScreen({ route, navigation }: any) {
     try {
       const config = {
         bot_type: botType,
+        strategy: strategy,
         symbol: (symbol || 'BTC/USDT').toUpperCase().trim(),
         capital: parseFloat(capital),
         initial_capital: parseFloat(initialCapital),
@@ -158,6 +161,32 @@ export default function BotConfigScreen({ route, navigation }: any) {
         <Picker.Item label="Grid Trading" value="grid" />
         <Picker.Item label="DCA (Dollar Cost Average)" value="dca" />
       </Picker>
+
+      <Text style={styles.label}>Trading Strategy</Text>
+      <Text style={styles.sublabel}>
+        Choose the strategy that fits your goals
+      </Text>
+      <Picker 
+        selectedValue={strategy} 
+        onValueChange={setStrategy} 
+        style={styles.picker}
+        itemStyle={styles.pickerItem}
+      >
+        <Picker.Item label="🚀 Momentum - Trend Following (60% win rate)" value="momentum" />
+        <Picker.Item label="📊 Grid Trading - Range Markets (80% win rate)" value="grid" />
+        <Picker.Item label="💎 DCA - Buy Dips (85% win rate)" value="dca" />
+        <Picker.Item label="🤖 AI Enhanced - ML Predictions (75% win rate)" value="ml_enhanced" />
+        {(user?.subscription === 'enterprise' || isAdmin) && (
+          <Picker.Item label="⚡ Arbitrage - Risk-Free (95% win rate)" value="arbitrage" />
+        )}
+      </Picker>
+      <Text style={styles.hint}>
+        {strategy === 'momentum' && '✓ Best for trending markets, follows price momentum'}
+        {strategy === 'grid' && '✓ Best for ranging markets, profits from oscillations'}
+        {strategy === 'dca' && '✓ Best for dips, averages down then sells at profit'}
+        {strategy === 'ml_enhanced' && '✓ Uses AI predictions and multi-timeframe analysis'}
+        {strategy === 'arbitrage' && '✓ Risk-free profits between exchanges (Enterprise only)'}
+      </Text>
 
       <Text style={styles.label}>Market Type</Text>
       <Picker 

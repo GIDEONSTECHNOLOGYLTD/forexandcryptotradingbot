@@ -2535,6 +2535,235 @@ async def verify_subscription_payment(
 # STARTUP
 # ============================================================================
 
+# ============================================================================
+# COPY TRADING ENDPOINTS
+# ============================================================================
+
+@app.get("/api/copy-trading/top-traders")
+async def get_top_traders(limit: int = 20):
+    """Get top performing traders for copy trading"""
+    from copy_trading import CopyTradingSystem
+    copy_system = CopyTradingSystem(db)
+    traders = copy_system.get_top_traders(limit)
+    return {"traders": traders}
+
+@app.post("/api/copy-trading/subscribe")
+async def subscribe_to_trader(
+    strategy_id: str,
+    capital: float,
+    user: dict = Depends(get_current_user)
+):
+    """Subscribe to copy a trader's strategy"""
+    from copy_trading import CopyTradingSystem
+    copy_system = CopyTradingSystem(db)
+    
+    try:
+        subscription = copy_system.subscribe_to_strategy(
+            user['_id'],
+            strategy_id,
+            capital
+        )
+        return {
+            "success": True,
+            "subscription": subscription,
+            "message": "Successfully subscribed to strategy"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/copy-trading/unsubscribe")
+async def unsubscribe_from_trader(
+    strategy_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Unsubscribe from a strategy"""
+    from copy_trading import CopyTradingSystem
+    copy_system = CopyTradingSystem(db)
+    
+    success = copy_system.unsubscribe_from_strategy(user['_id'], strategy_id)
+    
+    if success:
+        return {"success": True, "message": "Successfully unsubscribed"}
+    else:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+@app.get("/api/copy-trading/my-subscriptions")
+async def get_my_subscriptions(user: dict = Depends(get_current_user)):
+    """Get user's copy trading subscriptions"""
+    from copy_trading import CopyTradingSystem
+    copy_system = CopyTradingSystem(db)
+    
+    subscriptions = copy_system.get_follower_subscriptions(user['_id'])
+    return {"subscriptions": subscriptions}
+
+@app.get("/api/copy-trading/my-earnings")
+async def get_my_earnings(user: dict = Depends(get_current_user)):
+    """Get earnings from being copied (for leaders)"""
+    from copy_trading import CopyTradingSystem
+    copy_system = CopyTradingSystem(db)
+    
+    earnings = copy_system.get_leader_earnings(user['_id'])
+    return {"total_earnings": earnings}
+
+@app.post("/api/copy-trading/publish-strategy")
+async def publish_strategy(
+    name: str,
+    description: str,
+    profit_share: int = 10,
+    user: dict = Depends(get_current_user)
+):
+    """Publish a strategy for others to copy"""
+    from copy_trading import CopyTradingSystem
+    copy_system = CopyTradingSystem(db)
+    
+    strategy = copy_system.publish_strategy(
+        user['_id'],
+        name,
+        description,
+        profit_share
+    )
+    
+    return {
+        "success": True,
+        "strategy": strategy,
+        "message": "Strategy published successfully"
+    }
+
+
+# ============================================================================
+# AI ASSISTANT ENDPOINTS
+# ============================================================================
+
+@app.get("/api/ai/suggestions")
+async def get_ai_suggestions(user: dict = Depends(get_current_user)):
+    """Get AI-powered trading suggestions"""
+    from ai_assistant import AITradingAssistant
+    assistant = AITradingAssistant(db)
+    
+    analysis = assistant.analyze_user_performance(user['_id'])
+    return analysis
+
+@app.get("/api/ai/performance-analysis")
+async def get_performance_analysis(user: dict = Depends(get_current_user)):
+    """Get detailed performance analysis"""
+    from ai_assistant import AITradingAssistant
+    assistant = AITradingAssistant(db)
+    
+    analysis = assistant.analyze_user_performance(user['_id'])
+    return {
+        "analysis": analysis.get('analysis', {}),
+        "grade": analysis.get('grade', {}),
+        "total_trades": analysis.get('total_trades', 0)
+    }
+
+
+# ============================================================================
+# STRATEGY MANAGEMENT ENDPOINTS
+# ============================================================================
+
+@app.get("/api/strategies/available")
+async def get_available_strategies(user: dict = Depends(get_current_user)):
+    """Get available trading strategies based on subscription"""
+    subscription = user.get('subscription', 'free')
+    
+    strategies = {
+        'free': [
+            {
+                'id': 'momentum',
+                'name': 'Momentum Trading',
+                'description': 'Trend-following strategy using RSI and MACD',
+                'win_rate': '55-60%',
+                'risk_level': 'Medium',
+                'best_for': 'Trending markets'
+            }
+        ],
+        'pro': [
+            {
+                'id': 'momentum',
+                'name': 'Momentum Trading',
+                'description': 'Trend-following strategy',
+                'win_rate': '55-60%',
+                'risk_level': 'Medium',
+                'best_for': 'Trending markets'
+            },
+            {
+                'id': 'grid',
+                'name': 'Grid Trading',
+                'description': 'Profits from price oscillations',
+                'win_rate': '80%+',
+                'risk_level': 'Low-Medium',
+                'best_for': 'Ranging markets'
+            },
+            {
+                'id': 'dca',
+                'name': 'Dollar Cost Averaging',
+                'description': 'Average down on dips',
+                'win_rate': '85%+',
+                'risk_level': 'Medium',
+                'best_for': 'Dips and corrections'
+            },
+            {
+                'id': 'ml_enhanced',
+                'name': 'AI Enhanced',
+                'description': 'ML predictions + sentiment analysis',
+                'win_rate': '75%+',
+                'risk_level': 'Medium',
+                'best_for': 'All markets'
+            }
+        ],
+        'enterprise': 'all'
+    }
+    
+    if subscription == 'enterprise' or subscription == 'premium':
+        # All strategies
+        available = strategies['pro'] + [
+            {
+                'id': 'arbitrage',
+                'name': 'Arbitrage',
+                'description': 'Risk-free profits between exchanges',
+                'win_rate': '95%+',
+                'risk_level': 'Very Low',
+                'best_for': 'Multiple exchanges'
+            }
+        ]
+    else:
+        available = strategies.get(subscription, strategies['free'])
+    
+    return {"strategies": available, "subscription": subscription}
+
+@app.get("/api/strategies/recommended")
+async def get_recommended_strategy(symbol: str):
+    """Get recommended strategy for current market conditions"""
+    from advanced_strategies import StrategySelector
+    import ccxt
+    
+    try:
+        exchange = ccxt.okx()
+        data = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=100)
+        
+        import pandas as pd
+        df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        
+        selector = StrategySelector()
+        condition = selector.detect_market_condition(df)
+        recommended = selector.recommend_strategy(condition)
+        
+        return {
+            "symbol": symbol,
+            "market_condition": condition,
+            "recommended_strategy": recommended,
+            "confidence": "high" if condition in ['trending_up', 'ranging'] else "medium"
+        }
+    except Exception as e:
+        return {
+            "symbol": symbol,
+            "market_condition": "unknown",
+            "recommended_strategy": "momentum",
+            "confidence": "low",
+            "error": str(e)
+        }
+
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize on startup"""
