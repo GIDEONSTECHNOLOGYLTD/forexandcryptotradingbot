@@ -14,6 +14,15 @@ from bson import ObjectId
 from cryptography.fernet import Fernet
 import logging
 
+# Import profit protection system
+try:
+    from auto_profit_protector import AutoProfitProtector
+    PROFIT_PROTECTOR_AVAILABLE = True
+    logger.info("✅ Profit protector imported")
+except ImportError as e:
+    PROFIT_PROTECTOR_AVAILABLE = False
+    logger.warning(f"⚠️ Profit protector not available: {e}")
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -140,6 +149,15 @@ class BotInstance:
         self.task = None
         self.balance = config.get('capital', 1000)
         self.symbol = config.get('symbol', 'BTC/USDT')
+        
+        # Initialize profit protector for automated protection
+        self.profit_protector = None
+        if PROFIT_PROTECTOR_AVAILABLE:
+            try:
+                self.profit_protector = AutoProfitProtector(exchange, db)
+                logger.info(f"✅ Profit protector activated for bot {bot_id}")
+            except Exception as e:
+                logger.warning(f"⚠️ Could not initialize profit protector: {e}")
     
     async def start(self):
         self.running = True
@@ -179,6 +197,21 @@ class BotInstance:
                     
                     position = {'entry': price, 'amount': amount, 'time': datetime.utcnow()}
                     
+                    # Add position to profit protector for automated protection
+                    if self.profit_protector:
+                        try:
+                            position_id = self.profit_protector.add_position(
+                                symbol=self.symbol,
+                                entry_price=price,
+                                amount=amount,
+                                side='long',
+                                metadata={'bot_id': self.bot_id, 'user_id': self.user_id}
+                            )
+                            position['protector_id'] = position_id
+                            logger.info(f"🛡️ Position protected with ID: {position_id}")
+                        except Exception as e:
+                            logger.warning(f"⚠️ Could not add position to protector: {e}")
+                    
                     # Save trade
                     trade_doc = {
                         'bot_id': self.bot_id,
@@ -210,15 +243,40 @@ class BotInstance:
                         pass
                 
                 elif position:
-                    # Check exit conditions
-                    pnl_pct = ((price - position['entry']) / position['entry']) * 100
+                    # Check profit protector first (automated protection)
+                    should_exit = False
+                    exit_reason = "manual"
                     
-                    if pnl_pct >= 2.0 or pnl_pct <= -1.0:  # 2% profit or 1% loss
+                    if self.profit_protector and position.get('protector_id'):
+                        try:
+                            # Update current price and check for exit signals
+                            actions = self.profit_protector.check_position(position['protector_id'], price)
+                            if actions:
+                                for action in actions:
+                                    if action['action'] == 'exit':
+                                        should_exit = True
+                                        exit_reason = action.get('reason', 'profit_protector')
+                                        logger.info(f"🛡️ Profit protector triggered exit: {exit_reason}")
+                                        break
+                        except Exception as e:
+                            logger.warning(f"⚠️ Profit protector check failed: {e}")
+                    
+                    # Fallback to basic exit conditions if protector not active
+                    if not should_exit:
+                        pnl_pct = ((price - position['entry']) / position['entry']) * 100
+                        if pnl_pct >= 2.0 or pnl_pct <= -1.0:  # 2% profit or 1% loss
+                            should_exit = True
+                            exit_reason = f"pnl_{pnl_pct:.2f}%"
+                    
+                    if should_exit:
+                        # Calculate final P&L
+                        final_pnl_pct = ((price - position['entry']) / position['entry']) * 100
+                        
                         if self.paper_trading:
-                            logger.info(f"📝 PAPER SELL: {position['amount']:.6f} @ ${price:.2f} | PnL: {pnl_pct:.2f}%")
+                            logger.info(f"📝 PAPER SELL: {position['amount']:.6f} @ ${price:.2f} | PnL: {final_pnl_pct:.2f}% | Reason: {exit_reason}")
                         else:
                             order = self.exchange.create_market_order(self.symbol, 'sell', position['amount'])
-                            logger.info(f"💰 REAL SELL: {position['amount']:.6f} @ ${price:.2f} | PnL: {pnl_pct:.2f}%")
+                            logger.info(f"💰 REAL SELL: {position['amount']:.6f} @ ${price:.2f} | PnL: {final_pnl_pct:.2f}% | Reason: {exit_reason}")
                         
                         # Save trade
                         self.db.db['trades'].insert_one({
@@ -228,7 +286,9 @@ class BotInstance:
                             'side': 'sell',
                             'amount': position['amount'],
                             'price': price,
-                            'pnl_percent': pnl_pct,
+                            'entry_price': position['entry'],
+                            'pnl_percent': final_pnl_pct,
+                            'exit_reason': exit_reason,
                             'is_paper': self.paper_trading,
                             'timestamp': datetime.utcnow()
                         })

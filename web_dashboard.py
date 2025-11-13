@@ -2155,7 +2155,17 @@ async def websocket_trades(websocket: WebSocket):
 
 @app.get("/")
 async def root():
-    """Serve login page"""
+    """Serve login page or health check for deployment"""
+    # Return JSON for health checks (Render deployment)
+    import os
+    if os.getenv('RENDER'):
+        return {
+            "status": "healthy",
+            "service": "Trading Bot API",
+            "version": "2.0.0",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    # Serve login page for browser requests
     return FileResponse("static/login.html")
 
 @app.get("/login")
