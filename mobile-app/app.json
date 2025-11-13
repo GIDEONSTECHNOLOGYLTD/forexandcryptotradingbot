@@ -50,16 +50,6 @@
     },
     "plugins": [
       [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#ffffff",
-          "sounds": [
-            "./assets/notification-sound.wav"
-          ]
-        }
-      ],
-      [
         "expo-background-fetch",
         {
           "ios": {
