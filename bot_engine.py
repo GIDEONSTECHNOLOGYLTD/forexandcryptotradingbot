@@ -14,6 +14,10 @@ from bson import ObjectId
 from cryptography.fernet import Fernet
 import logging
 
+# Setup logging FIRST
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Import profit protection system
 try:
     from auto_profit_protector import AutoProfitProtector
@@ -22,9 +26,6 @@ try:
 except ImportError as e:
     PROFIT_PROTECTOR_AVAILABLE = False
     logger.warning(f"⚠️ Profit protector not available: {e}")
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 class TradingBotEngine:
     """Complete trading bot engine with real-time execution"""
