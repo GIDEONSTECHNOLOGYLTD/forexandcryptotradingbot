@@ -158,8 +158,7 @@ export default function PaymentScreen({ navigation }: any) {
       setPurchasing(true);
       const productId = plan === 'pro' ? PRODUCT_IDS.pro : PRODUCT_IDS.enterprise;
       
-      // MUST query products first before purchasing
-      await InAppPurchases.connectAsync();
+      // Query products (already connected from initializeIAP)
       const { responseCode, results } = await InAppPurchases.getProductsAsync([productId]);
       
       if (responseCode !== InAppPurchases.IAPResponseCode.OK || !results || results.length === 0) {

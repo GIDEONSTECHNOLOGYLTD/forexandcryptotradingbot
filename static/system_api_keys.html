@@ -131,10 +131,10 @@
     </div>
 
     <script>
-        const API_URL = 'https://trading-bot-api-7xps.onrender.com/api';
+        const API_URL = 'https://trading-bot-api-7xps.onrender.com';
 
         // Check authentication
-        const token = localStorage.getItem('adminToken');
+        const token = localStorage.getItem('admin_token');
         if (!token) {
             window.location.href = 'admin_dashboard.html';
         }
@@ -142,7 +142,7 @@
         // Load existing API keys
         async function loadAPIKeys() {
             try {
-                const response = await fetch(`${API_URL}/system/settings`, {
+                const response = await fetch(`${API_URL}/api/system/settings`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -170,7 +170,7 @@
             const passphrase = document.getElementById('okxPassphrase').value;
 
             try {
-                const response = await fetch(`${API_URL}/system/settings`, {
+                const response = await fetch(`${API_URL}/api/system/settings`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -233,7 +233,7 @@
 
         // Logout
         function logout() {
-            localStorage.removeItem('adminToken');
+            localStorage.removeItem('admin_token');
             window.location.href = 'admin_dashboard.html';
         }
 
