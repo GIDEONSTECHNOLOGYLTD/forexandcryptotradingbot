@@ -19,13 +19,14 @@ class NewListingBot:
     Detects new listings on OKX and trades them automatically
     """
     
-    def __init__(self, exchange: ccxt.okx, db=None):
+    def __init__(self, exchange, db=None, config=None):
         """
-        Initialize new listing bot
+        Initialize the new listing bot
         
         Args:
-            exchange: CCXT OKX exchange instance
-            db: Database instance for tracking
+            exchange: CCXT exchange instance
+            db: Database instance (optional)
+            config: Configuration dict (optional)
         """
         self.exchange = exchange
         self.db = db
@@ -33,12 +34,25 @@ class NewListingBot:
         self.new_listings = []
         self.trading_enabled = True
         
-        # Configuration
-        self.check_interval = 60  # Check every 60 seconds
-        self.buy_amount_usdt = 50  # Amount to invest per new listing
-        self.take_profit_percent = 30  # Sell at 30% profit
-        self.stop_loss_percent = 15  # Stop loss at 15% loss
-        self.max_hold_time = 3600  # Max hold time: 1 hour
+        # Default configuration (can be overridden)
+        default_config = {
+            'check_interval': 60,  # Check every 60 seconds
+            'buy_amount_usdt': 50,  # Amount to invest per new listing
+            'take_profit_percent': 30,  # Sell at 30% profit
+            'stop_loss_percent': 15,  # Stop loss at 15% loss
+            'max_hold_time': 3600  # Max hold time: 1 hour
+        }
+        
+        # Merge with provided config
+        if config:
+            default_config.update(config)
+        
+        # Set configuration
+        self.check_interval = default_config['check_interval']
+        self.buy_amount_usdt = default_config['buy_amount_usdt']
+        self.take_profit_percent = default_config['take_profit_percent']
+        self.stop_loss_percent = default_config['stop_loss_percent']
+        self.max_hold_time = default_config['max_hold_time']
         
         # Initialize known markets
         self._load_known_markets()

@@ -1878,12 +1878,14 @@ async def start_new_listing_bot(config: NewListingConfig, user: dict = Depends(g
             'enableRateLimit': True
         })
         
-        # Create and configure bot
-        bot = NewListingBot(exchange, db)
-        bot.buy_amount_usdt = config.buy_amount_usdt
-        bot.take_profit_percent = config.take_profit_percent
-        bot.stop_loss_percent = config.stop_loss_percent
-        bot.max_hold_time = config.max_hold_time
+        # Create bot with user configuration
+        bot_config = {
+            'buy_amount_usdt': config.buy_amount_usdt,
+            'take_profit_percent': config.take_profit_percent,
+            'stop_loss_percent': config.stop_loss_percent,
+            'max_hold_time': config.max_hold_time
+        }
+        bot = NewListingBot(exchange, db, config=bot_config)
         
         # Save bot config to user
         users_collection.update_one(
