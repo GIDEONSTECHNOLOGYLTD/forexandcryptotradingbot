@@ -157,8 +157,21 @@ class BotInstance:
         self.db = db
         self.running = False
         self.task = None
-        self.balance = config.get('capital', 1000)
         self.symbol = config.get('symbol', 'BTC/USDT')
+        
+        # CRITICAL: For real trading, use ACTUAL OKX balance, not config
+        if not self.paper_trading and self.exchange:
+            try:
+                balance_info = self.exchange.fetch_balance()
+                self.balance = balance_info['free']['USDT']
+                logger.info(f"✅ REAL TRADING - Using actual OKX balance: ${self.balance:.2f}")
+            except Exception as e:
+                logger.warning(f"⚠️ Could not fetch OKX balance, using config: {e}")
+                self.balance = config.get('capital', 100)
+        else:
+            # Paper trading can use configured capital
+            self.balance = config.get('capital', 1000)
+            logger.info(f"📝 PAPER TRADING - Using simulated balance: ${self.balance:.2f}")
         
         # Initialize profit protector for automated protection
         self.profit_protector = None
@@ -291,7 +304,7 @@ class BotInstance:
                         except Exception as e:
                             logger.warning(f"⚠️ Could not add position to protector: {e}")
                     
-                    # Save trade
+                    # Save trade with status tracking
                     trade_doc = {
                         'bot_id': self.bot_id,
                         'user_id': self.user_id,
@@ -299,10 +312,14 @@ class BotInstance:
                         'side': 'buy',
                         'amount': amount,
                         'price': price,
+                        'entry_price': price,
+                        'status': 'open',  # Track that this position is open
                         'is_paper': self.paper_trading,
                         'timestamp': datetime.utcnow()
                     }
-                    self.db.db['trades'].insert_one(trade_doc)
+                    result = self.db.db['trades'].insert_one(trade_doc)
+                    position['trade_id'] = str(result.inserted_id)  # Store trade ID for later update
+                    logger.info(f"💾 Trade saved to database with ID: {result.inserted_id}")
                     
                     # Send Telegram notification for BUY
                     if self.telegram and self.telegram.enabled:
@@ -380,7 +397,22 @@ class BotInstance:
                             )
                             logger.info(f"💰 SPOT SELL (NO LEVERAGE): {position['amount']:.6f} @ ${price:.2f} | PnL: {final_pnl_pct:.2f}% | Reason: {exit_reason}")
                         
-                        # Save trade
+                        # Update the original BUY trade to mark it as closed
+                        if position.get('trade_id'):
+                            from bson import ObjectId
+                            self.db.db['trades'].update_one(
+                                {'_id': ObjectId(position['trade_id'])},
+                                {'$set': {
+                                    'status': 'closed',
+                                    'exit_price': price,
+                                    'pnl_percent': final_pnl_pct,
+                                    'exit_reason': exit_reason,
+                                    'exit_timestamp': datetime.utcnow()
+                                }}
+                            )
+                            logger.info(f"💾 Updated BUY trade {position['trade_id']} to closed status")
+                        
+                        # Also save a separate SELL trade record
                         self.db.db['trades'].insert_one({
                             'bot_id': self.bot_id,
                             'user_id': self.user_id,
@@ -391,6 +423,7 @@ class BotInstance:
                             'entry_price': position['entry'],
                             'pnl_percent': final_pnl_pct,
                             'exit_reason': exit_reason,
+                            'status': 'closed',
                             'is_paper': self.paper_trading,
                             'timestamp': datetime.utcnow()
                         })

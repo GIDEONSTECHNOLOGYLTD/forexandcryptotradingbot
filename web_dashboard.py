@@ -158,14 +158,14 @@ class UserLogin(BaseModel):
 class BotConfig(BaseModel):
     bot_type: str = "momentum"  # momentum, grid, dca, arbitrage, etc.
     symbol: str = "BTC/USDT"
-    capital: float = 1000
-    initial_capital: float = 10000
-    max_position_size: float = 2.0
-    stop_loss_percent: float = 2.0
-    take_profit_percent: float = 4.0
-    max_open_positions: int = 3
+    capital: float = 100  # Realistic default for new users
+    initial_capital: float = 100  # Match capital
+    max_position_size: float = 0.8  # 80% max (safe)
+    stop_loss_percent: float = 15.0  # Better for crypto volatility
+    take_profit_percent: float = 30.0  # Better risk/reward (1:2)
+    max_open_positions: int = 1  # One position for small capital
     timeframe: str = "1h"
-    paper_trading: bool = True
+    paper_trading: bool = True  # Always default to paper for safety
 
 class SubscriptionCreate(BaseModel):
     plan: str  # free, pro, enterprise
@@ -934,6 +934,60 @@ async def get_trade_history(
                 trade["bot_type"] = "user"
     
     return {"trades": trades, "count": len(trades)}
+
+@app.get("/api/positions/open")
+async def get_open_positions(user: dict = Depends(get_current_user)):
+    """Get currently open positions across all bots"""
+    is_admin = user.get("role") == "admin"
+    
+    # Get all running bots
+    if is_admin:
+        bots = list(bot_instances_collection.find({"status": "running"}))
+    else:
+        bots = list(bot_instances_collection.find({
+            "user_id": str(user["_id"]),
+            "status": "running"
+        }))
+    
+    open_positions = []
+    
+    # Check each running bot for open positions
+    for bot in bots:
+        bot_id = str(bot["_id"])
+        
+        # Get bot's current position from bot engine if available
+        if bot_manager and hasattr(bot_manager, 'active_bots'):
+            bot_instance = bot_manager.active_bots.get(bot_id)
+            if bot_instance and hasattr(bot_instance, 'trading_loop'):
+                # Bot is running, check if it has an open position
+                # This would need to be stored somewhere accessible
+                pass
+        
+        # Alternative: Check for unclosed trades in database
+        latest_buy = db.db['trades'].find_one({
+            "bot_id": bot_id,
+            "side": "buy",
+            "status": {"$ne": "closed"}
+        }, sort=[("timestamp", -1)])
+        
+        if latest_buy:
+            # Check if there's a corresponding sell
+            sell_exists = db.db['trades'].find_one({
+                "bot_id": bot_id,
+                "side": "sell",
+                "timestamp": {"$gt": latest_buy.get("timestamp")}
+            })
+            
+            if not sell_exists:
+                # This is an open position!
+                config = bot.get("config", {})
+                latest_buy["_id"] = str(latest_buy["_id"])
+                latest_buy["bot_name"] = config.get("bot_type", "Trading Bot")
+                latest_buy["current_pnl"] = 0  # Would need live price to calculate
+                latest_buy["is_paper"] = latest_buy.get("is_paper", config.get("paper_trading", True))
+                open_positions.append(latest_buy)
+    
+    return {"positions": open_positions, "count": len(open_positions)}
 
 @app.get("/api/bots/{bot_id}/status")
 async def get_bot_status_endpoint(bot_id: str, user: dict = Depends(get_current_user)):

@@ -155,6 +155,11 @@ export const getTradeHistory = async (botId?: string) => {
   return response.data;
 };
 
+export const getOpenPositions = async () => {
+  const response = await api.get('/positions/open');
+  return response.data;
+};
+
 // Trading
 export const getTrades = async () => {
   const response = await api.get('/trades');
@@ -325,6 +330,7 @@ export default {
   getPortfolio,
   getUserBalance,
   getTradeHistory,
+  getOpenPositions,
   getBotAnalytics,
   getAISuggestions,
   createSubscription,

@@ -30,10 +30,12 @@ interface Trade {
   amount: number;
   pnl: number;
   status: string;
+  is_paper?: boolean;
 }
 
 export default function TradeHistoryScreen() {
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [openPositions, setOpenPositions] = useState<Trade[]>([]);
   const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
   const [filter, setFilter] = useState<'all' | 'admin' | 'users'>('all');
   const [refreshing, setRefreshing] = useState(false);
@@ -42,6 +44,7 @@ export default function TradeHistoryScreen() {
     winning: 0,
     losing: 0,
     totalPnL: 0,
+    openPositions: 0,
   });
 
   useEffect(() => {
@@ -57,14 +60,22 @@ export default function TradeHistoryScreen() {
 
   useEffect(() => {
     applyFilter();
-  }, [filter, trades]);
+  }, [filter, trades, openPositions]);
 
   const loadTrades = async () => {
     try {
-      const response = await api.getTradeHistory();
-      const tradeData = response.trades || [];
+      // Load both closed trades and open positions
+      const [historyResponse, positionsResponse] = await Promise.all([
+        api.getTradeHistory(),
+        api.getOpenPositions().catch(() => ({ positions: [], count: 0 }))
+      ]);
+      
+      const tradeData = historyResponse.trades || [];
+      const positionData = positionsResponse.positions || [];
+      
       setTrades(tradeData);
-      calculateStats(tradeData);
+      setOpenPositions(positionData);
+      calculateStats(tradeData, positionData);
     } catch (error) {
       console.error('Error loading trades:', error);
     }
@@ -96,16 +107,17 @@ export default function TradeHistoryScreen() {
     }
     
     setFilteredTrades(filtered);
-    calculateStats(filtered);
+    calculateStats(filtered, openPositions);
   };
 
-  const calculateStats = (tradeList: Trade[]) => {
+  const calculateStats = (tradeList: Trade[], positions: Trade[] = []) => {
     const total = tradeList.length;
     const winning = tradeList.filter(t => (t.pnl || 0) > 0).length;
     const losing = tradeList.filter(t => (t.pnl || 0) < 0).length;
     const totalPnL = tradeList.reduce((sum, t) => sum + (t.pnl || 0), 0);
+    const openPositions = positions.length;
 
-    setStats({ total, winning, losing, totalPnL });
+    setStats({ total, winning, losing, totalPnL, openPositions });
   };
 
   const renderTrade = ({ item }: { item: Trade }) => {
@@ -166,7 +178,11 @@ export default function TradeHistoryScreen() {
       {/* Compact Stats Row */}
       <View style={styles.statsRow}>
         <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Trades</Text>
+          <Text style={styles.statLabel}>Open</Text>
+          <Text style={[styles.statValue, { color: '#3b82f6' }]}>{stats.openPositions}</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statLabel}>Closed</Text>
           <Text style={styles.statValue}>{stats.total}</Text>
         </View>
         <View style={styles.statItem}>
@@ -211,7 +227,55 @@ export default function TradeHistoryScreen() {
         </View>
       </View>
 
-      {/* Trade List */}
+      {/* Open Positions Section */}
+      {openPositions.length > 0 && (
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="pulse" size={18} color="#3b82f6" />
+            <Text style={styles.sectionTitle}>Open Positions ({openPositions.length})</Text>
+          </View>
+          {openPositions.map((position) => (
+            <View key={position._id} style={[styles.tradeCard, styles.openPositionCard]}>
+              <View style={styles.openPositionBadge}>
+                <Text style={styles.openPositionBadgeText}>LIVE</Text>
+              </View>
+              <View style={styles.tradeHeader}>
+                <View style={styles.tradeHeaderLeft}>
+                  <Text style={styles.tradeBotName}>{position.bot_name || 'Unknown Bot'}</Text>
+                  <Text style={styles.tradeTime}>{new Date(position.timestamp || '').toLocaleString()}</Text>
+                </View>
+                {!position.is_paper && (
+                  <View style={styles.okxRealBadge}>
+                    <Text style={styles.okxRealBadgeText}>OKX</Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.tradeDetails}>
+                <View style={styles.tradeRow}>
+                  <Text style={styles.tradeLabel}>Symbol:</Text>
+                  <Text style={styles.tradeValue}>{position.symbol}</Text>
+                </View>
+                <View style={styles.tradeRow}>
+                  <Text style={styles.tradeLabel}>Entry:</Text>
+                  <Text style={styles.tradeValue}>${Number(position.entry_price || 0).toFixed(4)}</Text>
+                </View>
+                <View style={styles.tradeRow}>
+                  <Text style={styles.tradeLabel}>Amount:</Text>
+                  <Text style={styles.tradeValue}>{Number(position.amount || 0).toFixed(6)}</Text>
+                </View>
+                <View style={styles.tradeRow}>
+                  <Text style={styles.tradeLabel}>Mode:</Text>
+                  <Text style={[styles.tradeValue, position.is_paper ? { color: '#f59e0b' } : { color: '#10b981' }]}>
+                    {position.is_paper ? 'PAPER' : 'REAL'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Closed Trades Section */}
       {filteredTrades.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="bar-chart-outline" size={64} color="#d1d5db" />
@@ -420,5 +484,53 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9ca3af',
     marginTop: 8,
+  },
+  sectionContainer: {
+    backgroundColor: '#fff',
+    marginVertical: 8,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#3b82f6',
+  },
+  openPositionCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#3b82f6',
+  },
+  openPositionBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    zIndex: 1,
+  },
+  openPositionBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  okxRealBadge: {
+    backgroundColor: '#10b981',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  okxRealBadgeText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#fff',
   },
 });
