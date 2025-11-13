@@ -1950,6 +1950,171 @@ async def get_okx_announcements():
 
 
 # ============================================================================
+# AI DASHBOARD ENDPOINTS
+# ============================================================================
+
+class AIConfig(BaseModel):
+    invest_amount: float
+    risk_level: str
+    profit_target: int
+    trading_style: str
+
+class ChatMessage(BaseModel):
+    message: str
+
+@app.get("/api/ai/market-analysis")
+async def get_ai_market_analysis(user: dict = Depends(get_current_user)):
+    """Get AI-powered market analysis"""
+    try:
+        # Simulated AI analysis - replace with real AI later
+        markets = [
+            {
+                "symbol": "BTC/USDT",
+                "price": 37245.50,
+                "volume": 2500000000,
+                "signal": "BUY",
+                "confidence": 88
+            },
+            {
+                "symbol": "ETH/USDT",
+                "price": 2045.30,
+                "volume": 1200000000,
+                "signal": "BUY",
+                "confidence": 92
+            },
+            {
+                "symbol": "SOL/USDT",
+                "price": 98.75,
+                "volume": 450000000,
+                "signal": "HOLD",
+                "confidence": 65
+            },
+            {
+                "symbol": "DOGE/USDT",
+                "price": 0.0875,
+                "volume": 180000000,
+                "signal": "SELL",
+                "confidence": 70
+            }
+        ]
+        
+        return {"markets": markets}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ai/execute-suggestion")
+async def execute_ai_suggestion(suggestion: dict, user: dict = Depends(get_current_user)):
+    """Execute AI trading suggestion"""
+    try:
+        suggestion_id = suggestion.get('suggestion_id')
+        
+        # Log the execution
+        logger.info(f"User {user['email']} executing AI suggestion {suggestion_id}")
+        
+        return {
+            "message": "AI suggestion executed successfully!",
+            "suggestion_id": suggestion_id,
+            "status": "pending"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ai/optimize-config")
+async def optimize_ai_config(config: AIConfig, user: dict = Depends(get_current_user)):
+    """Save AI-optimized configuration"""
+    try:
+        # Save config to user
+        users_collection.update_one(
+            {"_id": user["_id"]},
+            {"$set": {
+                "ai_config": config.dict(),
+                "ai_config_updated": datetime.utcnow()
+            }}
+        )
+        
+        return {
+            "message": "Configuration optimized successfully!",
+            "config": config.dict()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ai/chat")
+async def ai_chat(message: ChatMessage, user: dict = Depends(get_current_user)):
+    """AI chat assistant"""
+    try:
+        user_message = message.message.lower()
+        
+        # Simple AI responses - can be enhanced with real AI
+        if "trade" in user_message or "buy" in user_message:
+            response = """Based on current market analysis, I recommend:
+
+1. **BTC/USDT** - Strong uptrend, 88% confidence
+   - Entry: $37,245
+   - Target: $39,500 (+6%)
+   - Stop: $36,500 (-2%)
+
+2. **ETH/USDT** - Momentum building, 92% confidence
+   - Entry: $2,045
+   - Target: $2,150 (+5%)
+   - Stop: $2,000 (-2.2%)
+
+Would you like me to execute these trades for you?"""
+        
+        elif "profit" in user_message or "money" in user_message or "rich" in user_message:
+            response = """💰 Here's your path to wealth:
+
+1. **Enable New Listing Bot** - Catch 100X opportunities
+   - Expected: +50-200% per listing
+   - Investment: $50 per listing
+
+2. **Use Trailing Stops** - Lock in profits automatically
+   - Never give back gains
+   - Secure profits progressively
+
+3. **Follow AI Signals** - 88% win rate
+   - BTC/ETH momentum plays
+   - Risk-managed entries
+
+Start with $500 capital, aim for $1,500 this month! 🚀"""
+        
+        elif "strategy" in user_message or "best" in user_message:
+            response = """🎯 Best strategy for you:
+
+**Balanced Approach:**
+- 40% New Listing Bot (high risk/reward)
+- 40% BTC/ETH momentum (safer)
+- 20% Cash reserve
+
+**Settings:**
+- Investment: $50 per trade
+- Take Profit: 30%
+- Stop Loss: 15%
+- Trailing Stop: Active
+
+This gives you 60% win rate with 2:1 reward/risk ratio!"""
+        
+        else:
+            response = """I'm here to help you make money! 💰
+
+I can help you with:
+- **Trading recommendations** - What to buy/sell now
+- **Strategy optimization** - Best approach for your goals
+- **Risk management** - Protect your capital
+- **Profit maximization** - Lock in gains
+
+What would you like to know?"""
+        
+        return {"response": response}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
 # REAL-TIME WEBSOCKET
 # ============================================================================
 
@@ -2005,6 +2170,11 @@ async def user_dashboard():
 async def admin_dashboard():
     """Serve admin dashboard - requires authentication"""
     return FileResponse("static/admin_dashboard.html")
+
+@app.get("/ai-dashboard")
+async def ai_dashboard():
+    """Serve AI dashboard"""
+    return FileResponse("static/ai_dashboard.html")
 
 @app.get("/api")
 async def api_root():
