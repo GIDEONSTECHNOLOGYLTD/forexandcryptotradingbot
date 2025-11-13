@@ -2,7 +2,7 @@
   "expo": {
     "name": "Trading Bot",
     "slug": "trading-bot-mobile",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -16,8 +16,8 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.gideonstech.tradingbot",
-      "buildNumber": "5",
+      "bundleIdentifier": "com.gtechldt.tradingbot",
+      "buildNumber": "6",
       "infoPlist": {
         "UIBackgroundModes": [
           "fetch",
@@ -25,8 +25,8 @@
           "processing"
         ],
         "BGTaskSchedulerPermittedIdentifiers": [
-          "com.gideonstech.tradingbot.refresh",
-          "com.gideonstech.tradingbot.process"
+          "com.gtechldt.tradingbot.refresh",
+          "com.gtechldt.tradingbot.process"
         ]
       },
       "config": {
