@@ -22,13 +22,22 @@
                     <i class="fas fa-crown text-3xl mr-3"></i>
                     <h1 class="text-2xl font-bold">Admin Dashboard</h1>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <span id="adminName" class="text-sm"></span>
-                    <button onclick="showSettings()" class="px-4 py-2 bg-blue-500 rounded hover:bg-blue-600">
-                        <i class="fas fa-cog mr-2"></i>Settings
+                <div class="flex items-center space-x-2">
+                    <span id="adminName" class="text-sm mr-2"></span>
+                    <a href="user_management.html" class="px-3 py-2 bg-white bg-opacity-20 rounded hover:bg-opacity-30">
+                        <i class="fas fa-users-cog mr-1"></i>Users
+                    </a>
+                    <a href="system_api_keys.html" class="px-3 py-2 bg-white bg-opacity-20 rounded hover:bg-opacity-30">
+                        <i class="fas fa-key mr-1"></i>API Keys
+                    </a>
+                    <a href="trading_limits.html" class="px-3 py-2 bg-white bg-opacity-20 rounded hover:bg-opacity-30">
+                        <i class="fas fa-shield-alt mr-1"></i>Limits
+                    </a>
+                    <button onclick="showSettings()" class="px-3 py-2 bg-blue-500 rounded hover:bg-blue-600">
+                        <i class="fas fa-cog mr-1"></i>Settings
                     </button>
-                    <button onclick="logout()" class="px-4 py-2 bg-red-500 rounded hover:bg-red-600">
-                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    <button onclick="logout()" class="px-3 py-2 bg-red-500 rounded hover:bg-red-600">
+                        <i class="fas fa-sign-out-alt mr-1"></i>Logout
                     </button>
                 </div>
             </div>

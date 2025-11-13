@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Limits - Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100">
+    <nav class="bg-gradient-to-r from-green-600 to-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas fa-shield-alt text-3xl mr-3"></i>
+                    <h1 class="text-2xl font-bold">Trading Limits & Risk Management</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="admin_dashboard.html" class="px-4 py-2 bg-white text-green-600 rounded hover:bg-gray-100">
+                        <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+                    </a>
+                    <button onclick="logout()" class="px-4 py-2 bg-red-500 rounded hover:bg-red-600">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-6 py-8">
+        <!-- Info Alert -->
+        <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 mb-6 rounded">
+            <div class="flex items-center">
+                <i class="fas fa-info-circle text-2xl mr-3"></i>
+                <div>
+                    <p class="font-bold">Risk Management</p>
+                    <p class="text-sm">Set system-wide trading limits to protect against excessive losses and manage risk effectively.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trading Limits Form -->
+        <div class="bg-white rounded-lg shadow-lg p-8">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">Configure Trading Limits</h2>
+            
+            <form onsubmit="saveLimits(event)">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Max Position Size -->
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-dollar-sign mr-2"></i>Max Position Size (USDT)
+                        </label>
+                        <input type="number" id="maxPositionSize" required min="0" step="0.01"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
+                               placeholder="1000">
+                        <p class="text-sm text-gray-500 mt-1">Maximum amount per single trade</p>
+                    </div>
+
+                    <!-- Max Daily Trades -->
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-chart-line mr-2"></i>Max Daily Trades
+                        </label>
+                        <input type="number" id="maxDailyTrades" required min="1"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
+                               placeholder="50">
+                        <p class="text-sm text-gray-500 mt-1">Maximum number of trades per day</p>
+                    </div>
+
+                    <!-- Max Loss Per Trade -->
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>Max Loss Per Trade (USDT)
+                        </label>
+                        <input type="number" id="maxLossPerTrade" required min="0" step="0.01"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
+                               placeholder="100">
+                        <p class="text-sm text-gray-500 mt-1">Maximum loss allowed on a single trade</p>
+                    </div>
+
+                    <!-- Max Daily Loss -->
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-ban mr-2"></i>Max Daily Loss (USDT)
+                        </label>
+                        <input type="number" id="maxDailyLoss" required min="0" step="0.01"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
+                               placeholder="500">
+                        <p class="text-sm text-gray-500 mt-1">Maximum total loss per day</p>
+                    </div>
+
+                    <!-- Max Leverage -->
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-layer-group mr-2"></i>Max Leverage
+                        </label>
+                        <input type="number" id="maxLeverage" required min="1" max="10" step="0.1"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
+                               placeholder="3">
+                        <p class="text-sm text-gray-500 mt-1">Maximum leverage multiplier (1-10x)</p>
+                    </div>
+
+                    <!-- Require Confirmation -->
+                    <div class="flex items-center">
+                        <div>
+                            <label class="flex items-center space-x-3 cursor-pointer">
+                                <input type="checkbox" id="requireConfirmation" class="form-checkbox h-6 w-6 text-green-600">
+                                <div>
+                                    <span class="text-gray-700 font-semibold block">Require Trade Confirmation</span>
+                                    <span class="text-sm text-gray-500">Ask for confirmation before executing trades</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <button type="submit" 
+                            class="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:opacity-90">
+                        <i class="fas fa-save mr-2"></i>Save Trading Limits
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Risk Management Tips -->
+        <div class="bg-white rounded-lg shadow-lg p-8 mt-6">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">
+                <i class="fas fa-lightbulb text-yellow-500 mr-2"></i>Risk Management Tips
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="flex items-start">
+                    <i class="fas fa-check-circle text-green-600 text-xl mr-3 mt-1"></i>
+                    <div>
+                        <h3 class="font-semibold text-gray-800">Start Conservative</h3>
+                        <p class="text-gray-600 text-sm">Begin with lower limits and increase gradually as you gain confidence.</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <i class="fas fa-check-circle text-green-600 text-xl mr-3 mt-1"></i>
+                    <div>
+                        <h3 class="font-semibold text-gray-800">2% Rule</h3>
+                        <p class="text-gray-600 text-sm">Never risk more than 2% of your total capital on a single trade.</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <i class="fas fa-check-circle text-green-600 text-xl mr-3 mt-1"></i>
+                    <div>
+                        <h3 class="font-semibold text-gray-800">Daily Loss Limit</h3>
+                        <p class="text-gray-600 text-sm">Set to 5-10% of total capital to protect your account from major drawdowns.</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <i class="fas fa-check-circle text-green-600 text-xl mr-3 mt-1"></i>
+                    <div>
+                        <h3 class="font-semibold text-gray-800">Leverage Caution</h3>
+                        <p class="text-gray-600 text-sm">Higher leverage = higher risk. Use 1-3x for safer, more sustainable trading.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://trading-bot-api-7xps.onrender.com/api';
+
+        // Check authentication
+        const token = localStorage.getItem('adminToken');
+        if (!token) {
+            window.location.href = 'admin_dashboard.html';
+        }
+
+        // Load existing limits
+        async function loadLimits() {
+            try {
+                const response = await fetch(`${API_URL}/system/settings`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.trading_limits) {
+                        const limits = data.trading_limits;
+                        document.getElementById('maxPositionSize').value = limits.max_position_size || 1000;
+                        document.getElementById('maxDailyTrades').value = limits.max_daily_trades || 50;
+                        document.getElementById('maxLossPerTrade').value = limits.max_loss_per_trade || 100;
+                        document.getElementById('maxDailyLoss').value = limits.max_daily_loss || 500;
+                        document.getElementById('maxLeverage').value = limits.max_leverage || 3;
+                        document.getElementById('requireConfirmation').checked = limits.require_confirmation || false;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading limits:', error);
+            }
+        }
+
+        // Save limits
+        async function saveLimits(event) {
+            event.preventDefault();
+
+            const limits = {
+                max_position_size: parseFloat(document.getElementById('maxPositionSize').value),
+                max_daily_trades: parseInt(document.getElementById('maxDailyTrades').value),
+                max_loss_per_trade: parseFloat(document.getElementById('maxLossPerTrade').value),
+                max_daily_loss: parseFloat(document.getElementById('maxDailyLoss').value),
+                max_leverage: parseFloat(document.getElementById('maxLeverage').value),
+                require_confirmation: document.getElementById('requireConfirmation').checked
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/system/settings`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        trading_limits: limits
+                    })
+                });
+
+                if (response.ok) {
+                    alert('✅ Trading limits saved successfully!');
+                } else {
+                    const error = await response.json();
+                    alert('❌ Error: ' + (error.detail || 'Failed to save limits'));
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            }
+        }
+
+        // Logout
+        function logout() {
+            localStorage.removeItem('adminToken');
+            window.location.href = 'admin_dashboard.html';
+        }
+
+        // Load limits on page load
+        loadLimits();
+    </script>
+</body>
+</html>

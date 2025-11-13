@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System API Keys - Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100">
+    <nav class="bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas fa-key text-3xl mr-3"></i>
+                    <h1 class="text-2xl font-bold">System API Keys</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="admin_dashboard.html" class="px-4 py-2 bg-white text-purple-600 rounded hover:bg-gray-100">
+                        <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+                    </a>
+                    <button onclick="logout()" class="px-4 py-2 bg-red-500 rounded hover:bg-red-600">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-6 py-8">
+        <!-- Warning Alert -->
+        <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6 rounded">
+            <div class="flex items-center">
+                <i class="fas fa-exclamation-triangle text-2xl mr-3"></i>
+                <div>
+                    <p class="font-bold">Security Warning</p>
+                    <p class="text-sm">These are master API keys for the admin bot. Keep them secure and never share them!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Keys Form -->
+        <div class="bg-white rounded-lg shadow-lg p-8">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">OKX API Configuration</h2>
+            
+            <div class="mb-6">
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="showKeys" onchange="toggleKeyVisibility()" class="form-checkbox h-5 w-5 text-purple-600">
+                    <span class="text-gray-700 font-medium">Show API Keys</span>
+                </label>
+            </div>
+
+            <form onsubmit="saveAPIKeys(event)">
+                <div class="mb-6">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-key mr-2"></i>OKX API Key
+                    </label>
+                    <input type="password" id="okxApiKey" required
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                           placeholder="Enter your OKX API Key">
+                    <p class="text-sm text-gray-500 mt-1">Your OKX API key for trading</p>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-lock mr-2"></i>OKX Secret Key
+                    </label>
+                    <input type="password" id="okxSecretKey" required
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                           placeholder="Enter your OKX Secret Key">
+                    <p class="text-sm text-gray-500 mt-1">Your OKX secret key (encrypted in database)</p>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-shield-alt mr-2"></i>OKX Passphrase
+                    </label>
+                    <input type="password" id="okxPassphrase" required
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                           placeholder="Enter your OKX Passphrase">
+                    <p class="text-sm text-gray-500 mt-1">Your OKX API passphrase</p>
+                </div>
+
+                <div class="flex space-x-4">
+                    <button type="submit" 
+                            class="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-semibold hover:opacity-90">
+                        <i class="fas fa-save mr-2"></i>Save API Keys
+                    </button>
+                    <button type="button" onclick="testConnection()"
+                            class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">
+                        <i class="fas fa-plug mr-2"></i>Test Connection
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Setup Guide -->
+        <div class="bg-white rounded-lg shadow-lg p-8 mt-6">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">How to Get OKX API Keys</h2>
+            <div class="space-y-4">
+                <div class="flex items-start">
+                    <div class="bg-purple-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold mr-4 flex-shrink-0">1</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-800">Log in to OKX.com</h3>
+                        <p class="text-gray-600">Visit <a href="https://www.okx.com" target="_blank" class="text-purple-600 hover:underline">OKX.com</a> and log in to your account</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="bg-purple-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold mr-4 flex-shrink-0">2</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-800">Navigate to API Management</h3>
+                        <p class="text-gray-600">Go to Profile → API Management</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="bg-purple-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold mr-4 flex-shrink-0">3</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-800">Create API Key</h3>
+                        <p class="text-gray-600">Click "Create API Key" and enable Trading permissions</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="bg-purple-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold mr-4 flex-shrink-0">4</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-800">Copy Credentials</h3>
+                        <p class="text-gray-600">Copy your API Key, Secret Key, and Passphrase and paste them above</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://trading-bot-api-7xps.onrender.com/api';
+
+        // Check authentication
+        const token = localStorage.getItem('adminToken');
+        if (!token) {
+            window.location.href = 'admin_dashboard.html';
+        }
+
+        // Load existing API keys
+        async function loadAPIKeys() {
+            try {
+                const response = await fetch(`${API_URL}/system/settings`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.api_keys) {
+                        document.getElementById('okxApiKey').value = data.api_keys.okx_api_key || '';
+                        document.getElementById('okxSecretKey').value = data.api_keys.okx_secret_key || '';
+                        document.getElementById('okxPassphrase').value = data.api_keys.okx_passphrase || '';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading API keys:', error);
+            }
+        }
+
+        // Save API keys
+        async function saveAPIKeys(event) {
+            event.preventDefault();
+
+            const apiKey = document.getElementById('okxApiKey').value;
+            const secretKey = document.getElementById('okxSecretKey').value;
+            const passphrase = document.getElementById('okxPassphrase').value;
+
+            try {
+                const response = await fetch(`${API_URL}/system/settings`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        api_keys: {
+                            okx_api_key: apiKey,
+                            okx_secret_key: secretKey,
+                            okx_passphrase: passphrase
+                        }
+                    })
+                });
+
+                if (response.ok) {
+                    alert('✅ API Keys saved successfully!');
+                } else {
+                    const error = await response.json();
+                    alert('❌ Error: ' + (error.detail || 'Failed to save API keys'));
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            }
+        }
+
+        // Test connection
+        async function testConnection() {
+            alert('🔄 Testing connection to OKX...');
+            try {
+                const response = await fetch(`${API_URL}/user/balance`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        alert(`✅ Connection successful!\n\nBalance: $${data.total_usdt || 0} USDT`);
+                    } else {
+                        alert('❌ Connection failed: ' + (data.error || 'Unknown error'));
+                    }
+                } else {
+                    alert('❌ Connection test failed');
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            }
+        }
+
+        // Toggle key visibility
+        function toggleKeyVisibility() {
+            const showKeys = document.getElementById('showKeys').checked;
+            const type = showKeys ? 'text' : 'password';
+            
+            document.getElementById('okxApiKey').type = type;
+            document.getElementById('okxSecretKey').type = type;
+            document.getElementById('okxPassphrase').type = type;
+        }
+
+        // Logout
+        function logout() {
+            localStorage.removeItem('adminToken');
+            window.location.href = 'admin_dashboard.html';
+        }
+
+        // Load keys on page load
+        loadAPIKeys();
+    </script>
+</body>
+</html>
