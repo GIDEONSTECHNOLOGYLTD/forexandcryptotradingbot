@@ -73,6 +73,16 @@ except ImportError as e:
     api_key_manager = None
     api_rate_limiter = None
 
+# Import new listing bot
+try:
+    from new_listing_bot import NewListingBot
+    NEW_LISTING_BOT_AVAILABLE = True
+    print(f"{Fore.GREEN}✅ New listing bot initialized{Style.RESET_ALL}")
+except ImportError as e:
+    print(f"{Fore.YELLOW}⚠️  New listing bot not available: {e}{Style.RESET_ALL}")
+    NEW_LISTING_BOT_AVAILABLE = False
+    NewListingBot = None
+
 # Configuration
 SECRET_KEY = config.JWT_SECRET_KEY
 ALGORITHM = "HS256"
@@ -1800,6 +1810,136 @@ async def get_available_permissions():
     """Get list of available API permissions"""
     from api_service import API_PERMISSIONS
     return {"permissions": API_PERMISSIONS}
+
+
+# ============================================================================
+# NEW LISTING BOT ENDPOINTS
+# ============================================================================
+
+class NewListingConfig(BaseModel):
+    enabled: bool
+    buy_amount_usdt: float = 50
+    take_profit_percent: float = 50
+    stop_loss_percent: float = 20
+    max_hold_time: int = 3600
+
+@app.post("/api/new-listing/start")
+async def start_new_listing_bot(config: NewListingConfig, user: dict = Depends(get_current_user)):
+    """Start new listing detection bot"""
+    if not NEW_LISTING_BOT_AVAILABLE:
+        raise HTTPException(status_code=503, detail="New listing bot not available")
+    
+    try:
+        # Get user's exchange connection
+        if not user.get('exchange_connected'):
+            raise HTTPException(status_code=400, detail="Please connect your OKX account first")
+        
+        # Create exchange instance for user
+        import ccxt
+        exchange = ccxt.okx({
+            'apiKey': user.get('okx_api_key'),
+            'secret': user.get('okx_api_secret'),
+            'password': user.get('okx_passphrase'),
+            'enableRateLimit': True
+        })
+        
+        # Create and configure bot
+        bot = NewListingBot(exchange, db)
+        bot.buy_amount_usdt = config.buy_amount_usdt
+        bot.take_profit_percent = config.take_profit_percent
+        bot.stop_loss_percent = config.stop_loss_percent
+        bot.max_hold_time = config.max_hold_time
+        
+        # Save bot config to user
+        users_collection.update_one(
+            {"_id": user["_id"]},
+            {"$set": {
+                "new_listing_bot_enabled": True,
+                "new_listing_bot_config": config.dict(),
+                "new_listing_bot_started": datetime.utcnow()
+            }}
+        )
+        
+        return {
+            "message": "New listing bot started successfully",
+            "config": config.dict()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/new-listing/stop")
+async def stop_new_listing_bot(user: dict = Depends(get_current_user)):
+    """Stop new listing detection bot"""
+    try:
+        users_collection.update_one(
+            {"_id": user["_id"]},
+            {"$set": {
+                "new_listing_bot_enabled": False,
+                "new_listing_bot_stopped": datetime.utcnow()
+            }}
+        )
+        
+        return {"message": "New listing bot stopped successfully"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/new-listing/status")
+async def get_new_listing_bot_status(user: dict = Depends(get_current_user)):
+    """Get new listing bot status"""
+    try:
+        enabled = user.get('new_listing_bot_enabled', False)
+        config = user.get('new_listing_bot_config', {})
+        
+        # Get recent trades
+        trades = list(db.db['new_listing_trades'].find(
+            {"user_id": str(user["_id"])},
+            limit=10,
+            sort=[("entry_time", -1)]
+        ))
+        
+        # Calculate stats
+        total_trades = len(trades)
+        winning_trades = len([t for t in trades if t.get('pnl_usdt', 0) > 0])
+        total_pnl = sum([t.get('pnl_usdt', 0) for t in trades])
+        
+        return {
+            "enabled": enabled,
+            "config": config,
+            "stats": {
+                "total_trades": total_trades,
+                "winning_trades": winning_trades,
+                "win_rate": (winning_trades / total_trades * 100) if total_trades > 0 else 0,
+                "total_pnl": total_pnl
+            },
+            "recent_trades": trades
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/new-listing/announcements")
+async def get_okx_announcements():
+    """Get OKX new listing announcements"""
+    if not NEW_LISTING_BOT_AVAILABLE:
+        raise HTTPException(status_code=503, detail="New listing bot not available")
+    
+    try:
+        import requests
+        url = "https://www.okx.com/v3/announcements/list"
+        params = {'type': 'new_crypto', 'limit': 10}
+        
+        response = requests.get(url, params=params, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            return {"announcements": data.get('data', [])}
+        
+        return {"announcements": []}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================================================================
