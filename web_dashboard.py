@@ -3,7 +3,7 @@ Web Dashboard - Admin & User Interface
 Built with FastAPI + React-ready backend
 Allows you to onboard users and monitor everything
 """
-from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
@@ -996,7 +996,7 @@ async def create_stripe_checkout(checkout: StripeCheckout, user: dict = Depends(
         raise HTTPException(status_code=500, detail=f"Checkout creation failed: {str(e)}")
 
 @app.post("/api/payments/stripe/webhook")
-async def stripe_webhook(request: dict):
+async def stripe_webhook(request: Request):
     """Handle Stripe webhook events"""
     if not STRIPE_AVAILABLE or not payment_processor:
         raise HTTPException(status_code=503, detail="Stripe not configured")
