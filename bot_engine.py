@@ -65,20 +65,43 @@ class TradingBotEngine:
         config_data = bot.get('config', {})
         paper_trading = config_data.get('paper_trading', True)
         
-        # Get exchange
+        # Get exchange - ADMIN uses backend credentials, USERS use their own
         if is_admin:
+            # ADMIN: Use system OKX credentials from config/environment
+            logger.info(f"🔑 ADMIN bot - Using BACKEND OKX credentials")
             exchange = self.system_exchange
+            if not exchange:
+                logger.error("❌ Admin exchange not configured! Set OKX_API_KEY, OKX_SECRET_KEY, OKX_PASSPHRASE in .env")
+                raise ValueError("Admin OKX credentials not configured in backend")
+            logger.info(f"✅ Admin bot {bot_id} connected to ADMIN OKX account")
         else:
+            # USER: Use their own OKX credentials (encrypted in database)
+            logger.info(f"🔑 USER bot - Using USER'S OWN OKX credentials")
             user = self.db.db['users'].find_one({"_id": ObjectId(user_id)})
             if not user or not user.get('exchange_connected'):
-                raise ValueError("Connect OKX first")
-            creds = user.get('okx_credentials', {})
-            exchange = ccxt.okx({
-                'apiKey': creds.get('api_key'),
-                'secret': creds.get('secret'),
-                'password': creds.get('passphrase'),
-                'enableRateLimit': True
-            })
+                raise ValueError("User must connect their OKX account first")
+            
+            # Decrypt user's personal credentials
+            try:
+                api_key = self._decrypt_credentials(user['okx_api_key'])
+                secret = self._decrypt_credentials(user['okx_secret_key'])
+                passphrase = self._decrypt_credentials(user['okx_passphrase'])
+                
+                exchange = ccxt.okx({
+                    'apiKey': api_key,
+                    'secret': secret,
+                    'password': passphrase,
+                    'enableRateLimit': True,
+                    'options': {'defaultType': 'spot'}
+                })
+                
+                # Test connection to user's OKX account
+                exchange.load_markets()
+                logger.info(f"✅ User bot {bot_id} connected to USER'S OKX account")
+                
+            except Exception as e:
+                logger.error(f"❌ Failed to connect to user's OKX account: {e}")
+                raise ValueError(f"Failed to connect to user's OKX: {str(e)}")
         
         # Create and start bot instance
         bot_instance = BotInstance(bot_id, user_id, config_data, exchange, paper_trading, self.db)
