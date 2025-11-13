@@ -328,14 +328,11 @@ class BotInstance:
                     if self.profit_protector and position.get('protector_id'):
                         try:
                             # Update current price and check for exit signals
-                            actions = self.profit_protector.check_position(position['protector_id'], price)
-                            if actions:
-                                for action in actions:
-                                    if action['action'] == 'exit':
-                                        should_exit = True
-                                        exit_reason = action.get('reason', 'profit_protector')
-                                        logger.info(f"🛡️ Profit protector triggered exit: {exit_reason}")
-                                        break
+                            action = self.profit_protector.update_position(position['protector_id'], price)
+                            if action and action.get('action') == 'exit':
+                                should_exit = True
+                                exit_reason = action.get('reason', 'profit_protector')
+                                logger.info(f"🛡️ Profit protector triggered exit: {exit_reason}")
                         except Exception as e:
                             logger.warning(f"⚠️ Profit protector check failed: {e}")
                     
