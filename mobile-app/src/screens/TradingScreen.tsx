@@ -175,11 +175,11 @@ export default function TradingScreen({ navigation }: any) {
           </View>
           {liveUpdates.slice(0, 3).map((trade, index) => (
             <View key={index} style={styles.liveTradeCard}>
-              <Text style={styles.liveTradeSymbol}>{trade.symbol}</Text>
+              <Text style={styles.liveTradeSymbol}>{trade.symbol || 'N/A'}</Text>
               <Text style={[styles.liveTradeSide, trade.side === 'buy' ? styles.buyText : styles.sellText]}>
-                {trade.side.toUpperCase()}
+                {(trade.side || 'buy').toUpperCase()}
               </Text>
-              <Text style={styles.liveTradePrice}>${trade.price?.toFixed(2)}</Text>
+              <Text style={styles.liveTradePrice}>${trade.price?.toFixed(2) || '0.00'}</Text>
               {trade.pnl && (
                 <Text style={[styles.liveTradePnl, trade.pnl > 0 ? styles.profitText : styles.lossText]}>
                   {trade.pnl > 0 ? '+' : ''}{trade.pnl.toFixed(2)}%

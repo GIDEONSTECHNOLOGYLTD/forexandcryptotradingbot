@@ -725,6 +725,46 @@ async def stop_bot(bot_id: str, user: dict = Depends(get_current_user)):
         "bot_id": bot_id
     }
 
+@app.put("/api/bots/{bot_id}")
+async def update_bot(bot_id: str, config: BotConfig, user: dict = Depends(get_current_user)):
+    """Update bot configuration"""
+    from bson import ObjectId
+    
+    # Verify bot exists and belongs to user
+    try:
+        bot_obj_id = ObjectId(bot_id)
+    except:
+        raise HTTPException(status_code=400, detail="Invalid bot ID format")
+    
+    bot = bot_instances_collection.find_one({"_id": bot_obj_id})
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    
+    # Check ownership (skip for admin)
+    is_admin = user.get("role") == "admin"
+    if not is_admin and bot.get("user_id") != str(user["_id"]):
+        raise HTTPException(status_code=403, detail="Not authorized to update this bot")
+    
+    # Bot must be stopped to update
+    if bot.get("status") == "running":
+        raise HTTPException(status_code=400, detail="Stop the bot before updating its configuration")
+    
+    # Update bot configuration
+    update_data = {
+        "config": config.dict(),
+        "updated_at": datetime.utcnow()
+    }
+    
+    bot_instances_collection.update_one(
+        {"_id": bot_obj_id},
+        {"$set": update_data}
+    )
+    
+    return {
+        "message": "Bot updated successfully",
+        "bot_id": bot_id
+    }
+
 @app.delete("/api/bots/{bot_id}")
 async def delete_bot(bot_id: str, user: dict = Depends(get_current_user)):
     """Delete bot instance"""

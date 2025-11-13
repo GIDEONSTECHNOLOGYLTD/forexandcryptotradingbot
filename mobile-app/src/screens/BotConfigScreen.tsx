@@ -80,7 +80,7 @@ export default function BotConfigScreen({ route, navigation }: any) {
     try {
       const config = {
         bot_type: botType,
-        symbol: symbol.toUpperCase().trim(),
+        symbol: (symbol || 'BTC/USDT').toUpperCase().trim(),
         capital: parseFloat(capital),
         initial_capital: parseFloat(initialCapital),
         max_position_size: parseFloat(maxPositionSize),
@@ -95,7 +95,7 @@ export default function BotConfigScreen({ route, navigation }: any) {
       
       Alert.alert(
         '✅ Bot Created Successfully!',
-        `${botType.toUpperCase()} bot for ${symbol.toUpperCase()}\nCapital: $${capital}\nMode: ${paperTrading ? 'Paper Trading' : 'Real Trading'}\nStop Loss: ${stopLoss}% | Take Profit: ${takeProfit}%\n\nGo to Trading screen to start it!`,
+        `${(botType || 'momentum').toUpperCase()} bot for ${(symbol || 'BTC/USDT').toUpperCase()}\nCapital: $${capital}\nMode: ${paperTrading ? 'Paper Trading' : 'Real Trading'}\nStop Loss: ${stopLoss}% | Take Profit: ${takeProfit}%\n\nGo to Trading screen to start it!`,
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     } catch (error: any) {
@@ -121,7 +121,7 @@ export default function BotConfigScreen({ route, navigation }: any) {
     try {
       const config = {
         bot_type: botType,
-        symbol: symbol.toUpperCase().trim(),
+        symbol: (symbol || 'BTC/USDT').toUpperCase().trim(),
         capital: parseFloat(capital),
         initial_capital: parseFloat(initialCapital),
         max_position_size: parseFloat(maxPositionSize),
@@ -137,7 +137,7 @@ export default function BotConfigScreen({ route, navigation }: any) {
       
       Alert.alert(
         '✅ Bot Updated Successfully!',
-        `${botType.toUpperCase()} bot for ${symbol.toUpperCase()}\nCapital: $${capital}\nMode: ${paperTrading ? 'Paper Trading' : 'Real Trading'}\nStop Loss: ${stopLoss}% | Take Profit: ${takeProfit}%`,
+        `${(botType || 'momentum').toUpperCase()} bot for ${(symbol || 'BTC/USDT').toUpperCase()}\nCapital: $${capital}\nMode: ${paperTrading ? 'Paper Trading' : 'Real Trading'}\nStop Loss: ${stopLoss}% | Take Profit: ${takeProfit}%`,
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     } catch (error: any) {
