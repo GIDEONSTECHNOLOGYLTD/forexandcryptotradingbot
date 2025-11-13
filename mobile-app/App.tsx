@@ -1,10 +1,10 @@
-// Polyfill for EventEmitter
-import { EventEmitter } from 'events';
+// Polyfill for EventEmitter using eventemitter3
+import EventEmitter from 'eventemitter3';
 global.EventEmitter = EventEmitter;
 
-// Polyfill for process if needed
+// Polyfill for process
 if (typeof global.process === 'undefined') {
-  global.process = { env: {} };
+  global.process = { env: {}, nextTick: (fn) => setTimeout(fn, 0) } as any;
 }
 
 import React, { useState, useEffect } from 'react';

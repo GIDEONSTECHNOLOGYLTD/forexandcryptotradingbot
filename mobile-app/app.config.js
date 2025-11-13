@@ -49,14 +49,9 @@ export default {
       }
     },
     plugins: [
-      [
-        "expo-notifications",
-        {
-          icon: "./assets/notification-icon.png",
-          color: "#667eea"
-        }
-      ],
-      "expo-font"
+      "expo-font",
+      "expo-secure-store",
+      "expo-local-authentication"
     ],
     owner: "gtechldt"
   }
