@@ -205,6 +205,16 @@ export const checkCryptoPaymentStatus = async (paymentId: string) => {
   return response.data;
 };
 
+// In-App Purchase Verification
+export const verifyInAppPurchase = async (data: {
+  plan: string;
+  receipt_data: string;
+  platform: string;
+}) => {
+  const response = await api.post('/payments/iap/verify', data);
+  return response.data;
+};
+
 // New Listing Bot
 export const getNewListingBotStatus = async () => {
   const response = await api.get('/new-listing/status');
@@ -254,6 +264,7 @@ export default {
   getCryptoNetworks,
   initializeCryptoPayment,
   checkCryptoPaymentStatus,
+  verifyInAppPurchase,
   getNewListingBotStatus,
   startNewListingBot,
   stopNewListingBot,

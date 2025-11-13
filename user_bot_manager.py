@@ -229,6 +229,8 @@ class UserTradingBot:
             trade_record = {
                 'user_id': self.user_id,
                 'bot_id': self.bot_id,
+                'bot_name': self.config.get('bot_type', 'Trading Bot'),
+                'bot_type': 'user',
                 'symbol': symbol,
                 'signal': signal['signal'],
                 'entry_price': current_price,
@@ -239,6 +241,7 @@ class UserTradingBot:
                 'confidence': signal['confidence'],
                 'status': 'open',
                 'entry_time': datetime.utcnow(),
+                'timestamp': datetime.utcnow(),
                 'paper_trading': self.paper_trading
             }
             

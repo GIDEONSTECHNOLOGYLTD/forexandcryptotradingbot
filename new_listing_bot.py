@@ -179,15 +179,22 @@ class NewListingBot:
             stop_loss_price = current_price * (1 - self.stop_loss_percent / 100)
             
             trade = {
+                'bot_id': 'admin_auto_trader',
+                'bot_name': 'Admin Auto-Trader',
+                'bot_type': 'admin',
                 'symbol': symbol,
                 'order_id': order['id'],
                 'entry_price': current_price,
+                'exit_price': 0,
                 'amount': amount,
                 'invested': self.buy_amount_usdt,
                 'take_profit': take_profit_price,
                 'stop_loss': stop_loss_price,
                 'entry_time': datetime.utcnow(),
+                'timestamp': datetime.utcnow(),
                 'status': 'open',
+                'side': 'buy',
+                'pnl': 0,
                 'analysis': analysis
             }
             
@@ -269,6 +276,7 @@ class NewListingBot:
                     trade['exit_time'] = datetime.utcnow()
                     trade['pnl_percent'] = pnl_percent
                     trade['pnl_usdt'] = pnl_usdt
+                    trade['pnl'] = pnl_usdt
                     trade['close_reason'] = close_reason
                     
                     logger.info(f"{'💚' if pnl_usdt > 0 else '❤️'} Trade closed:")
@@ -394,7 +402,7 @@ class NewListingBot:
         """Save trade to database"""
         if self.db:
             try:
-                self.db.db['new_listing_trades'].insert_one(trade)
+                self.db.db['trades'].insert_one(trade)
             except Exception as e:
                 logger.error(f"Error saving trade: {e}")
     
@@ -402,7 +410,7 @@ class NewListingBot:
         """Update trade in database"""
         if self.db:
             try:
-                self.db.db['new_listing_trades'].update_one(
+                self.db.db['trades'].update_one(
                     {'order_id': trade['order_id']},
                     {'$set': trade}
                 )

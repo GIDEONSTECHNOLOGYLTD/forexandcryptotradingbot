@@ -163,66 +163,52 @@ export default function TradeHistoryScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Stats Cards */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Total Trades</Text>
+      {/* Compact Stats Row */}
+      <View style={styles.statsRow}>
+        <View style={styles.statItem}>
+          <Text style={styles.statLabel}>Trades</Text>
           <Text style={styles.statValue}>{stats.total}</Text>
         </View>
-        <View style={[styles.statCard, styles.winningCard]}>
-          <Text style={styles.statLabel}>Winning</Text>
+        <View style={styles.statItem}>
+          <Text style={styles.statLabel}>Win</Text>
           <Text style={[styles.statValue, styles.winningText]}>{stats.winning}</Text>
         </View>
-        <View style={[styles.statCard, styles.losingCard]}>
-          <Text style={styles.statLabel}>Losing</Text>
+        <View style={styles.statItem}>
+          <Text style={styles.statLabel}>Loss</Text>
           <Text style={[styles.statValue, styles.losingText]}>{stats.losing}</Text>
         </View>
-        <View style={[styles.statCard, styles.pnlCard]}>
-          <Text style={styles.statLabel}>Total P&L</Text>
+        <View style={styles.statItem}>
+          <Text style={styles.statLabel}>P&L</Text>
           <Text style={[styles.statValue, stats.totalPnL >= 0 ? styles.winningText : styles.losingText]}>
             ${stats.totalPnL.toFixed(2)}
           </Text>
         </View>
       </View>
 
-      {/* Filter Buttons */}
+      {/* Compact Filter Buttons */}
       <View style={styles.filterContainer}>
         <TouchableOpacity
           style={[styles.filterButton, filter === 'all' && styles.filterButtonActive]}
           onPress={() => setFilter('all')}
         >
-          <Text style={[styles.filterButtonText, filter === 'all' && styles.filterButtonTextActive]}>
-            All Trades
-          </Text>
+          <Text style={[styles.filterButtonText, filter === 'all' && styles.filterButtonTextActive]}>All</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.filterButton, filter === 'admin' && styles.filterButtonActive]}
           onPress={() => setFilter('admin')}
         >
-          <Text style={[styles.filterButtonText, filter === 'admin' && styles.filterButtonTextActive]}>
-            Admin Bot
-          </Text>
+          <Text style={[styles.filterButtonText, filter === 'admin' && styles.filterButtonTextActive]}>Admin</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.filterButton, filter === 'users' && styles.filterButtonActive]}
           onPress={() => setFilter('users')}
         >
-          <Text style={[styles.filterButtonText, filter === 'users' && styles.filterButtonTextActive]}>
-            User Bots
-          </Text>
+          <Text style={[styles.filterButtonText, filter === 'users' && styles.filterButtonTextActive]}>Users</Text>
         </TouchableOpacity>
-      </View>
-
-      {/* OKX Guide */}
-      <View style={styles.okxGuide}>
-        <View style={styles.okxGuideHeader}>
-          <Ionicons name="information-circle" size={20} color="#3b82f6" />
-          <Text style={styles.okxGuideTitle}>See trades in OKX:</Text>
+        <View style={styles.okxBadge}>
+          <Ionicons name="information-circle" size={14} color="#3b82f6" />
+          <Text style={styles.okxBadgeText}>View in OKX</Text>
         </View>
-        <Text style={styles.okxGuideText}>1. Login to OKX.com or OKX app</Text>
-        <Text style={styles.okxGuideText}>2. Go to Assets → Trading Account</Text>
-        <Text style={styles.okxGuideText}>3. Click Order History / Trade History</Text>
-        <Text style={styles.okxGuideText}>4. All bot trades appear there</Text>
       </View>
 
       {/* Trade List */}
@@ -250,40 +236,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f9fafb',
   },
-  statsContainer: {
+  statsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 16,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    minWidth: '45%',
     backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
   },
-  winningCard: {
-    backgroundColor: '#f0fdf4',
-  },
-  losingCard: {
-    backgroundColor: '#fef2f2',
-  },
-  pnlCard: {
-    backgroundColor: '#faf5ff',
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#6b7280',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#111827',
   },
@@ -295,57 +265,47 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 8,
-    marginBottom: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
   },
   filterButton: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#e5e7eb',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: '#f3f4f6',
     alignItems: 'center',
   },
   filterButtonActive: {
     backgroundColor: '#3b82f6',
   },
   filterButtonText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#374151',
+  },
+  okxBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: '#eff6ff',
+    gap: 4,
+  },
+  okxBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#3b82f6',
   },
   filterButtonTextActive: {
     color: '#fff',
   },
-  okxGuide: {
-    backgroundColor: '#eff6ff',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#3b82f6',
-  },
-  okxGuideHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  okxGuideTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#1e40af',
-  },
-  okxGuideText: {
-    fontSize: 12,
-    color: '#1e40af',
-    marginBottom: 4,
-  },
   tradeList: {
-    padding: 16,
-    paddingTop: 0,
+    padding: 12,
   },
   tradeCard: {
     backgroundColor: '#fff',

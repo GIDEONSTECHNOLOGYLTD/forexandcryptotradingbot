@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Linking, Modal, Clipboard } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Linking, Modal, Clipboard, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
+import * as InAppPurchases from 'expo-in-app-purchases';
 import * as api from '../services/api';
 import { useUser } from '../context/UserContext';
 
@@ -26,8 +27,25 @@ export default function PaymentScreen({ navigation }: any) {
   useEffect(() => {
     if (selectedPaymentMethod === 'crypto') {
       loadCryptoNetworks();
+    } else if (selectedPaymentMethod === 'iap') {
+      initializeIAP();
     }
   }, [selectedPaymentMethod]);
+
+  const initializeIAP = async () => {
+    try {
+      await InAppPurchases.connectAsync();
+      const { responseCode, results } = await InAppPurchases.getProductsAsync([
+        PRODUCT_IDS.pro,
+        PRODUCT_IDS.enterprise
+      ]);
+      if (responseCode === InAppPurchases.IAPResponseCode.OK) {
+        console.log('IAP products loaded:', results);
+      }
+    } catch (error) {
+      console.error('IAP initialization error:', error);
+    }
+  };
 
   const loadCryptoNetworks = async () => {
     try {
@@ -101,15 +119,52 @@ export default function PaymentScreen({ navigation }: any) {
   };
 
   const handleInAppPurchase = async (plan: string) => {
-    Alert.alert(
-      'App Store Purchase',
-      'In-app purchases will be available in the next update.\n\nPlease use:\n• Card (Paystack)\n• Crypto (USDT on multiple networks)',
-      [
-        { text: 'Use Card', onPress: () => setSelectedPaymentMethod('card') },
-        { text: 'Use Crypto', onPress: () => setSelectedPaymentMethod('crypto') },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
+    if (Platform.OS !== 'ios') {
+      Alert.alert('iOS Only', 'In-app purchases are only available on iOS. Please use Card or Crypto payment.');
+      return;
+    }
+
+    try {
+      setPurchasing(true);
+      const productId = plan === 'pro' ? PRODUCT_IDS.pro : PRODUCT_IDS.enterprise;
+      
+      await InAppPurchases.purchaseItemAsync(productId);
+      
+      // Listen for purchase updates
+      InAppPurchases.setPurchaseListener(({ responseCode, results, errorCode }) => {
+        if (responseCode === InAppPurchases.IAPResponseCode.OK) {
+          results?.forEach(async (purchase) => {
+            if (!purchase.acknowledged) {
+              // Verify with backend
+              try {
+                await api.verifyInAppPurchase({
+                  plan,
+                  receipt_data: purchase.transactionReceipt || '',
+                  platform: 'ios'
+                });
+                
+                // Finish transaction
+                await InAppPurchases.finishTransactionAsync(purchase, true);
+                
+                Alert.alert('Success', 'Subscription activated!');
+                await refreshUser();
+                navigation.goBack();
+              } catch (error) {
+                Alert.alert('Error', 'Failed to verify purchase');
+              }
+            }
+          });
+        } else if (responseCode === InAppPurchases.IAPResponseCode.USER_CANCELED) {
+          Alert.alert('Cancelled', 'Purchase was cancelled');
+        } else {
+          Alert.alert('Error', 'Purchase failed');
+        }
+        setPurchasing(false);
+      });
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Purchase failed');
+      setPurchasing(false);
+    }
   };
 
   const handleSubscribe = async (plan: string) => {
@@ -147,6 +202,31 @@ export default function PaymentScreen({ navigation }: any) {
       {/* Payment Method Selection */}
       <View style={styles.paymentMethodSection}>
         <Text style={styles.sectionTitle}>Payment Method</Text>
+        
+        {/* Crypto Network Selector */}
+        {selectedPaymentMethod === 'crypto' && availableNetworks.length > 0 && (
+          <View style={styles.networkSelector}>
+            <Text style={styles.networkLabel}>Select Network:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.networkScroll}>
+              {availableNetworks.map((network) => (
+                <TouchableOpacity
+                  key={network}
+                  style={[
+                    styles.networkChip,
+                    cryptoNetwork === network && styles.networkChipSelected
+                  ]}
+                  onPress={() => setCryptoNetwork(network)}
+                >
+                  <Text style={[
+                    styles.networkChipText,
+                    cryptoNetwork === network && styles.networkChipTextSelected
+                  ]}>{network}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+        
         <View style={styles.paymentMethods}>
           <TouchableOpacity
             style={[
@@ -310,6 +390,39 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   paymentMethodTextSelected: {
+    color: '#667eea',
+  },
+  networkSelector: {
+    marginBottom: 16,
+  },
+  networkLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  networkScroll: {
+    flexDirection: 'row',
+  },
+  networkChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    marginRight: 8,
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+  },
+  networkChipSelected: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#667eea',
+  },
+  networkChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  networkChipTextSelected: {
     color: '#667eea',
   },
   planCard: { backgroundColor: '#fff', padding: 20, borderRadius: 12, marginBottom: 16 },
