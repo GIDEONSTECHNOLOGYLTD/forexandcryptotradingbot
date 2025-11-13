@@ -199,7 +199,7 @@ export default function AdminBotScreen() {
           <View>
             <Text style={styles.headerTitle}>🚀 Admin Auto-Trader</Text>
             <Text style={styles.headerSubtitle}>
-              $10 trades • +50% profit • -15% stop loss
+              ${config.buy_amount_usdt} trades • +{config.take_profit_percent}% profit • -{config.stop_loss_percent}% stop loss
             </Text>
           </View>
           <View style={styles.balanceContainer}>
@@ -263,7 +263,7 @@ export default function AdminBotScreen() {
         <View style={styles.infoBox}>
           <Ionicons name="information-circle" size={16} color="#6b7280" />
           <Text style={styles.infoText}>
-            Bot invests $50 per new listing, targets +30% profit (+$15), stops at -15% loss (-$7.50)
+            Bot invests ${config.buy_amount_usdt} per new listing, targets +{config.take_profit_percent}% profit (+${(config.buy_amount_usdt * config.take_profit_percent / 100).toFixed(2)}), stops at -{config.stop_loss_percent}% loss (-${(config.buy_amount_usdt * config.stop_loss_percent / 100).toFixed(2)})
           </Text>
         </View>
       </View>
@@ -288,13 +288,13 @@ export default function AdminBotScreen() {
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>3</Text>
             </View>
-            <Text style={styles.stepText}>Buys $50 worth automatically</Text>
+            <Text style={styles.stepText}>Buys ${config.buy_amount_usdt} worth automatically</Text>
           </View>
           <View style={styles.step}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>4</Text>
             </View>
-            <Text style={styles.stepText}>Sells at +30% profit or -15% stop loss</Text>
+            <Text style={styles.stepText}>Sells at +{config.take_profit_percent}% profit or -{config.stop_loss_percent}% stop loss</Text>
           </View>
           <View style={styles.step}>
             <View style={styles.stepNumber}>
