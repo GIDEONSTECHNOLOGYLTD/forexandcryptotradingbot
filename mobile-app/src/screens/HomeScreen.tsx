@@ -19,6 +19,8 @@ const { width } = Dimensions.get('window');
 export default function HomeScreen({ navigation }: any) {
   const { user, isAdmin } = useUser();
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
     totalBalance: 0,
     todayPnL: 0,
@@ -33,15 +35,22 @@ export default function HomeScreen({ navigation }: any) {
     
     // Auto-refresh every 5 seconds for real-time updates
     const interval = setInterval(() => {
-      fetchDashboardData();
+      fetchDashboardData(true); // Silent refresh
     }, 5000);
     
     return () => clearInterval(interval);
   }, []);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (silent = false) => {
     try {
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
+      
+      console.log('📊 Fetching dashboard data...');
       const response = await api.getDashboard();
+      console.log('✅ Dashboard data loaded');
       
       // Map backend response to frontend structure
       const mappedStats = {
@@ -54,8 +63,16 @@ export default function HomeScreen({ navigation }: any) {
       
       setStats(mappedStats);
       setChartData(response.chartData || [0, 0, 0, 0, 0, 0, 0]);
-    } catch (error) {
-      console.error('Error fetching dashboard:', error);
+      setError(null);
+    } catch (error: any) {
+      console.error('❌ Error fetching dashboard:', error.message || error);
+      if (!silent) {
+        setError(error.message || 'Failed to load dashboard data. Pull to refresh.');
+      }
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -64,6 +81,31 @@ export default function HomeScreen({ navigation }: any) {
     await fetchDashboardData();
     setRefreshing(false);
   };
+
+  // Show loading indicator on first load
+  if (loading && !refreshing) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Ionicons name="sync" size={48} color="#667eea" />
+        <Text style={styles.loadingText}>Loading dashboard...</Text>
+        <Text style={styles.loadingSubtext}>This may take a moment on first load</Text>
+      </View>
+    );
+  }
+
+  // Show error message if failed to load
+  if (error && !loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Ionicons name="alert-circle" size={48} color="#f5576c" />
+        <Text style={styles.errorText}>Failed to Load</Text>
+        <Text style={styles.errorSubtext}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => fetchDashboardData()}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -319,5 +361,47 @@ const styles = StyleSheet.create({
     marginLeft: 15,
     fontSize: 16,
     fontWeight: '500',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    color: '#333',
+  },
+  loadingSubtext: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 20,
+    color: '#f5576c',
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 10,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  retryButton: {
+    backgroundColor: '#667eea',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginTop: 20,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

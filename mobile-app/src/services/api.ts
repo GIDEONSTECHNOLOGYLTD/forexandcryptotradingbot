@@ -7,7 +7,7 @@ const API_BASE_URL = 'https://trading-bot-api-7xps.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000, // Increased to 30 seconds for Render cold starts
+  timeout: 60000, // Increased to 60 seconds for Render cold starts
   headers: {
     'Content-Type': 'application/json',
   },
@@ -31,15 +31,29 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor for error handling
+// Response interceptor with retry logic and error handling
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    const config = error.config;
+    
+    // Handle 401 errors (token expired)
     if (error.response?.status === 401) {
-      // Token expired, logout user
       await SecureStore.deleteItemAsync('authToken');
-      // Navigate to login screen
+      return Promise.reject(error);
     }
+    
+    // Retry on timeout or network errors (max 2 retries)
+    if (!config || !config.retry) {
+      config.retry = 0;
+    }
+    
+    if (config.retry < 2 && (error.code === 'ECONNABORTED' || error.message.includes('timeout') || error.message.includes('Network Error'))) {
+      config.retry += 1;
+      console.log(`🔄 Retrying request (attempt ${config.retry}/2)...`);
+      return api(config);
+    }
+    
     return Promise.reject(error);
   }
 );
