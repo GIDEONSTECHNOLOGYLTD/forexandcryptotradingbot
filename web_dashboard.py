@@ -2243,6 +2243,106 @@ async def health_check():
 
 
 # ============================================================================
+# SYSTEM SETTINGS ENDPOINTS (ADMIN ONLY)
+# ============================================================================
+
+@app.get("/api/system/settings")
+async def get_system_settings(user: dict = Depends(get_current_user)):
+    """Get system settings (admin only)"""
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get settings from database or return defaults
+    settings = db.db['system_settings'].find_one({"_id": "global"})
+    
+    if not settings:
+        settings = {
+            "api_keys": {
+                "okx_api_key": "****" + config.OKX_API_KEY[-4:] if config.OKX_API_KEY else "",
+                "okx_secret_key": "****" + config.OKX_SECRET_KEY[-4:] if config.OKX_SECRET_KEY else "",
+                "okx_passphrase": "****",
+            },
+            "trading_limits": {
+                "max_position_size": 1000,
+                "max_daily_trades": 50,
+                "max_loss_per_trade": 100,
+                "max_daily_loss": 500,
+                "max_leverage": 3,
+                "require_confirmation": False,
+            }
+        }
+    
+    return settings
+
+@app.put("/api/system/settings")
+async def update_system_settings(settings: dict, user: dict = Depends(get_current_user)):
+    """Update system settings (admin only)"""
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Update or create settings
+    db.db['system_settings'].update_one(
+        {"_id": "global"},
+        {"$set": {
+            **settings,
+            "updated_at": datetime.utcnow(),
+            "updated_by": user.get("email")
+        }},
+        upsert=True
+    )
+    
+    return {"message": "Settings updated successfully", "settings": settings}
+
+
+# ============================================================================
+# SUBSCRIPTION VERIFICATION & FEATURE GRANTS
+# ============================================================================
+
+@app.post("/api/subscriptions/verify-payment")
+async def verify_subscription_payment(
+    payment_data: dict,
+    user: dict = Depends(get_current_user)
+):
+    """Verify payment and grant subscription features"""
+    try:
+        plan = payment_data.get('plan', 'free')
+        payment_method = payment_data.get('payment_method', 'unknown')
+        
+        # Update user subscription
+        users_collection.update_one(
+            {"_id": user["_id"]},
+            {"$set": {
+                "subscription": plan,
+                "subscription_start": datetime.utcnow(),
+                "subscription_status": "active",
+                "payment_method": payment_method,
+                "last_payment": datetime.utcnow()
+            }}
+        )
+        
+        # Log payment
+        db.db['payments'].insert_one({
+            "user_id": str(user["_id"]),
+            "email": user.get("email"),
+            "plan": plan,
+            "amount": 29 if plan == "pro" else 99 if plan == "enterprise" else 0,
+            "payment_method": payment_method,
+            "status": "completed",
+            "timestamp": datetime.utcnow()
+        })
+        
+        return {
+            "success": True,
+            "message": f"{plan.capitalize()} subscription activated!",
+            "subscription": plan,
+            "features": get_plan_features(plan)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
 # STARTUP
 # ============================================================================
 

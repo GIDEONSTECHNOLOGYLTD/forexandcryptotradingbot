@@ -236,6 +236,23 @@ export const stopNewListingBot = async () => {
   return response.data;
 };
 
+// System Settings
+export const getSystemSettings = async () => {
+  const response = await api.get('/system/settings');
+  return response.data;
+};
+
+export const updateSystemSettings = async (settings: any) => {
+  const response = await api.put('/system/settings', settings);
+  return response.data;
+};
+
+// Subscription Verification
+export const verifySubscriptionPayment = async (paymentData: any) => {
+  const response = await api.post('/subscriptions/verify-payment', paymentData);
+  return response.data;
+};
+
 export default {
   login,
   signup,
@@ -268,4 +285,7 @@ export default {
   getNewListingBotStatus,
   startNewListingBot,
   stopNewListingBot,
+  getSystemSettings,
+  updateSystemSettings,
+  verifySubscriptionPayment,
 };

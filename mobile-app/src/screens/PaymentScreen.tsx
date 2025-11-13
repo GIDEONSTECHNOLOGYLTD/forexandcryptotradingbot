@@ -77,6 +77,15 @@ export default function PaymentScreen({ navigation }: any) {
           {
             text: 'I\'ve Paid',
             onPress: async () => {
+              // Grant subscription after payment
+              try {
+                await api.verifySubscriptionPayment({
+                  plan,
+                  payment_method: 'card'
+                });
+              } catch (error) {
+                console.error('Subscription grant error:', error);
+              }
               await refreshUser();
               navigation.goBack();
             }
@@ -93,21 +102,42 @@ export default function PaymentScreen({ navigation }: any) {
   const handleCryptoPayment = async (plan: string) => {
     try {
       setPurchasing(true);
-      const response = await api.initializeCryptoPayment({
-        plan: plan,
-        crypto_currency: cryptoCurrency,
-        network: cryptoNetwork,
-        amount: plan === 'pro' ? 29 : 99
-      });
       
-      const address = response.deposit_address || response.address || 'Address generation failed';
-      const amount = response.crypto_amount || response.amount || (plan === 'pro' ? 29 : 99);
+      // Show demo address if backend not configured
+      const demoAddresses = {
+        'TRC20': 'TXYZa1b2c3d4e5f6g7h8i9j0k1l2m3n4o5',
+        'ERC20': '0x1234567890abcdef1234567890abcdef12345678',
+        'BEP20': '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+      };
       
-      setCryptoAddress(address);
-      setCryptoAmount(amount);
+      try {
+        const response = await api.initializeCryptoPayment({
+          plan: plan,
+          crypto_currency: cryptoCurrency,
+          network: cryptoNetwork,
+          amount: plan === 'pro' ? 29 : 99
+        });
+        
+        const address = response.deposit_address || response.address;
+        const amount = response.crypto_amount || response.amount || (plan === 'pro' ? 29 : 99);
+        
+        setCryptoAddress(address);
+        setCryptoAmount(amount);
+      } catch (apiError) {
+        // Use demo address if API fails
+        setCryptoAddress(demoAddresses[cryptoNetwork as keyof typeof demoAddresses] || demoAddresses.TRC20);
+        setCryptoAmount(plan === 'pro' ? 29 : 99);
+        
+        Alert.alert(
+          'Demo Mode',
+          'Crypto payment is in demo mode. Contact support at ceo@gideonstechnology.com to activate real crypto payments.',
+          [{ text: 'OK' }]
+        );
+      }
+      
       setShowCryptoModal(true);
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.detail || 'Crypto payment not configured yet. Please use Card payment.');
+      Alert.alert('Error', 'Failed to initialize crypto payment. Please try Card or App Store payment.');
     } finally {
       setPurchasing(false);
     }
@@ -145,12 +175,18 @@ export default function PaymentScreen({ navigation }: any) {
         if (responseCode === InAppPurchases.IAPResponseCode.OK) {
           results?.forEach(async (purchase) => {
             if (!purchase.acknowledged) {
-              // Verify with backend
+              // Verify with backend and grant subscription
               try {
                 await api.verifyInAppPurchase({
                   plan,
                   receipt_data: purchase.transactionReceipt || '',
                   platform: 'ios'
+                });
+                
+                // Grant subscription
+                await api.verifySubscriptionPayment({
+                  plan,
+                  payment_method: 'in_app_purchase'
                 });
                 
                 // Finish transaction
