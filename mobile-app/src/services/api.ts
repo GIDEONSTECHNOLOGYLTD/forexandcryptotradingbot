@@ -126,6 +126,11 @@ export const getPortfolio = async () => {
   return response.data;
 };
 
+export const getUserBalance = async () => {
+  const response = await api.get('/user/balance');
+  return response.data;
+};
+
 // Payments
 export const createSubscription = async (plan: string, paymentMethod: string) => {
   const response = await api.post('/subscriptions/create', { plan, payment_method: paymentMethod });
@@ -203,9 +208,14 @@ export default {
   createBot,
   startBot,
   stopBot,
+  deleteBot,
   getTrades,
   getPerformance,
   getPortfolio,
+  getUserBalance,
+  getTradeHistory,
+  getBotAnalytics,
+  getAISuggestions,
   createSubscription,
   getSubscription,
   updateProfile,
