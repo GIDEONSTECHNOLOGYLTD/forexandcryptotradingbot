@@ -41,6 +41,9 @@ export class BiometricService {
           case LocalAuthentication.AuthenticationType.IRIS:
             typeNames.push('Iris');
             break;
+          default:
+            // Unknown biometric type
+            break;
         }
       });
 
