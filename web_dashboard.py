@@ -1945,6 +1945,26 @@ async def start_new_listing_bot(config: NewListingConfig, user: dict = Depends(g
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.put("/api/new-listing/config")
+async def update_new_listing_bot_config(config: NewListingConfig, user: dict = Depends(get_current_user)):
+    """Update new listing bot configuration without starting it"""
+    try:
+        # Save config to user document
+        users_collection.update_one(
+            {"_id": user["_id"]},
+            {"$set": {
+                "new_listing_bot_config": config.dict(),
+                "new_listing_bot_config_updated": datetime.utcnow()
+            }}
+        )
+        
+        return {
+            "message": "Configuration saved successfully",
+            "config": config.dict()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/new-listing/stop")
 async def stop_new_listing_bot(user: dict = Depends(get_current_user)):
     """Stop new listing detection bot"""

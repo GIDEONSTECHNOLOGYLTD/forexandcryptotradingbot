@@ -70,19 +70,39 @@ export default function AdminBotScreen() {
         api.getNewListingBotStatus(),
       ]);
       
-      console.log('✅ Admin bot data loaded:', { balance: balanceData.total, enabled: statusData.enabled });
+      console.log('✅ Admin bot data loaded:', JSON.stringify({ balance: balanceData, status: statusData }));
       
-      setBalance(balanceData.total || 16.78);
-      setBotStatus(statusData);
+      // Ensure balance is a number
+      const balanceValue = typeof balanceData === 'object' ? (balanceData.total || 16.78) : (balanceData || 16.78);
+      setBalance(balanceValue);
       
-      if (statusData.config) {
-        setConfig({
-          buy_amount_usdt: statusData.config.buy_amount_usdt || 50,
-          take_profit_percent: statusData.config.take_profit_percent || 30,
-          stop_loss_percent: statusData.config.stop_loss_percent || 15,
-          max_hold_time: (statusData.config.max_hold_time || 3600) / 60,
-        });
-      }
+      // Safely extract config and stats as primitives only
+      const safeConfig = {
+        buy_amount_usdt: Number(statusData?.config?.buy_amount_usdt) || 50,
+        take_profit_percent: Number(statusData?.config?.take_profit_percent) || 30,
+        stop_loss_percent: Number(statusData?.config?.stop_loss_percent) || 15,
+        max_hold_time: Number(statusData?.config?.max_hold_time) || 3600,
+      };
+      
+      const safeStats = {
+        total_trades: Number(statusData?.stats?.total_trades) || 0,
+        winning_trades: Number(statusData?.stats?.winning_trades) || 0,
+        win_rate: Number(statusData?.stats?.win_rate) || 0,
+        total_pnl: Number(statusData?.stats?.total_pnl) || 0,
+      };
+      
+      setBotStatus({
+        enabled: Boolean(statusData?.enabled),
+        config: safeConfig,
+        stats: safeStats,
+      });
+      
+      setConfig({
+        buy_amount_usdt: safeConfig.buy_amount_usdt,
+        take_profit_percent: safeConfig.take_profit_percent,
+        stop_loss_percent: safeConfig.stop_loss_percent,
+        max_hold_time: safeConfig.max_hold_time / 60, // Convert to minutes
+      });
       
       setError(null);
     } catch (error: any) {
@@ -154,13 +174,37 @@ export default function AdminBotScreen() {
     );
   };
 
-  const saveConfig = () => {
-    setConfigModalVisible(false);
-    Alert.alert(
-      'Configuration Saved',
-      'Your settings have been saved. Click "Start Bot" to begin trading with these settings.',
-      [{ text: 'OK' }]
-    );
+  const saveConfig = async () => {
+    try {
+      setLoading(true);
+      
+      // Save configuration to backend
+      await api.updateNewListingBotConfig({
+        buy_amount_usdt: config.buy_amount_usdt,
+        take_profit_percent: config.take_profit_percent,
+        stop_loss_percent: config.stop_loss_percent,
+        max_hold_time: config.max_hold_time * 60, // Convert minutes to seconds
+      });
+      
+      setConfigModalVisible(false);
+      Alert.alert(
+        '✅ Configuration Saved',
+        `Settings saved successfully:\n\n` +
+        `💰 Buy Amount: $${config.buy_amount_usdt}\n` +
+        `📈 Take Profit: ${config.take_profit_percent}%\n` +
+        `📉 Stop Loss: ${config.stop_loss_percent}%\n` +
+        `⏱️ Max Hold: ${config.max_hold_time} minutes\n\n` +
+        `Click "Start Bot" whenever you're ready to begin trading!`,
+        [{ text: 'OK' }]
+      );
+      
+      // Reload to get the saved config
+      await loadData();
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.detail || 'Failed to save configuration');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Show loading on first load
@@ -199,11 +243,11 @@ export default function AdminBotScreen() {
           <View>
             <Text style={styles.headerTitle}>🚀 Admin Auto-Trader</Text>
             <Text style={styles.headerSubtitle}>
-              ${config.buy_amount_usdt} trades • +{config.take_profit_percent}% profit • -{config.stop_loss_percent}% stop loss
+              ${Number(config?.buy_amount_usdt || 50)} trades • +{Number(config?.take_profit_percent || 30)}% profit • -{Number(config?.stop_loss_percent || 15)}% stop loss
             </Text>
           </View>
           <View style={styles.balanceContainer}>
-            <Text style={styles.balanceAmount}>${balance.toFixed(2)}</Text>
+            <Text style={styles.balanceAmount}>${Number(balance || 0).toFixed(2)}</Text>
             <Text style={styles.balanceLabel}>OKX Balance</Text>
           </View>
         </View>
@@ -218,12 +262,12 @@ export default function AdminBotScreen() {
           </View>
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>Trades</Text>
-            <Text style={styles.statValue}>{botStatus.stats?.total_trades || 0}</Text>
+            <Text style={styles.statValue}>{Number(botStatus?.stats?.total_trades || 0)}</Text>
           </View>
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>P&L</Text>
-            <Text style={[styles.statValue, botStatus.stats?.total_pnl >= 0 ? styles.profitText : styles.lossText]}>
-              ${(botStatus.stats?.total_pnl || 0).toFixed(2)}
+            <Text style={[styles.statValue, Number(botStatus?.stats?.total_pnl || 0) >= 0 ? styles.profitText : styles.lossText]}>
+              ${Number(botStatus?.stats?.total_pnl || 0).toFixed(2)}
             </Text>
           </View>
         </View>
@@ -263,7 +307,7 @@ export default function AdminBotScreen() {
         <View style={styles.infoBox}>
           <Ionicons name="information-circle" size={16} color="#6b7280" />
           <Text style={styles.infoText}>
-            Bot invests ${config.buy_amount_usdt} per new listing, targets +{config.take_profit_percent}% profit (+${(config.buy_amount_usdt * config.take_profit_percent / 100).toFixed(2)}), stops at -{config.stop_loss_percent}% loss (-${(config.buy_amount_usdt * config.stop_loss_percent / 100).toFixed(2)})
+            Bot invests ${Number(config?.buy_amount_usdt || 50)} per new listing, targets +{Number(config?.take_profit_percent || 30)}% profit (+${(Number(config?.buy_amount_usdt || 50) * Number(config?.take_profit_percent || 30) / 100).toFixed(2)}), stops at -{Number(config?.stop_loss_percent || 15)}% loss (-${(Number(config?.buy_amount_usdt || 50) * Number(config?.stop_loss_percent || 15) / 100).toFixed(2)})
           </Text>
         </View>
       </View>
@@ -288,13 +332,13 @@ export default function AdminBotScreen() {
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>3</Text>
             </View>
-            <Text style={styles.stepText}>Buys ${config.buy_amount_usdt} worth automatically</Text>
+            <Text style={styles.stepText}>Buys ${Number(config?.buy_amount_usdt || 50)} worth automatically</Text>
           </View>
           <View style={styles.step}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>4</Text>
             </View>
-            <Text style={styles.stepText}>Sells at +{config.take_profit_percent}% profit or -{config.stop_loss_percent}% stop loss</Text>
+            <Text style={styles.stepText}>Sells at +{Number(config?.take_profit_percent || 30)}% profit or -{Number(config?.stop_loss_percent || 15)}% stop loss</Text>
           </View>
           <View style={styles.step}>
             <View style={styles.stepNumber}>
@@ -351,7 +395,7 @@ export default function AdminBotScreen() {
                 <Text style={styles.inputLabel}>Buy Amount (USDT)</Text>
                 <TextInput
                   style={styles.input}
-                  value={config.buy_amount_usdt.toString()}
+                  value={String(Number(config?.buy_amount_usdt || 50))}
                   onChangeText={(text) => setConfig({ ...config, buy_amount_usdt: parseFloat(text) || 50 })}
                   keyboardType="decimal-pad"
                   placeholder="50"
@@ -363,7 +407,7 @@ export default function AdminBotScreen() {
                 <Text style={styles.inputLabel}>Take Profit (%)</Text>
                 <TextInput
                   style={styles.input}
-                  value={config.take_profit_percent.toString()}
+                  value={String(Number(config?.take_profit_percent || 30))}
                   onChangeText={(text) => setConfig({ ...config, take_profit_percent: parseFloat(text) || 30 })}
                   keyboardType="decimal-pad"
                   placeholder="30"
@@ -375,7 +419,7 @@ export default function AdminBotScreen() {
                 <Text style={styles.inputLabel}>Stop Loss (%)</Text>
                 <TextInput
                   style={styles.input}
-                  value={config.stop_loss_percent.toString()}
+                  value={String(Number(config?.stop_loss_percent || 15))}
                   onChangeText={(text) => setConfig({ ...config, stop_loss_percent: parseFloat(text) || 15 })}
                   keyboardType="decimal-pad"
                   placeholder="15"
@@ -387,7 +431,7 @@ export default function AdminBotScreen() {
                 <Text style={styles.inputLabel}>Max Hold Time (minutes)</Text>
                 <TextInput
                   style={styles.input}
-                  value={config.max_hold_time.toString()}
+                  value={String(Number(config?.max_hold_time || 60))}
                   onChangeText={(text) => setConfig({ ...config, max_hold_time: parseInt(text) || 60 })}
                   keyboardType="number-pad"
                   placeholder="60"

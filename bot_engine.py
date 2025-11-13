@@ -206,6 +206,25 @@ class BotInstance:
         self.running = False
         if self.task:
             self.task.cancel()
+        
+        # Send Telegram notification for bot stopped
+        if self.telegram and self.telegram.enabled:
+            try:
+                runtime = datetime.utcnow() - self.start_time if hasattr(self, 'start_time') else None
+                runtime_str = f"{runtime.total_seconds() / 3600:.1f} hours" if runtime else "N/A"
+                
+                message = (
+                    f"⏹️ **Bot Stopped**\n\n"
+                    f"Symbol: {self.symbol}\n"
+                    f"Mode: {'📝 Paper Trading' if self.paper_trading else '💰 Real Trading'}\n"
+                    f"Runtime: {runtime_str}\n"
+                    f"Final Balance: ${self.balance:.2f}\n\n"
+                    f"Bot has been stopped successfully."
+                )
+                self.telegram.send_message(message)
+                logger.info("📱 Telegram: Bot stopped notification sent")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to send bot stopped notification: {e}")
     
     async def trading_loop(self):
         """Main trading loop with real execution"""
@@ -403,7 +422,24 @@ class BotInstance:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error: {e}")
+                logger.error(f"❌ Error in trading loop: {e}")
+                
+                # Send Telegram notification for critical errors
+                if self.telegram and self.telegram.enabled:
+                    try:
+                        message = (
+                            f"🚨 **Bot Error!**\n\n"
+                            f"Symbol: {self.symbol}\n"
+                            f"Error: {str(e)[:200]}\n"
+                            f"Balance: ${self.balance:.2f}\n\n"
+                            f"⚠️ Bot will attempt to continue.\n"
+                            f"Please check if manual intervention needed."
+                        )
+                        self.telegram.send_message(message)
+                        logger.info("📱 Telegram: Error notification sent")
+                    except Exception as notify_error:
+                        logger.warning(f"⚠️ Failed to send error notification: {notify_error}")
+                
                 await asyncio.sleep(60)
 
 # Global instance

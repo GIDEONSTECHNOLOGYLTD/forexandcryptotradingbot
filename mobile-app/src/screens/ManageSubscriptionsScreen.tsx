@@ -25,16 +25,31 @@ export default function ManageSubscriptionsScreen({ navigation }: any) {
       console.log('📊 Loading users for subscription management...');
       const response = await axios.get(`${API_BASE_URL}/users`, {
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 120000,
+        timeout: 30000, // Reduce to 30 seconds
       });
       
-      console.log('✅ Users loaded:', response.data.length || 0);
-      setUsers(response.data || []);
+      console.log('✅ Raw response:', JSON.stringify(response.data));
+      
+      // Handle both array and object response
+      let usersData = [];
+      if (Array.isArray(response.data)) {
+        usersData = response.data;
+      } else if (response.data.users && Array.isArray(response.data.users)) {
+        usersData = response.data.users;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        usersData = response.data.data;
+      }
+      
+      console.log('✅ Users loaded:', usersData.length);
+      setUsers(usersData);
       setError(null);
     } catch (error: any) {
       const errorMsg = error.response?.data?.detail || error.message || 'Failed to load users';
       console.error('❌ Error loading users:', errorMsg);
       setError(errorMsg);
+      
+      // Set empty array on error so we don't get stuck loading
+      setUsers([]);
     } finally {
       setLoading(false);
     }

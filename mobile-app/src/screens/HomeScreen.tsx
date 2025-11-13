@@ -49,17 +49,39 @@ export default function HomeScreen({ navigation }: any) {
       }
       
       console.log('📊 Fetching dashboard data...');
-      const response = await api.getDashboard();
-      console.log('✅ Dashboard data loaded');
+      
+      // Fetch both dashboard and balance in parallel for speed
+      const [dashboardResponse, balanceResponse] = await Promise.allSettled([
+        api.getDashboard(),
+        api.getUserBalance().catch(() => ({ total: 0 }))
+      ]);
+      
+      const response = dashboardResponse.status === 'fulfilled' ? dashboardResponse.value : null;
+      const balance = balanceResponse.status === 'fulfilled' ? balanceResponse.value : { total: 0 };
+      
+      console.log('✅ Dashboard data:', response);
+      console.log('💰 Balance data:', balance);
+      
+      if (!response) {
+        throw new Error('Failed to load dashboard');
+      }
+      
+      // For admin: Use OKX balance if available, otherwise use bot capital
+      // For users: Use bot capital
+      const totalBalance = isAdmin 
+        ? (Number(balance?.total) > 0 ? Number(balance.total) : (response.stats?.total_capital || 0))
+        : (response.stats?.total_capital || 0);
       
       // Map backend response to frontend structure
       const mappedStats = {
-        totalBalance: response.stats?.total_capital || 0,
-        todayPnL: response.stats?.total_pnl || 0,
-        totalTrades: response.stats?.total_trades || 0,
-        winRate: response.stats?.win_rate || 0,
-        activeBots: response.stats?.active_bots || 0,
+        totalBalance: totalBalance,
+        todayPnL: Number(response.stats?.total_pnl) || 0,
+        totalTrades: Number(response.stats?.total_trades) || 0,
+        winRate: Number(response.stats?.win_rate) || 0,
+        activeBots: Number(response.stats?.active_bots) || 0,
       };
+      
+      console.log('📊 Mapped stats:', mappedStats);
       
       setStats(mappedStats);
       setChartData(response.chartData || [0, 0, 0, 0, 0, 0, 0]);
@@ -69,6 +91,15 @@ export default function HomeScreen({ navigation }: any) {
       if (!silent) {
         setError(error.message || 'Failed to load dashboard data. Pull to refresh.');
       }
+      
+      // Set defaults on error
+      setStats({
+        totalBalance: 0,
+        todayPnL: 0,
+        totalTrades: 0,
+        winRate: 0,
+        activeBots: 0,
+      });
     } finally {
       if (!silent) {
         setLoading(false);

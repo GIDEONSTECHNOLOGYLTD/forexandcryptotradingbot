@@ -282,6 +282,16 @@ export const stopNewListingBot = async () => {
   return response.data;
 };
 
+export const updateNewListingBotConfig = async (config: {
+  buy_amount_usdt: number;
+  take_profit_percent: number;
+  stop_loss_percent: number;
+  max_hold_time: number;
+}) => {
+  const response = await api.put('/new-listing/config', config);
+  return response.data;
+};
+
 // System Settings
 export const getSystemSettings = async () => {
   const response = await api.get('/system/settings');
@@ -332,6 +342,7 @@ export default {
   getNewListingBotStatus,
   startNewListingBot,
   stopNewListingBot,
+  updateNewListingBotConfig,
   getSystemSettings,
   updateSystemSettings,
   verifySubscriptionPayment,

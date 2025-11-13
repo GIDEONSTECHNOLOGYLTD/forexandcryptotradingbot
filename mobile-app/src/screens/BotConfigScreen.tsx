@@ -21,20 +21,20 @@ export default function BotConfigScreen({ route, navigation }: any) {
   const { user, isAdmin } = useUser();
   const { bot, isEditing } = route.params || {};
   
-  // Basic Config - Pre-fill if editing
+  // Basic Config - Pre-fill if editing (INSTANT, NO API CALLS)
   const [botType, setBotType] = useState(bot?.config?.bot_type || 'momentum');
-  const [pairCategory, setPairCategory] = useState(bot?.config?.symbol?.includes('/') ? 'crypto' : 'crypto');
+  const [pairCategory, setPairCategory] = useState('crypto'); // Default to crypto for speed
   const [symbol, setSymbol] = useState(bot?.config?.symbol || 'BTC/USDT');
   const [capital, setCapital] = useState(bot?.config?.capital?.toString() || '20');
   const [paperTrading, setPaperTrading] = useState(bot?.config?.paper_trading ?? (!user?.exchange_connected && !isAdmin));
   
-  // Advanced Config (matching backend)
-  const [initialCapital, setInitialCapital] = useState('10000');
-  const [maxPositionSize, setMaxPositionSize] = useState('2.0');
-  const [stopLoss, setStopLoss] = useState('2.0');
-  const [takeProfit, setTakeProfit] = useState('4.0');
-  const [maxOpenPositions, setMaxOpenPositions] = useState('3');
-  const [timeframe, setTimeframe] = useState('1h');
+  // Advanced Config (matching backend) - OPTIMIZED DEFAULTS
+  const [initialCapital, setInitialCapital] = useState(bot?.config?.initial_capital?.toString() || '10000');
+  const [maxPositionSize, setMaxPositionSize] = useState(bot?.config?.max_position_size?.toString() || '2.0');
+  const [stopLoss, setStopLoss] = useState(bot?.config?.stop_loss_percent?.toString() || '2.0');
+  const [takeProfit, setTakeProfit] = useState(bot?.config?.take_profit_percent?.toString() || '4.0');
+  const [maxOpenPositions, setMaxOpenPositions] = useState(bot?.config?.max_open_positions?.toString() || '3');
+  const [timeframe, setTimeframe] = useState(bot?.config?.timeframe || '1h');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const handleCreate = async () => {

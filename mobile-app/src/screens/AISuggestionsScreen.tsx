@@ -221,11 +221,11 @@ export default function AISuggestionsScreen({ navigation }: any) {
                           { color: getImpactColor(suggestion.impact) },
                         ]}
                       >
-                        {suggestion.impact.toUpperCase()} IMPACT
+                        {(suggestion?.impact || 'medium').toUpperCase()} IMPACT
                       </Text>
                     </View>
                     <Text style={styles.confidence}>
-                      {Math.round(suggestion.confidence * 100)}% confidence
+                      {Math.round((suggestion?.confidence || 0.5) * 100)}% confidence
                     </Text>
                   </View>
                 </View>
