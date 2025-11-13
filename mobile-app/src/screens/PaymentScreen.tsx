@@ -108,6 +108,9 @@ export default function PaymentScreen({ navigation }: any) {
       case 'iap':
         await handleInAppPurchase(plan);
         break;
+      default:
+        Alert.alert('Error', 'Please select a payment method');
+        break;
     }
   };
 
