@@ -126,6 +126,104 @@
                 </div>
             </div>
 
+            <!-- Admin Bot Control - NEW LISTING BOT -->
+            <div class="bg-gradient-to-r from-green-400 to-blue-500 rounded-lg shadow-2xl p-6 mb-8 text-white">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-2xl font-bold flex items-center">
+                            <i class="fas fa-rocket mr-3"></i>
+                            Admin Auto-Trader Bot
+                        </h2>
+                        <p class="text-sm opacity-90 mt-1">Grow your $16.78 → $1,000+ automatically</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-3xl font-bold" id="adminBalance">$16.78</div>
+                        <div class="text-sm opacity-90">Your OKX Balance</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div class="bg-white bg-opacity-20 rounded-lg p-4">
+                        <div class="text-sm opacity-90">Status</div>
+                        <div class="text-xl font-bold" id="botStatus">Not Running</div>
+                    </div>
+                    <div class="bg-white bg-opacity-20 rounded-lg p-4">
+                        <div class="text-sm opacity-90">Total Trades</div>
+                        <div class="text-xl font-bold" id="botTrades">0</div>
+                    </div>
+                    <div class="bg-white bg-opacity-20 rounded-lg p-4">
+                        <div class="text-sm opacity-90">Total P&L</div>
+                        <div class="text-xl font-bold" id="botPnL">$0.00</div>
+                    </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <button onclick="startAdminBot()" id="startBotBtn" 
+                            class="flex-1 bg-white text-green-600 py-3 px-6 rounded-lg font-bold hover:bg-gray-100 transition">
+                        <i class="fas fa-play mr-2"></i>Start Bot
+                    </button>
+                    <button onclick="stopAdminBot()" id="stopBotBtn" 
+                            class="flex-1 bg-red-500 text-white py-3 px-6 rounded-lg font-bold hover:bg-red-600 transition hidden">
+                        <i class="fas fa-stop mr-2"></i>Stop Bot
+                    </button>
+                    <button onclick="showBotConfig()" 
+                            class="bg-blue-500 text-white py-3 px-6 rounded-lg font-bold hover:bg-blue-600 transition">
+                        <i class="fas fa-cog mr-2"></i>Configure
+                    </button>
+                </div>
+
+                <div class="mt-4 text-sm opacity-90">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Bot monitors OKX for new listings 24/7, buys instantly, and sells at +50% profit or -15% stop loss
+                </div>
+            </div>
+
+            <!-- Bot Configuration Modal -->
+            <div id="botConfigModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold">Bot Configuration</h2>
+                        <button onclick="hideBotConfig()" class="text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times text-2xl"></i>
+                        </button>
+                    </div>
+
+                    <form onsubmit="saveBotConfig(event)">
+                        <div class="mb-4">
+                            <label class="block text-gray-700 mb-2">Buy Amount (USDT)</label>
+                            <input type="number" id="buyAmount" value="15" min="5" max="100" step="1" required
+                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600">
+                            <p class="text-sm text-gray-500 mt-1">Amount to invest per new listing</p>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-gray-700 mb-2">Take Profit (%)</label>
+                            <input type="number" id="takeProfit" value="50" min="10" max="200" step="5" required
+                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600">
+                            <p class="text-sm text-gray-500 mt-1">Sell when profit reaches this %</p>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-gray-700 mb-2">Stop Loss (%)</label>
+                            <input type="number" id="stopLoss" value="15" min="5" max="50" step="5" required
+                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600">
+                            <p class="text-sm text-gray-500 mt-1">Exit when loss reaches this %</p>
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-gray-700 mb-2">Max Hold Time (minutes)</label>
+                            <input type="number" id="maxHoldTime" value="60" min="15" max="240" step="15" required
+                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600">
+                            <p class="text-sm text-gray-500 mt-1">Maximum time to hold position</p>
+                        </div>
+
+                        <button type="submit" class="w-full bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600">
+                            Save Configuration
+                        </button>
+                    </form>
+                </div>
+            </div>
+
             <!-- Charts -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div class="bg-white rounded-lg shadow-lg p-6">
@@ -519,6 +617,135 @@
 
         function viewUser(userId) {
             alert('View user: ' + userId);
+        }
+
+        // Bot Control Functions
+        async function startAdminBot() {
+            const buyAmount = parseFloat(document.getElementById('buyAmount').value);
+            const takeProfit = parseFloat(document.getElementById('takeProfit').value);
+            const stopLoss = parseFloat(document.getElementById('stopLoss').value);
+            const maxHoldTime = parseInt(document.getElementById('maxHoldTime').value) * 60; // Convert to seconds
+
+            try {
+                const response = await fetch(`${API_URL}/api/new-listing/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        buy_amount_usdt: buyAmount,
+                        take_profit_percent: takeProfit,
+                        stop_loss_percent: stopLoss,
+                        max_hold_time: maxHoldTime
+                    })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    alert('✅ Bot started successfully! It will now monitor OKX for new listings 24/7.');
+                    document.getElementById('startBotBtn').classList.add('hidden');
+                    document.getElementById('stopBotBtn').classList.remove('hidden');
+                    document.getElementById('botStatus').textContent = 'Running';
+                    loadBotStatus();
+                } else {
+                    alert('Error: ' + data.detail);
+                }
+            } catch (error) {
+                alert('Error starting bot: ' + error.message);
+            }
+        }
+
+        async function stopAdminBot() {
+            if (!confirm('Are you sure you want to stop the bot?')) return;
+
+            try {
+                const response = await fetch(`${API_URL}/api/new-listing/stop`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    alert('✅ Bot stopped successfully!');
+                    document.getElementById('startBotBtn').classList.remove('hidden');
+                    document.getElementById('stopBotBtn').classList.add('hidden');
+                    document.getElementById('botStatus').textContent = 'Not Running';
+                } else {
+                    alert('Error: ' + data.detail);
+                }
+            } catch (error) {
+                alert('Error stopping bot: ' + error.message);
+            }
+        }
+
+        async function loadBotStatus() {
+            try {
+                const response = await fetch(`${API_URL}/api/new-listing/status`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+
+                if (data.enabled) {
+                    document.getElementById('startBotBtn').classList.add('hidden');
+                    document.getElementById('stopBotBtn').classList.remove('hidden');
+                    document.getElementById('botStatus').textContent = 'Running';
+                } else {
+                    document.getElementById('startBotBtn').classList.remove('hidden');
+                    document.getElementById('stopBotBtn').classList.add('hidden');
+                    document.getElementById('botStatus').textContent = 'Not Running';
+                }
+
+                document.getElementById('botTrades').textContent = data.total_trades || 0;
+                document.getElementById('botPnL').textContent = '$' + (data.total_pnl || 0).toFixed(2);
+
+                // Load config if exists
+                if (data.config) {
+                    document.getElementById('buyAmount').value = data.config.buy_amount_usdt || 15;
+                    document.getElementById('takeProfit').value = data.config.take_profit_percent || 50;
+                    document.getElementById('stopLoss').value = data.config.stop_loss_percent || 15;
+                    document.getElementById('maxHoldTime').value = (data.config.max_hold_time || 3600) / 60;
+                }
+            } catch (error) {
+                console.error('Error loading bot status:', error);
+            }
+        }
+
+        async function loadAdminBalance() {
+            try {
+                const response = await fetch(`${API_URL}/api/user/balance`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                document.getElementById('adminBalance').textContent = '$' + (data.total || 16.78).toFixed(2);
+            } catch (error) {
+                console.error('Error loading balance:', error);
+            }
+        }
+
+        function showBotConfig() {
+            document.getElementById('botConfigModal').classList.remove('hidden');
+        }
+
+        function hideBotConfig() {
+            document.getElementById('botConfigModal').classList.add('hidden');
+        }
+
+        function saveBotConfig(event) {
+            event.preventDefault();
+            hideBotConfig();
+            alert('✅ Configuration saved! Click "Start Bot" to begin trading.');
+        }
+
+        // Load bot status on dashboard load
+        if (token) {
+            loadBotStatus();
+            loadAdminBalance();
+            // Refresh every 30 seconds
+            setInterval(() => {
+                loadBotStatus();
+                loadAdminBalance();
+            }, 30000);
         }
     </script>
 </body>
