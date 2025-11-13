@@ -31,6 +31,7 @@ import SecurityScreen from './src/screens/SecurityScreen';
 import ManageSubscriptionsScreen from './src/screens/ManageSubscriptionsScreen';
 import AdminBotScreen from './src/screens/AdminBotScreen';
 import TradeHistoryScreen from './src/screens/TradeHistoryScreen';
+import AISuggestionsScreen from './src/screens/AISuggestionsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -160,6 +161,11 @@ export default function App() {
             name="TradeHistory" 
             component={TradeHistoryScreen}
             options={{ headerShown: true, title: '📊 Trade History' }}
+          />
+          <Stack.Screen 
+            name="AISuggestions" 
+            component={AISuggestionsScreen}
+            options={{ headerShown: true, title: '✨ AI Suggestions' }}
           />
         </Stack.Navigator>
       </NavigationContainer>
