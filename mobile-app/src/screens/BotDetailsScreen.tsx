@@ -9,34 +9,92 @@ export default function BotDetailsScreen({ route, navigation }: any) {
   const { isAdmin } = useUser();
   const [bot, setBot] = useState<any>(null);
   const [analytics, setAnalytics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadBot();
-    loadAnalytics();
+    loadBotData();
   }, []);
 
-  const loadBot = async () => {
+  const loadBotData = async () => {
     try {
-      const data = await api.getBots();
-      const bots = Array.isArray(data) ? data : (data.bots || []);
-      const found = bots.find((b: any) => b._id === botId);
-      if (found) setBot(found);
-      else navigation.goBack();
-    } catch (error) {
-      navigation.goBack();
+      setLoading(true);
+      setError(null);
+      await Promise.all([loadBot(), loadAnalytics()]);
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.detail || error.message || 'Failed to load bot details';
+      console.error('❌ Error loading bot details:', errorMsg);
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadBot = async () => {
+    console.log('📊 Loading bot details for:', botId);
+    const data = await api.getBots();
+    const bots = Array.isArray(data) ? data : (data.bots || []);
+    const found = bots.find((b: any) => b._id === botId || b.id === botId);
+    
+    if (found) {
+      console.log('✅ Bot found:', found);
+      setBot(found);
+    } else {
+      console.error('❌ Bot not found in list');
+      throw new Error('Bot not found');
     }
   };
 
   const loadAnalytics = async () => {
     try {
+      console.log('📈 Loading analytics for bot:', botId);
       const data = await api.getBotAnalytics(botId);
+      console.log('✅ Analytics loaded:', data);
       setAnalytics(data);
-    } catch (error) {
-      console.error('Error loading analytics:', error);
+    } catch (error: any) {
+      console.error('⚠️ Analytics not available:', error.message);
+      // Analytics is optional, don't fail the whole screen
     }
   };
 
-  if (!bot) return <View style={styles.container}><Text>Loading...</Text></View>;
+  // Show loading state
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Ionicons name="sync" size={48} color="#667eea" />
+        <Text style={styles.loadingText}>Loading bot details...</Text>
+      </View>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Ionicons name="alert-circle" size={48} color="#ef4444" />
+        <Text style={styles.errorText}>Failed to Load</Text>
+        <Text style={styles.errorSubtext}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadBotData}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!bot) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Ionicons name="alert-circle" size={48} color="#ef4444" />
+        <Text style={styles.errorText}>Bot Not Found</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const config = bot.config || {};
 
@@ -134,4 +192,52 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
   label: { fontSize: 14, color: '#6b7280' },
   value: { fontSize: 14, fontWeight: '600', color: '#111827' },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    color: '#667eea',
+  },
+  errorText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 20,
+    color: '#ef4444',
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 10,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  retryButton: {
+    backgroundColor: '#667eea',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginTop: 20,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  backButton: {
+    backgroundColor: '#6b7280',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginTop: 12,
+  },
+  backButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });
