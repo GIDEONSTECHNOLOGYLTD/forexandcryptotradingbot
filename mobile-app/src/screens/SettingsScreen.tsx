@@ -49,6 +49,21 @@ export default function SettingsScreen({ navigation }: any) {
       {isAdmin && (
         <>
           <Text style={styles.sectionTitle}>ADMIN TOOLS</Text>
+          <TouchableOpacity 
+            style={[styles.adminToolButton, styles.adminBotButton]} 
+            onPress={() => navigation.navigate('AdminBot')}
+          >
+            <Ionicons name="rocket" size={24} color="#fff" />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.adminToolText, { color: '#fff', fontWeight: 'bold' }]}>
+                🚀 Admin Auto-Trader Bot
+              </Text>
+              <Text style={{ color: '#fff', fontSize: 12, opacity: 0.9 }}>
+                Grow your $16.78 automatically
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#fff" />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.adminToolButton} onPress={() => navigation.navigate('ManageUsers')}>
             <Ionicons name="people-outline" size={24} color="#667eea" />
             <Text style={styles.adminToolText}>Manage Users</Text>
@@ -188,6 +203,16 @@ const styles = StyleSheet.create({
     padding: 16,
     marginTop: 1,
     gap: 12,
+  },
+  adminBotButton: {
+    backgroundColor: '#10b981',
+    borderRadius: 12,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   adminToolText: {
     flex: 1,

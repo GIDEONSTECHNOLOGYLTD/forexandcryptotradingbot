@@ -1826,11 +1826,10 @@ async def get_available_permissions():
 # ============================================================================
 
 class NewListingConfig(BaseModel):
-    enabled: bool
-    buy_amount_usdt: float = 50
-    take_profit_percent: float = 50
-    stop_loss_percent: float = 20
-    max_hold_time: int = 3600
+    buy_amount_usdt: float = 10  # Reasonable for $16.78 balance (leaves buffer)
+    take_profit_percent: float = 50  # 50% profit target
+    stop_loss_percent: float = 15  # 15% max loss
+    max_hold_time: int = 3600  # 1 hour max hold
 
 @app.post("/api/new-listing/start")
 async def start_new_listing_bot(config: NewListingConfig, user: dict = Depends(get_current_user)):

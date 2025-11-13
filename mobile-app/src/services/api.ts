@@ -199,6 +199,27 @@ export const checkCryptoPaymentStatus = async (paymentId: string) => {
   return response.data;
 };
 
+// New Listing Bot
+export const getNewListingBotStatus = async () => {
+  const response = await api.get('/new-listing/status');
+  return response.data;
+};
+
+export const startNewListingBot = async (config: {
+  buy_amount_usdt: number;
+  take_profit_percent: number;
+  stop_loss_percent: number;
+  max_hold_time: number;
+}) => {
+  const response = await api.post('/new-listing/start', config);
+  return response.data;
+};
+
+export const stopNewListingBot = async () => {
+  const response = await api.post('/new-listing/stop');
+  return response.data;
+};
+
 export default {
   login,
   signup,
@@ -226,4 +247,7 @@ export default {
   initializePaystackPayment,
   initializeCryptoPayment,
   checkCryptoPaymentStatus,
+  getNewListingBotStatus,
+  startNewListingBot,
+  stopNewListingBot,
 };
