@@ -2225,37 +2225,27 @@ async def startup_event():
     print(f"{Fore.CYAN}📊 Admin Dashboard: http://localhost:8000/docs{Style.RESET_ALL}")
     print(f"{Fore.CYAN}🔌 WebSocket: ws://localhost:8000/ws/trades{Style.RESET_ALL}")
     
-    # Create/update admin accounts
+    # Update existing admin accounts (does NOT change password)
     admin_emails = ["admin@tradingbot.com", "ceo@gideonstechnology.com"]
     
     for admin_email in admin_emails:
-        if not users_collection.find_one({"email": admin_email}):
-            admin = {
-                "email": admin_email,
-                "password": hash_password("admin123"),  # Change this!
-                "full_name": "Admin User",
-                "role": "admin",
-                "created_at": datetime.utcnow(),
-                "is_active": True,
-                "subscription": "enterprise",
-                "exchange_connected": True,  # Admin uses admin OKX credentials
-                "paper_trading": False  # Admin can do real trading
-            }
-            users_collection.insert_one(admin)
-            print(f"{Fore.YELLOW}⚠️  Admin created: {admin_email}{Style.RESET_ALL}")
-        else:
-            # Update existing admin to ensure correct settings
+        existing_admin = users_collection.find_one({"email": admin_email})
+        if existing_admin:
+            # Only update role and subscription, NEVER touch password
             users_collection.update_one(
                 {"email": admin_email},
                 {"$set": {
                     "role": "admin",
-                    "subscription": "enterprise",  # Admin always has enterprise
+                    "subscription": "enterprise",
                     "exchange_connected": True,
                     "paper_trading": False,
                     "is_active": True
                 }}
             )
-            print(f"{Fore.GREEN}✅ Admin account updated: {admin_email} → Enterprise{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}✅ Admin account updated: {admin_email} → Enterprise (password unchanged){Style.RESET_ALL}")
+        else:
+            # Admin account doesn't exist - they need to signup first
+            print(f"{Fore.YELLOW}⚠️  Admin account not found: {admin_email} - Please signup first{Style.RESET_ALL}")
 
 
 if __name__ == "__main__":
