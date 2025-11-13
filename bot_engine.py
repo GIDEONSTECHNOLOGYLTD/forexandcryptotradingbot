@@ -237,8 +237,22 @@ class BotInstance:
                 
                 # Simple momentum strategy
                 if not position:
-                    # Open position
-                    amount = (self.balance * 0.9) / price
+                    # Open position - USE ONLY YOUR ACTUAL BALANCE, NO LEVERAGE!
+                    # Get fresh balance to ensure accuracy
+                    if not self.paper_trading:
+                        try:
+                            balance_info = self.exchange.fetch_balance()
+                            actual_usdt = balance_info['free']['USDT']
+                            logger.info(f"💰 Actual USDT available: ${actual_usdt:.2f}")
+                        except:
+                            actual_usdt = self.balance
+                    else:
+                        actual_usdt = self.balance
+                    
+                    # Use 80% of available balance (leaving buffer for fees)
+                    # NO LEVERAGE - only trade what you have!
+                    max_trade_amount = actual_usdt * 0.8
+                    amount = max_trade_amount / price
                     
                     # Check minimum order value (OKX requires minimum $5)
                     order_value = amount * price
@@ -250,8 +264,15 @@ class BotInstance:
                     if self.paper_trading:
                         logger.info(f"📝 PAPER BUY: {amount:.6f} {self.symbol} @ ${price:.2f}")
                     else:
-                        order = self.exchange.create_market_order(self.symbol, 'buy', amount)
-                        logger.info(f"💰 REAL BUY: {amount:.6f} {self.symbol} @ ${price:.2f}")
+                        # CRITICAL: Use spot market order (no margin/leverage)
+                        order = self.exchange.create_market_order(
+                            self.symbol, 
+                            'buy', 
+                            amount,
+                            params={'tdMode': 'cash'}  # SPOT trading only!
+                        )
+                        logger.info(f"💰 SPOT BUY (NO LEVERAGE): {amount:.6f} {self.symbol} @ ${price:.2f}")
+                        logger.info(f"📊 Used ${order_value:.2f} of your ${actual_usdt:.2f} balance")
                     
                     position = {'entry': price, 'amount': amount, 'time': datetime.utcnow()}
                     
@@ -350,8 +371,14 @@ class BotInstance:
                         if self.paper_trading:
                             logger.info(f"📝 PAPER SELL: {position['amount']:.6f} @ ${price:.2f} | PnL: {final_pnl_pct:.2f}% | Reason: {exit_reason}")
                         else:
-                            order = self.exchange.create_market_order(self.symbol, 'sell', position['amount'])
-                            logger.info(f"💰 REAL SELL: {position['amount']:.6f} @ ${price:.2f} | PnL: {final_pnl_pct:.2f}% | Reason: {exit_reason}")
+                            # CRITICAL: Use spot market order (no margin/leverage)
+                            order = self.exchange.create_market_order(
+                                self.symbol, 
+                                'sell', 
+                                position['amount'],
+                                params={'tdMode': 'cash'}  # SPOT trading only!
+                            )
+                            logger.info(f"💰 SPOT SELL (NO LEVERAGE): {position['amount']:.6f} @ ${price:.2f} | PnL: {final_pnl_pct:.2f}% | Reason: {exit_reason}")
                         
                         # Save trade
                         self.db.db['trades'].insert_one({
