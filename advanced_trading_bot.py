@@ -375,8 +375,9 @@ class AdvancedTradingBot:
                     
                     signal, confidence, market_condition = self.analyze_symbol(symbol)
                     
-                    if signal == 'buy' and confidence >= 60:  # Only BUY signals!
+                    if signal == 'buy' and confidence >= 50:  # Lowered to 50% for more opportunities!
                         print(f"\n{Fore.GREEN}✅ BUY Signal detected for {symbol}{Style.RESET_ALL}")
+                        print(f"Confidence: {confidence:.1f}%")
                         print(f"Market Condition: {market_condition}")
                         self.execute_trade(symbol, signal, confidence)
                 

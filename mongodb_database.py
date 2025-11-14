@@ -153,7 +153,8 @@ class MongoTradingDatabase:
         Save daily performance - Easy with MongoDB!
         """
         try:
-            today = datetime.now().date()
+            # MongoDB needs datetime, not date!
+            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             
             # Upsert (update if exists, insert if not)
             self.performance.update_one(

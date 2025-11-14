@@ -101,9 +101,9 @@ class TradingStrategy:
         
         # Determine signal based on vote count
         # FORCE BUY ONLY - no sell signals for spot trading!
-        if buy_signals > sell_signals:
+        if buy_signals >= sell_signals and buy_signals > 0:  # Buy if equal or more
             confidence = (buy_signals / total_signals) * 100
-            if confidence >= 60:
+            if confidence >= 50:  # Lowered from 60% to 50% for more opportunities
                 return 'buy', confidence
         
         # Skip sell signals - we need USDT to buy first!
