@@ -106,7 +106,7 @@ services:
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: PAPER_TRADING
-        value: "True"
+        value: "False"  # 💰 LIVE TRADING ENABLED
 
 # databases:
   # MongoDB Atlas is external - configure connection via MONGODB_URI env var
