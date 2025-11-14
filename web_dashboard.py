@@ -82,6 +82,10 @@ except ImportError as e:
     NEW_LISTING_BOT_AVAILABLE = False
     NewListingBot = None
 
+# Global storage for new listing bot instances
+import asyncio
+new_listing_bot_instances = {}  # {user_id: {"bot": bot_instance, "task": asyncio_task}}
+
 # Configuration
 SECRET_KEY = config.JWT_SECRET_KEY
 ALGORITHM = "HS256"
@@ -367,13 +371,26 @@ async def get_dashboard(user: dict = Depends(get_current_user)):
         bot["_id"] = str(bot["_id"])
     
     # Get total stats
-    total_capital = sum(bot.get("capital", 0) for bot in bots)
+    total_capital = sum(bot.get("config", {}).get("initial_capital", 0) for bot in bots)
     active_bots = sum(1 for bot in bots if bot.get("status") == "running")
     
-    # Get total P&L (simplified)
+    # Get total P&L from actual closed trades
     total_pnl = 0.0
-    for bot in bots:
-        total_pnl += bot.get("total_profit", 0.0)
+    try:
+        if is_admin:
+            closed_trades = list(db.db['trades'].find({"side": "sell", "status": "closed"}))
+        else:
+            closed_trades = list(db.db['trades'].find({"user_id": str(user["_id"]), "side": "sell", "status": "closed"}))
+        
+        for trade in closed_trades:
+            entry_price = trade.get("entry_price", 0)
+            exit_price = trade.get("price", 0)
+            amount = trade.get("amount", 0)
+            if entry_price > 0:
+                profit_usd = (exit_price - entry_price) * amount
+                total_pnl += profit_usd
+    except Exception as e:
+        print(f"Error calculating P&L: {e}")
     
     # Get open positions and unrealized P&L
     open_positions_count = 0
@@ -402,11 +419,11 @@ async def get_dashboard(user: dict = Depends(get_current_user)):
     winning_trades = 0
     try:
         if is_admin:
-            total_trades = db.db['trades'].count_documents({})
-            winning_trades = db.db['trades'].count_documents({"profit": {"$gt": 0}})
+            total_trades = db.db['trades'].count_documents({"side": "sell", "status": "closed"})
+            winning_trades = db.db['trades'].count_documents({"side": "sell", "status": "closed", "pnl_percent": {"$gt": 0}})
         else:
-            total_trades = db.db['trades'].count_documents({"user_id": str(user["_id"])})
-            winning_trades = db.db['trades'].count_documents({"user_id": str(user["_id"]), "profit": {"$gt": 0}})
+            total_trades = db.db['trades'].count_documents({"user_id": str(user["_id"]), "side": "sell", "status": "closed"})
+            winning_trades = db.db['trades'].count_documents({"user_id": str(user["_id"]), "side": "sell", "status": "closed", "pnl_percent": {"$gt": 0}})
     except:
         pass
     
@@ -2020,28 +2037,80 @@ async def start_new_listing_bot(config: NewListingConfig, user: dict = Depends(g
     if not NEW_LISTING_BOT_AVAILABLE:
         raise HTTPException(status_code=503, detail="New listing bot not available")
     
+    user_id = str(user["_id"])
+    
+    # Stop existing bot if running
+    if user_id in new_listing_bot_instances:
+        try:
+            old_task = new_listing_bot_instances[user_id].get("task")
+            if old_task:
+                old_task.cancel()
+            logger.info(f"🛑 Stopped existing new listing bot for user {user_id}")
+        except:
+            pass
+    
     try:
-        # Get user's exchange connection
-        if not user.get('exchange_connected'):
-            raise HTTPException(status_code=400, detail="Please connect your OKX account first")
+        # For admin, use backend OKX credentials
+        is_admin = user.get("role") == "admin"
         
-        # Create exchange instance for user
-        import ccxt
-        exchange = ccxt.okx({
-            'apiKey': user.get('okx_api_key'),
-            'secret': user.get('okx_secret_key'),  # Fixed: was okx_api_secret
-            'password': user.get('okx_passphrase'),
-            'enableRateLimit': True
-        })
+        if is_admin:
+            # Admin uses backend OKX account
+            import ccxt
+            exchange = ccxt.okx({
+                'apiKey': config.OKX_API_KEY,
+                'secret': config.OKX_SECRET_KEY,
+                'password': config.OKX_PASSPHRASE,
+                'enableRateLimit': True
+            })
+            logger.info("🔑 Admin new listing bot - using BACKEND OKX credentials")
+        else:
+            # Regular user must connect their OKX
+            if not user.get('exchange_connected'):
+                raise HTTPException(status_code=400, detail="Please connect your OKX account first")
+            
+            import ccxt
+            exchange = ccxt.okx({
+                'apiKey': user.get('okx_api_key'),
+                'secret': user.get('okx_secret_key'),
+                'password': user.get('okx_passphrase'),
+                'enableRateLimit': True
+            })
+            logger.info(f"🔑 User {user_id} new listing bot - using their OKX credentials")
         
         # Create bot with user configuration
         bot_config = {
             'buy_amount_usdt': config.buy_amount_usdt,
             'take_profit_percent': config.take_profit_percent,
             'stop_loss_percent': config.stop_loss_percent,
-            'max_hold_time': config.max_hold_time
+            'max_hold_time': config.max_hold_time,
+            'check_interval': 60  # Check every 60 seconds
         }
         bot = NewListingBot(exchange, db, config=bot_config)
+        
+        # Create async wrapper to run bot in background
+        async def run_bot_loop():
+            """Run the bot's monitoring loop in an async task"""
+            try:
+                logger.info(f"🚀 Starting new listing bot monitoring loop for user {user_id}")
+                # The bot.run() method is synchronous, so run it in executor
+                import asyncio
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(None, bot.run, None)  # Run forever (None duration)
+            except asyncio.CancelledError:
+                logger.info(f"🛑 New listing bot stopped for user {user_id}")
+            except Exception as e:
+                logger.error(f"❌ New listing bot error for user {user_id}: {e}")
+        
+        # Start bot in background task
+        task = asyncio.create_task(run_bot_loop())
+        
+        # Store bot instance and task
+        new_listing_bot_instances[user_id] = {
+            "bot": bot,
+            "task": task,
+            "config": bot_config,
+            "started_at": datetime.utcnow()
+        }
         
         # Save bot config to user
         users_collection.update_one(
@@ -2053,12 +2122,16 @@ async def start_new_listing_bot(config: NewListingConfig, user: dict = Depends(g
             }}
         )
         
+        logger.info(f"✅ New listing bot ACTUALLY RUNNING for user {user_id}")
+        
         return {
-            "message": "New listing bot started successfully",
-            "config": config.dict()
+            "message": "New listing bot started and monitoring OKX",
+            "config": config.dict(),
+            "status": "running"
         }
         
     except Exception as e:
+        logger.error(f"❌ Failed to start new listing bot: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/api/new-listing/config")
@@ -2085,6 +2158,23 @@ async def update_new_listing_bot_config(config: NewListingConfig, user: dict = D
 async def stop_new_listing_bot(user: dict = Depends(get_current_user)):
     """Stop new listing detection bot"""
     try:
+        user_id = str(user["_id"])
+        
+        # Actually stop the running bot task
+        if user_id in new_listing_bot_instances:
+            try:
+                task = new_listing_bot_instances[user_id].get("task")
+                if task:
+                    task.cancel()
+                    logger.info(f"✅ Cancelled new listing bot task for user {user_id}")
+                
+                # Remove from active instances
+                del new_listing_bot_instances[user_id]
+                logger.info(f"✅ Removed new listing bot instance for user {user_id}")
+            except Exception as e:
+                logger.error(f"⚠️ Error stopping bot task: {e}")
+        
+        # Update database
         users_collection.update_one(
             {"_id": user["_id"]},
             {"$set": {
@@ -2093,7 +2183,7 @@ async def stop_new_listing_bot(user: dict = Depends(get_current_user)):
             }}
         )
         
-        return {"message": "New listing bot stopped successfully"}
+        return {"message": "New listing bot stopped and task cancelled"}
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -2102,12 +2192,20 @@ async def stop_new_listing_bot(user: dict = Depends(get_current_user)):
 async def get_new_listing_bot_status(user: dict = Depends(get_current_user)):
     """Get new listing bot status"""
     try:
+        user_id = str(user["_id"])
         enabled = user.get('new_listing_bot_enabled', False)
         config = user.get('new_listing_bot_config', {})
         
+        # Check if bot is ACTUALLY running (not just "enabled" in database)
+        actually_running = user_id in new_listing_bot_instances
+        if actually_running:
+            instance = new_listing_bot_instances[user_id]
+            task = instance.get("task")
+            actually_running = task and not task.done()
+        
         # Get recent trades
         trades = list(db.db['new_listing_trades'].find(
-            {"user_id": str(user["_id"])},
+            {"user_id": user_id},
             limit=10,
             sort=[("entry_time", -1)]
         ))
@@ -2119,6 +2217,8 @@ async def get_new_listing_bot_status(user: dict = Depends(get_current_user)):
         
         return {
             "enabled": enabled,
+            "actually_running": actually_running,
+            "status": "running" if actually_running else ("enabled_but_not_running" if enabled else "stopped"),
             "config": config,
             "stats": {
                 "total_trades": total_trades,

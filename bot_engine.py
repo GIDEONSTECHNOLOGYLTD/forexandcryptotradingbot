@@ -755,7 +755,7 @@ class BotInstance:
                                     'side': 'sell',
                                     'price': price,
                                     'amount': position['amount'],
-                                    'pnl': pnl_pct,
+                                    'pnl': final_pnl_pct,
                                     'mode': 'paper' if self.paper_trading else 'real'
                                 }
                             })
