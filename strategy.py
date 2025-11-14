@@ -99,17 +99,20 @@ class TradingStrategy:
         if total_signals == 0:
             return None, 0
         
-        # Decision logic: need at least 60% confidence
+        # Determine signal based on vote count
+        # FORCE BUY ONLY - no sell signals for spot trading!
         if buy_signals > sell_signals:
             confidence = (buy_signals / total_signals) * 100
             if confidence >= 60:
                 return 'buy', confidence
-        elif sell_signals > buy_signals:
-            confidence = (sell_signals / total_signals) * 100
-            if confidence >= 60:
-                return 'sell', confidence
         
-        return None, 0
+        # Skip sell signals - we need USDT to buy first!
+        # elif sell_signals > buy_signals:
+        #     confidence = (sell_signals / total_signals) * 100
+        #     if confidence >= 60:
+        #         return 'sell', confidence
+        
+        return 'hold', 0  # Changed from None to 'hold'
     
     def _ma_crossover_signal(self, df):
         """Moving Average Crossover Strategy"""
