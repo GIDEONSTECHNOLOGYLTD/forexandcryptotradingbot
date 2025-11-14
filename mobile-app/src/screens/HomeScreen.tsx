@@ -51,14 +51,14 @@ export default function HomeScreen({ navigation }: any) {
       // Fetch both dashboard and balance in parallel for speed
       const [dashboardResponse, balanceResponse] = await Promise.allSettled([
         api.getDashboard(forceRefresh),
-        api.getUserBalance(forceRefresh).catch(() => ({ total: 0 }))
+        api.getUserBalance(forceRefresh)
       ]);
       
       const response = dashboardResponse.status === 'fulfilled' ? dashboardResponse.value : null;
-      const balance = balanceResponse.status === 'fulfilled' ? balanceResponse.value : { total: 0 };
+      const balanceData = balanceResponse.status === 'fulfilled' ? balanceResponse.value : null;
       
       console.log('✅ Dashboard data:', response);
-      console.log('💰 Balance data:', balance);
+      console.log('💰 Balance data:', balanceData);
       
       if (!response) {
         throw new Error('Failed to load dashboard');
@@ -66,9 +66,25 @@ export default function HomeScreen({ navigation }: any) {
       
       // For admin: Use OKX balance if available, otherwise use bot capital
       // For users: Use bot capital
-      const totalBalance = isAdmin 
-        ? (Number(balance?.total) > 0 ? Number(balance.total) : (response.stats?.total_capital || 0))
-        : (response.stats?.total_capital || 0);
+      let totalBalance = 0;
+      
+      if (isAdmin) {
+        // Admin: Try to get real OKX balance first
+        if (balanceData && balanceData.success && balanceData.total) {
+          totalBalance = Number(balanceData.total);
+          console.log('💰 Using admin OKX balance:', totalBalance);
+        } else if (balanceData && balanceData.total_usdt) {
+          totalBalance = Number(balanceData.total_usdt);
+          console.log('💰 Using admin total_usdt:', totalBalance);
+        } else {
+          totalBalance = response.stats?.total_capital || 0;
+          console.log('💰 Using bot capital fallback:', totalBalance);
+        }
+      } else {
+        // Regular user: Use bot capital
+        totalBalance = response.stats?.total_capital || 0;
+        console.log('💰 Using user bot capital:', totalBalance);
+      }
       
       // Map backend response to frontend structure
       const mappedStats = {
