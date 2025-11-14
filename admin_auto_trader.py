@@ -174,8 +174,13 @@ class AdminAutoTrader:
             if self.is_momentum_bullish('BTC/USDT'):
                 logger.info(f"🚀 Bullish momentum detected! Buying {amount:.6f} BTC")
                 
-                # Place order
-                order = self.exchange.create_market_order('BTC/USDT', 'buy', amount)
+                # Place order with SPOT params
+                order = self.exchange.create_market_order(
+                    'BTC/USDT', 
+                    'buy', 
+                    amount,
+                    params={'tdMode': 'cash'}  # SPOT trading only
+                )
                 
                 # Calculate targets
                 take_profit_price = price * (1 + self.target_profit_per_trade / 100)
@@ -367,11 +372,33 @@ class AdminAutoTrader:
             amount = position.get('amount', 0)
             
             if not symbol or amount <= 0:
-                logger.error(f"Invalid position data for exit: {position}")
+                logger.error(f"❌ Invalid position data for exit: {position}")
                 return
             
-            # Place sell order
-            order = self.exchange.create_market_order(symbol, 'sell', amount)
+            # 🔴 CRITICAL: Execute sell order with SPOT params and error handling
+            try:
+                order = self.exchange.create_market_order(
+                    symbol, 
+                    'sell', 
+                    amount,
+                    params={'tdMode': 'cash'}  # SPOT trading only
+                )
+                logger.info(f"✅ SELL order executed on exchange: {symbol} - {amount} @ ${price:.4f}")
+            except Exception as e:
+                logger.error(f"❌ CRITICAL: Failed to execute sell order for {symbol}: {e}")
+                
+                # Send urgent alert
+                if self.telegram and self.telegram.enabled:
+                    self.telegram.send_message(
+                        f"🚨 <b>SELL ORDER FAILED!</b>\n\n"
+                        f"Symbol: {symbol}\n"
+                        f"Amount: {amount}\n"
+                        f"Price: ${price:.4f}\n"
+                        f"Reason: {reason}\n\n"
+                        f"Error: {str(e)}\n\n"
+                        f"⚠️ CHECK OKX MANUALLY!"
+                    )
+                return  # Don't update P&L if sell failed
             
             # Calculate P&L
             entry_price = position.get('entry_price', 0)
@@ -475,11 +502,32 @@ class AdminAutoTrader:
         try:
             symbol = position.get('symbol')
             if not symbol or amount <= 0:
-                logger.error(f"Invalid partial exit params: symbol={symbol}, amount={amount}")
+                logger.error(f"❌ Invalid partial exit params: symbol={symbol}, amount={amount}")
                 return
             
-            # Place sell order
-            order = self.exchange.create_market_order(symbol, 'sell', amount)
+            # 🔴 CRITICAL: Execute partial sell order with SPOT params and error handling
+            try:
+                order = self.exchange.create_market_order(
+                    symbol, 
+                    'sell', 
+                    amount,
+                    params={'tdMode': 'cash'}  # SPOT trading only
+                )
+                logger.info(f"✅ PARTIAL SELL executed on exchange: {symbol} - {amount} @ ${price:.4f}")
+            except Exception as e:
+                logger.error(f"❌ CRITICAL: Failed to execute partial sell for {symbol}: {e}")
+                
+                # Send urgent alert
+                if self.telegram and self.telegram.enabled:
+                    self.telegram.send_message(
+                        f"🚨 <b>PARTIAL SELL FAILED!</b>\n\n"
+                        f"Symbol: {symbol}\n"
+                        f"Amount: {amount}\n"
+                        f"Price: ${price:.4f}\n\n"
+                        f"Error: {str(e)}\n\n"
+                        f"⚠️ CHECK OKX MANUALLY!"
+                    )
+                return  # Don't update position if sell failed
             
             # Calculate P&L
             entry_price = position.get('entry_price', 0)
