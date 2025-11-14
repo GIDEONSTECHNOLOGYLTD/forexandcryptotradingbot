@@ -29,6 +29,10 @@ PAYSTACK_PUBLIC_KEY = os.getenv('PAYSTACK_PUBLIC_KEY', '')
 # Crypto Payment (CoinGate, NOWPayments, etc.)
 COINGATE_API_KEY = os.getenv('COINGATE_API_KEY', '')
 
+# Telegram Notifications
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '')
+
 # In-App Purchase Configuration
 APPLE_SHARED_SECRET = os.getenv('APPLE_SHARED_SECRET', '')
 GOOGLE_SERVICE_ACCOUNT_FILE = os.getenv('GOOGLE_SERVICE_ACCOUNT_FILE', '')
