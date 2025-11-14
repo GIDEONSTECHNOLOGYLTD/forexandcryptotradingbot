@@ -324,6 +324,24 @@ class AdvancedTradingBot:
                 exit_reason = self.risk_manager.check_stop_loss_take_profit(symbol, current_price)
                 
                 if exit_reason:
+                    # 🔴 EXECUTE ACTUAL SELL ORDER ON EXCHANGE (if not paper trading)
+                    if not config.PAPER_TRADING:
+                        try:
+                            # Execute market sell order to close position
+                            sell_order = self.exchange.create_market_sell_order(
+                                symbol,
+                                position['amount'],
+                                params={'tdMode': 'cash'}  # SPOT trading only
+                            )
+                            logger.info(f"✅ SELL order executed on exchange: {symbol} - {position['amount']} @ ${current_price:.4f}")
+                            print(f"{Fore.GREEN}✅ Sell order executed on OKX!{Style.RESET_ALL}")
+                        except Exception as e:
+                            logger.error(f"❌ Failed to execute sell order for {symbol}: {e}")
+                            print(f"{Fore.RED}❌ Failed to close position on exchange: {e}{Style.RESET_ALL}")
+                            # Continue to update internal state even if exchange order fails
+                    else:
+                        logger.info(f"📝 Paper trading - simulated close for {symbol}")
+                    
                     # Close position (full close for all profit levels)
                     trade_record = self.risk_manager.close_position(symbol, current_price)
                     
