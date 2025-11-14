@@ -41,12 +41,12 @@ API_URL = os.getenv('API_URL', 'http://localhost:8000')
 TIMEFRAME = '1h'  # 1 hour candles
 PAPER_TRADING = False  # REAL TRADING ENABLED! Bot will use real money and make real profits! 💰
 
-# Risk Management
-MAX_POSITION_SIZE_PERCENT = 2.0  # Max 2% of portfolio per trade
-STOP_LOSS_PERCENT = 2.0  # 2% stop loss
-TAKE_PROFIT_PERCENT = 4.0  # 4% take profit (2:1 risk-reward ratio)
-MAX_DAILY_LOSS_PERCENT = 5.0  # Stop trading if daily loss exceeds 5%
-MAX_OPEN_POSITIONS = 20  # Maximum 20 concurrent positions (was 3 - increased for admin!)
+# Risk Management - ULTRA SAFE FOR SMALL BALANCE!
+MAX_POSITION_SIZE_PERCENT = 80.0  # Use 80% per trade (with $16, trade $12-13)
+STOP_LOSS_PERCENT = 2.0  # 2% stop loss (max $0.32 loss per trade)
+TAKE_PROFIT_PERCENT = 4.0  # 4% take profit ($0.64 profit per trade)
+MAX_DAILY_LOSS_PERCENT = 5.0  # Stop trading if daily loss exceeds 5% ($0.80 max loss per day)
+MAX_OPEN_POSITIONS = 1  # Only 1 position at a time with small balance! SAFE!
 
 # Token Scanner Configuration
 MIN_VOLUME_USD = 1000000  # Minimum 24h volume in USD
