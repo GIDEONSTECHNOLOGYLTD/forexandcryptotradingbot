@@ -21,6 +21,11 @@ class TelegramNotifier:
         self.chat_id = chat_id or os.getenv('TELEGRAM_CHAT_ID')
         self.enabled = bool(self.bot_token and self.chat_id)
         
+        # DEBUG: Show what we're getting
+        print(f"{Fore.CYAN}🔍 Telegram Config Debug:{Style.RESET_ALL}")
+        print(f"  Bot Token: {'✅ Found' if self.bot_token else '❌ Missing'} {f'({self.bot_token[:10]}...)' if self.bot_token else ''}")
+        print(f"  Chat ID: {'✅ Found' if self.chat_id else '❌ Missing'} {f'({self.chat_id})' if self.chat_id else ''}")
+        
         if not self.enabled:
             print(f"{Fore.YELLOW}⚠️  Telegram notifications disabled (no credentials){Style.RESET_ALL}")
         else:

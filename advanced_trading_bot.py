@@ -431,6 +431,14 @@ def main():
     print("╚════════════════════════════════════════════════════════════════════╝")
     print(f"{Style.RESET_ALL}")
     
+    # DEBUG: Show environment variables
+    import os
+    print(f"{Fore.CYAN}🔍 Environment Variables Check:{Style.RESET_ALL}")
+    print(f"  TELEGRAM_BOT_TOKEN: {'✅ Set' if os.getenv('TELEGRAM_BOT_TOKEN') else '❌ Not Set'}")
+    print(f"  TELEGRAM_CHAT_ID: {'✅ Set' if os.getenv('TELEGRAM_CHAT_ID') else '❌ Not Set'}")
+    print(f"  OKX_API_KEY: {'✅ Set' if config.OKX_API_KEY else '❌ Not Set'}")
+    print()
+    
     # Safety warning
     if not config.PAPER_TRADING:
         print(f"{Fore.RED}{'='*70}")
