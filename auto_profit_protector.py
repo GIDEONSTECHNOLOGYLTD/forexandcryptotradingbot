@@ -40,6 +40,9 @@ class AutoProfitProtector:
         self.stop_loss_percent = 5           # Stop loss at -5% (PROTECTED!)
         self.take_profit_percent = 15        # Take profit at +15% (realistic)
         
+        # Bug #10 fix: Float comparison tolerance (0.01% tolerance for price triggers)
+        self.price_tolerance = 0.0001  # 0.01% tolerance for float comparison
+        
         # Trailing Stop Loss (locks in profits)
         self.trailing_stop_enabled = True
         self.trailing_stop_activation = 5    # Activate after +5% profit (FASTER!)
@@ -156,8 +159,8 @@ class AutoProfitProtector:
         # CHECK ALL PROTECTION MECHANISMS
         # ============================================================================
         
-        # 1. Basic Stop Loss
-        if current_price <= position['stop_loss']:
+        # 1. Basic Stop Loss (Bug #10 fix: with tolerance)
+        if current_price <= position['stop_loss'] * (1 + self.price_tolerance):
             return {
                 'action': 'close_all',
                 'reason': f'Stop Loss Hit ({pnl_percent:.2f}%)',
@@ -165,8 +168,8 @@ class AutoProfitProtector:
                 'amount': position['remaining_amount']
             }
         
-        # 2. Basic Take Profit
-        if current_price >= position['take_profit']:
+        # 2. Basic Take Profit (Bug #10 fix: with tolerance)
+        if current_price >= position['take_profit'] * (1 - self.price_tolerance):
             return {
                 'action': 'close_all',
                 'reason': f'Take Profit Hit (+{pnl_percent:.2f}%)',
@@ -179,7 +182,7 @@ class AutoProfitProtector:
             trailing_stop = position['highest_price'] * (1 - self.trailing_stop_distance / 100)
             position['trailing_stop'] = trailing_stop
             
-            if current_price <= trailing_stop:
+            if current_price <= trailing_stop * (1 + self.price_tolerance):
                 return {
                     'action': 'close_all',
                     'reason': f'Trailing Stop Hit (+{pnl_percent:.2f}%)',

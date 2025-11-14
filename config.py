@@ -46,11 +46,61 @@ TIMEFRAME = '1h'  # 1 hour candles
 PAPER_TRADING = False  # REAL TRADING ENABLED! Bot will use real money and make real profits! 💰
 
 # Risk Management - ULTRA SAFE FOR SMALL BALANCE!
-MAX_POSITION_SIZE_PERCENT = 80.0  # Use 80% per trade (with $16, trade $12-13)
-STOP_LOSS_PERCENT = 2.0  # 2% stop loss (max $0.32 loss per trade)
-TAKE_PROFIT_PERCENT = 4.0  # 4% take profit ($0.64 profit per trade)
-MAX_DAILY_LOSS_PERCENT = 5.0  # Stop trading if daily loss exceeds 5% ($0.80 max loss per day)
-MAX_OPEN_POSITIONS = 10  # ADMIN MODE: Multiple positions for profit! 🚀 (Regular users limited by subscription)
+MAX_POSITION_SIZE_PERCENT = float(os.getenv('MAX_POSITION_SIZE_PERCENT', '80.0'))
+STOP_LOSS_PERCENT = float(os.getenv('STOP_LOSS_PERCENT', '2.0'))
+TAKE_PROFIT_PERCENT = float(os.getenv('TAKE_PROFIT_PERCENT', '4.0'))
+MAX_DAILY_LOSS_PERCENT = float(os.getenv('MAX_DAILY_LOSS_PERCENT', '5.0'))
+MAX_OPEN_POSITIONS = int(os.getenv('MAX_OPEN_POSITIONS', '10'))
+
+# Bug #9 fix: CONFIG VALIDATION - Prevent catastrophic user errors!
+def validate_config():
+    """Validate configuration values are within safe bounds"""
+    errors = []
+    warnings = []
+    
+    # Validate MAX_POSITION_SIZE_PERCENT (1% to 100%)
+    if not (1.0 <= MAX_POSITION_SIZE_PERCENT <= 100.0):
+        errors.append(f"MAX_POSITION_SIZE_PERCENT={MAX_POSITION_SIZE_PERCENT} invalid! Must be 1-100. Using default 80%")
+        globals()['MAX_POSITION_SIZE_PERCENT'] = 80.0
+    elif MAX_POSITION_SIZE_PERCENT > 90:
+        warnings.append(f"MAX_POSITION_SIZE_PERCENT={MAX_POSITION_SIZE_PERCENT}% is risky! Recommend <= 90%")
+    
+    # Validate STOP_LOSS_PERCENT (0.1% to 50%)
+    if not (0.1 <= STOP_LOSS_PERCENT <= 50.0):
+        errors.append(f"STOP_LOSS_PERCENT={STOP_LOSS_PERCENT} invalid! Must be 0.1-50. Using default 2%")
+        globals()['STOP_LOSS_PERCENT'] = 2.0
+    elif STOP_LOSS_PERCENT > 20:
+        warnings.append(f"STOP_LOSS_PERCENT={STOP_LOSS_PERCENT}% is too high! Recommend <= 20%")
+    
+    # Validate TAKE_PROFIT_PERCENT (0.1% to 1000%)
+    if not (0.1 <= TAKE_PROFIT_PERCENT <= 1000.0):
+        errors.append(f"TAKE_PROFIT_PERCENT={TAKE_PROFIT_PERCENT} invalid! Must be 0.1-1000. Using default 4%")
+        globals()['TAKE_PROFIT_PERCENT'] = 4.0
+    elif TAKE_PROFIT_PERCENT < STOP_LOSS_PERCENT:
+        warnings.append(f"TAKE_PROFIT ({TAKE_PROFIT_PERCENT}%) < STOP_LOSS ({STOP_LOSS_PERCENT}%)! You'll lose money!")
+    
+    # Validate MAX_DAILY_LOSS_PERCENT (0.1% to 50%)
+    if not (0.1 <= MAX_DAILY_LOSS_PERCENT <= 50.0):
+        errors.append(f"MAX_DAILY_LOSS_PERCENT={MAX_DAILY_LOSS_PERCENT} invalid! Must be 0.1-50. Using default 5%")
+        globals()['MAX_DAILY_LOSS_PERCENT'] = 5.0
+    
+    # Validate MAX_OPEN_POSITIONS (1 to 100)
+    if not (1 <= MAX_OPEN_POSITIONS <= 100):
+        errors.append(f"MAX_OPEN_POSITIONS={MAX_OPEN_POSITIONS} invalid! Must be 1-100. Using default 10")
+        globals()['MAX_OPEN_POSITIONS'] = 10
+    
+    return errors, warnings
+
+# Validate on import
+_errors, _warnings = validate_config()
+if _errors:
+    logger.error("CONFIG VALIDATION ERRORS:")
+    for error in _errors:
+        logger.error(f"  {error}")
+if _warnings:
+    logger.warning("CONFIG VALIDATION WARNINGS:")
+    for warning in _warnings:
+        logger.warning(f"  {warning}")
 
 # Token Scanner Configuration
 MIN_VOLUME_USD = 1000000  # Minimum 24h volume in USD

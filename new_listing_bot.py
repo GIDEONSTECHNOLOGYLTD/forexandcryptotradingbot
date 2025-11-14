@@ -295,15 +295,35 @@ class NewListingBot:
                 continue
             
             try:
-                symbol = trade['symbol']
+                symbol = trade.get('symbol')
+                if not symbol:
+                    logger.warning(f"Trade missing symbol: {trade}")
+                    updated_trades.append(trade)
+                    continue
                 
-                # Get current price
-                ticker = self.exchange.fetch_ticker(symbol)
-                current_price = ticker['last']
+                # Get current price (Bug #6 fix: null check)
+                try:
+                    ticker = self.exchange.fetch_ticker(symbol)
+                    if not ticker or 'last' not in ticker:
+                        logger.warning(f"Invalid ticker for {symbol}")
+                        updated_trades.append(trade)
+                        continue
+                    current_price = ticker['last']
+                except Exception as e:
+                    logger.error(f"Failed to fetch ticker for {symbol}: {e}")
+                    updated_trades.append(trade)
+                    continue
                 
-                # Calculate P&L
-                pnl_percent = ((current_price - trade['entry_price']) / trade['entry_price']) * 100
-                pnl_usdt = (current_price - trade['entry_price']) * trade['amount']
+                # Calculate P&L (Bug #2 fix: div by zero check)
+                entry_price = trade.get('entry_price', 0)
+                if entry_price <= 0:
+                    logger.error(f"Invalid entry_price for {symbol}: {entry_price}")
+                    updated_trades.append(trade)
+                    continue
+                    
+                pnl_percent = ((current_price - entry_price) / entry_price) * 100
+                amount = trade.get('amount', 0)
+                pnl_usdt = (current_price - entry_price) * amount
                 
                 # Check time limit
                 time_held = (datetime.utcnow() - trade['entry_time']).total_seconds()
@@ -338,13 +358,16 @@ class NewListingBot:
                 should_close = False
                 close_reason = ""
                 
-                # Take profit hit
-                if current_price >= trade['take_profit']:
+                # Take profit hit (Bug #10 fix: float tolerance)
+                take_profit = trade.get('take_profit', float('inf'))
+                stop_loss = trade.get('stop_loss', 0)
+                
+                if current_price >= take_profit * 0.9999:  # 0.01% tolerance
                     should_close = True
                     close_reason = f"TAKE PROFIT (+{pnl_percent:.2f}%)"
                 
-                # Stop loss hit
-                elif current_price <= trade['stop_loss']:
+                # Stop loss hit (Bug #10 fix: float tolerance)
+                elif current_price <= stop_loss * 1.0001:  # 0.01% tolerance
                     should_close = True
                     close_reason = f"STOP LOSS ({pnl_percent:.2f}%)"
                 

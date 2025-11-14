@@ -98,7 +98,10 @@ class AdminAutoTrader:
         """Get current USDT balance"""
         try:
             balance = self.exchange.fetch_balance()
-            usdt_balance = balance['USDT']['free']
+            if not balance or 'USDT' not in balance:
+                logger.error("Invalid balance data from exchange")
+                return self.capital  # Return cached capital
+            usdt_balance = balance.get('USDT', {}).get('free', 0)
             logger.info(f"💵 Current balance: ${usdt_balance:.2f} USDT")
             return usdt_balance
         except Exception as e:
@@ -262,11 +265,23 @@ class AdminAutoTrader:
             
             logger.info(f"📊 Monitoring {len(positions)} positions...")
             
-            for pos_id, position in positions.items():
+            for pos_id, position in list(positions.items()):  # Bug #7 fix: list() prevents race condition
                 # Fetch current price
-                symbol = position['symbol']
-                ticker = self.exchange.fetch_ticker(symbol)
-                current_price = ticker['last']
+                symbol = position.get('symbol')
+                if not symbol:
+                    logger.warning(f"Position missing symbol: {position}")
+                    continue
+                
+                # Bug #6 fix: Null check on API response
+                try:
+                    ticker = self.exchange.fetch_ticker(symbol)
+                    if not ticker or 'last' not in ticker:
+                        logger.warning(f"Invalid ticker data for {symbol}")
+                        continue
+                    current_price = ticker['last']
+                except Exception as e:
+                    logger.error(f"Failed to fetch ticker for {symbol}: {e}")
+                    continue
                 
                 # Check profit protector
                 actions = self.profit_protector.check_position(pos_id, current_price)

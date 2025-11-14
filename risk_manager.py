@@ -85,6 +85,11 @@ class RiskManager:
             'position_value': entry_price * amount
         }
         
+        # CRITICAL: Subtract position value from available capital
+        position_value = entry_price * amount
+        self.current_capital -= position_value
+        logger.info(f"Position opened: {symbol}, Capital: ${self.current_capital:.2f} (used ${position_value:.2f})")
+        
         self.open_positions[symbol] = position
         return position
     
@@ -96,16 +101,18 @@ class RiskManager:
         position = self.open_positions[symbol]
         
         # Calculate PnL
-        if position['side'] == 'long':
+        if position['side'] == 'long' or position['side'] == 'buy':
             pnl = (exit_price - position['entry_price']) * position['amount']
-        else:  # short
+        else:  # short or sell
             pnl = (position['entry_price'] - exit_price) * position['amount']
         
-        pnl_percent = (pnl / position['position_value']) * 100
+        pnl_percent = (pnl / position['position_value']) * 100 if position['position_value'] > 0 else 0
         
-        # Update capital and daily PnL
-        self.current_capital += pnl
+        # Update capital: Add back the exit value (not just PnL)
+        exit_value = exit_price * position['amount']
+        self.current_capital += exit_value
         self.daily_pnl += pnl
+        logger.info(f"Position closed: {symbol}, Capital: ${self.current_capital:.2f} (returned ${exit_value:.2f}, PnL: ${pnl:.2f})")
         
         # Record trade
         trade_record = {

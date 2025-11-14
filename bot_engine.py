@@ -365,9 +365,18 @@ class BotInstance:
         while self.running:
             try:
                 # Validate symbol exists on exchange before trading
+                # Get current price with null check (Bug #6 fix)
                 try:
                     ticker = self.exchange.fetch_ticker(self.symbol)
+                    if not ticker or 'last' not in ticker:
+                        logger.warning(f"Invalid ticker data for {self.symbol}")
+                        await asyncio.sleep(10)
+                        continue
                     price = ticker['last']
+                except Exception as e:
+                    logger.error(f"Failed to fetch ticker for {self.symbol}: {e}")
+                    await asyncio.sleep(10)
+                    continue
                 except ccxt.BadSymbol as e:
                     logger.error(f"🚨 Invalid symbol: {self.symbol} - {str(e)}")
                     logger.error(f"💡 Tip: MATIC is now POL on OKX. Use POL/USDT instead.")
@@ -388,7 +397,11 @@ class BotInstance:
                     if not self.paper_trading:
                         try:
                             balance_info = self.exchange.fetch_balance()
-                            actual_usdt = balance_info['free']['USDT']
+                            if not balance_info or 'free' not in balance_info:
+                                logger.error("Invalid balance data")
+                                actual_usdt = self.balance
+                            else:
+                                actual_usdt = balance_info.get('free', {}).get('USDT', self.balance)
                             logger.info(f"💰 Actual USDT available: ${actual_usdt:.2f}")
                         except:
                             actual_usdt = self.balance
@@ -538,9 +551,13 @@ class BotInstance:
                 
                 # AI SUGGESTIONS: Monitor position and suggest exits
                 if position and not signal:
-                    entry_price = position['entry']
+                    entry_price = position.get('entry', 0)
+                    if entry_price <= 0:
+                        continue  # Skip invalid position
+                    
                     current_pnl_pct = ((price - entry_price) / entry_price) * 100
-                    current_pnl_usd = (price - entry_price) * position['amount']
+                    amount = position.get('amount', 0)
+                    current_pnl_usd = (price - entry_price) * amount
                     
                     # Send AI suggestion at 15%, 25%, 35% profit milestones
                     if current_pnl_pct >= 15 and current_pnl_pct < 45:
@@ -585,7 +602,12 @@ class BotInstance:
                     
                     if should_exit:
                         # Calculate final P&L
-                        final_pnl_pct = ((price - position['entry']) / position['entry']) * 100
+                        entry_price = position.get('entry', 0)
+                        if entry_price <= 0:
+                            logger.error(f"Invalid entry price on exit: {entry_price}")
+                            continue
+                        
+                        final_pnl_pct = ((price - entry_price) / entry_price) * 100
                         
                         if self.paper_trading:
                             logger.info(f"📝 PAPER SELL: {position['amount']:.6f} @ ${price:.2f} | PnL: {final_pnl_pct:.2f}% | Reason: {exit_reason}")
@@ -596,13 +618,14 @@ class BotInstance:
                                 coin = self.symbol.split('/')[0]  # e.g., "BTC" from "BTC/USDT"
                                 available = balance.get(coin, {}).get('free', 0)
                                 
-                                if available >= position['amount'] * 0.99:  # Allow 1% slippage
+                                position_amount = position.get('amount', 0)
+                                if available >= position_amount * 0.99:  # Allow 1% slippage
                                     # SAFE: We own the coins, can sell on SPOT
                                     try:
                                         order = self.exchange.create_market_order(
                                             self.symbol, 
                                             'sell', 
-                                            position['amount'],
+                                            position_amount,
                                             params={'tdMode': 'cash'}  # SPOT trading only!
                                         )
                                         logger.info(f"💰 SPOT SELL (NO LEVERAGE): {position['amount']:.6f} @ ${price:.2f} | PnL: {final_pnl_pct:.2f}% | Reason: {exit_reason}")
