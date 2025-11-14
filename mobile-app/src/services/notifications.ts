@@ -1,49 +1,133 @@
 /**
- * Push Notification Service for iOS
- * STUB VERSION - Install expo-notifications and expo-device to activate
- * 
- * To enable: npx expo install expo-notifications expo-device
+ * Push Notification Service for iOS/Android
+ * Full implementation with expo-notifications
  */
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+
+// Configure notification behavior
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 /**
- * Notification Service (Stub)
- * Currently using Telegram for notifications
- * iOS push notifications ready to activate when needed
+ * Notification Service
+ * Handles push notifications for trading alerts
  */
 export class NotificationService {
   private static pushToken: string | null = null;
 
   /**
    * Request notification permissions and get push token
-   * TODO: Implement when expo-notifications is installed
    */
   static async registerForPushNotifications(): Promise<string | null> {
-    console.log('📱 Push notifications not enabled yet');
-    console.log('💡 Install: npx expo install expo-notifications expo-device');
-    return null;
+    try {
+      console.log('📱 Registering for push notifications...');
+      
+      // Check if physical device
+      if (!Device.isDevice) {
+        console.warn('⚠️ Push notifications only work on physical devices');
+        return null;
+      }
+
+      // Request permissions
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        console.warn('⚠️ Notification permissions denied');
+        return null;
+      }
+
+      // Get push token
+      const token = await Notifications.getExpoPushTokenAsync({
+        projectId: Constants.expoConfig?.extra?.eas?.projectId,
+      });
+
+      console.log('✅ Push token:', token.data);
+      this.pushToken = token.data;
+
+      // Configure for Android
+      if (Platform.OS === 'android') {
+        Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+        });
+      }
+
+      return token.data;
+    } catch (error) {
+      console.error('❌ Failed to register for push notifications:', error);
+      return null;
+    }
   }
 
   /**
    * Set up notification listeners
-   * TODO: Implement when expo-notifications is installed
    */
   static setupNotificationListeners(
-    onNotificationReceived?: (notification: any) => void,
-    onNotificationResponse?: (response: any) => void
+    onNotificationReceived?: (notification: Notifications.Notification) => void,
+    onNotificationResponse?: (response: Notifications.NotificationResponse) => void
   ) {
-    console.log('📱 Notification listeners not enabled yet');
+    console.log('📱 Setting up notification listeners...');
+    
+    // Handle notification received while app is foregrounded
+    const foregroundSubscription = Notifications.addNotificationReceivedListener(
+      (notification) => {
+        console.log('📱 Notification received (foreground):', notification);
+        if (onNotificationReceived) {
+          onNotificationReceived(notification);
+        }
+      }
+    );
+
+    // Handle user tapping on notification
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        console.log('📱 Notification tapped:', response);
+        if (onNotificationResponse) {
+          onNotificationResponse(response);
+        }
+      }
+    );
+
     return {
-      foregroundSubscription: { remove: () => {} },
-      responseSubscription: { remove: () => {} },
+      foregroundSubscription,
+      responseSubscription,
     };
   }
 
   /**
    * Send a local notification (for testing)
-   * TODO: Implement when expo-notifications is installed
    */
   static async sendLocalNotification(title: string, body: string, data?: any) {
-    console.log(`📱 Local notification: ${title} - ${body}`);
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          data,
+          sound: true,
+        },
+        trigger: null, // Send immediately
+      });
+      console.log(`📱 Local notification sent: ${title}`);
+    } catch (error) {
+      console.error('❌ Failed to send local notification:', error);
+    }
   }
 
   /**
