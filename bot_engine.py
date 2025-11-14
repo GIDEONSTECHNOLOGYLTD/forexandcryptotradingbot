@@ -404,6 +404,24 @@ class BotInstance:
                     order_value = amount * price
                     if order_value < 5 and not self.paper_trading:
                         logger.warning(f"⚠️ Order value ${order_value:.2f} too small, minimum $5. Skipping.")
+                        # Send notification about minimum order size (once per hour to avoid spam)
+                        if self.telegram and self.telegram.enabled:
+                            if not hasattr(self, '_last_min_order_alert') or \
+                               (datetime.utcnow() - self._last_min_order_alert).seconds > 3600:
+                                try:
+                                    message = (
+                                        f"⚠️ **ORDER TOO SMALL**\n\n"
+                                        f"Symbol: {self.symbol}\n"
+                                        f"Order Value: ${order_value:.2f}\n"
+                                        f"Minimum Required: $5.00\n\n"
+                                        f"💡 Add more funds to make larger trades!\n"
+                                        f"Current Balance: ${actual_usdt:.2f}\n\n"
+                                        f"Bot ID: {self.bot_id}"
+                                    )
+                                    self.telegram.send_message(message)
+                                    self._last_min_order_alert = datetime.utcnow()
+                                except:
+                                    pass
                         await asyncio.sleep(60)
                         continue
                     
@@ -411,14 +429,41 @@ class BotInstance:
                         logger.info(f"📝 PAPER BUY: {amount:.6f} {self.symbol} @ ${price:.2f}")
                     else:
                         # CRITICAL: Use spot market order (no margin/leverage)
-                        order = self.exchange.create_market_order(
-                            self.symbol, 
-                            'buy', 
-                            amount,
-                            params={'tdMode': 'cash'}  # SPOT trading only!
-                        )
-                        logger.info(f"💰 SPOT BUY (NO LEVERAGE): {amount:.6f} {self.symbol} @ ${price:.2f}")
-                        logger.info(f"📊 Used ${order_value:.2f} of your ${actual_usdt:.2f} balance")
+                        try:
+                            order = self.exchange.create_market_order(
+                                self.symbol, 
+                                'buy', 
+                                amount,
+                                params={'tdMode': 'cash'}  # SPOT trading only!
+                            )
+                            logger.info(f"💰 SPOT BUY (NO LEVERAGE): {amount:.6f} {self.symbol} @ ${price:.2f}")
+                            logger.info(f"📊 Used ${order_value:.2f} of your ${actual_usdt:.2f} balance")
+                        except Exception as order_error:
+                            logger.error(f"❌ ORDER FAILED: {str(order_error)}")
+                            # Send immediate notification for order failure
+                            if self.telegram and self.telegram.enabled:
+                                try:
+                                    error_msg = str(order_error)
+                                    is_balance_issue = 'insufficient' in error_msg.lower() or 'balance' in error_msg.lower()
+                                    
+                                    message = (
+                                        f"🚨 **ORDER FAILED** {'💰' if is_balance_issue else '⚠️'}\n\n"
+                                        f"Symbol: {self.symbol}\n"
+                                        f"Side: BUY\n"
+                                        f"Amount: {amount:.6f}\n"
+                                        f"Price: ${price:.2f}\n"
+                                        f"Value: ${order_value:.2f}\n\n"
+                                        f"**Error:** {error_msg}\n\n"
+                                        f"{'💡 Add funds to your OKX account!' if is_balance_issue else '⚠️ Check your exchange settings!'}\n"
+                                        f"Bot ID: {self.bot_id}"
+                                    )
+                                    self.telegram.send_message(message)
+                                    logger.info("📱 Telegram: Order failure notification sent")
+                                except:
+                                    pass
+                            # Continue loop after failure
+                            await asyncio.sleep(60)
+                            continue
                     
                     position = {'entry': price, 'amount': amount, 'time': datetime.utcnow()}
                     
@@ -522,20 +567,69 @@ class BotInstance:
                                 
                                 if available >= position['amount'] * 0.99:  # Allow 1% slippage
                                     # SAFE: We own the coins, can sell on SPOT
-                                    order = self.exchange.create_market_order(
-                                        self.symbol, 
-                                        'sell', 
-                                        position['amount'],
-                                        params={'tdMode': 'cash'}  # SPOT trading only!
-                                    )
-                                    logger.info(f"💰 SPOT SELL (NO LEVERAGE): {position['amount']:.6f} @ ${price:.2f} | PnL: {final_pnl_pct:.2f}% | Reason: {exit_reason}")
+                                    try:
+                                        order = self.exchange.create_market_order(
+                                            self.symbol, 
+                                            'sell', 
+                                            position['amount'],
+                                            params={'tdMode': 'cash'}  # SPOT trading only!
+                                        )
+                                        logger.info(f"💰 SPOT SELL (NO LEVERAGE): {position['amount']:.6f} @ ${price:.2f} | PnL: {final_pnl_pct:.2f}% | Reason: {exit_reason}")
+                                    except Exception as sell_error:
+                                        logger.error(f"❌ SELL ORDER FAILED: {str(sell_error)}")
+                                        # Notify about sell failure
+                                        if self.telegram and self.telegram.enabled:
+                                            try:
+                                                message = (
+                                                    f"🚨 **SELL ORDER FAILED**\n\n"
+                                                    f"Symbol: {self.symbol}\n"
+                                                    f"Amount: {position['amount']:.6f}\n"
+                                                    f"Price: ${price:.2f}\n"
+                                                    f"Reason: {exit_reason}\n\n"
+                                                    f"**Error:** {str(sell_error)}\n\n"
+                                                    f"⚠️ Position still open! Check exchange.\n"
+                                                    f"Bot ID: {self.bot_id}"
+                                                )
+                                                self.telegram.send_message(message)
+                                            except:
+                                                pass
+                                        continue
                                 else:
                                     logger.error(f"🚨 BLOCKED SELL! Don't own {position['amount']:.6f} {coin} (only have {available:.6f})")
                                     logger.error(f"🛑 This would have been a SHORT/MARGIN trade - PREVENTED!")
+                                    # Notify about blocked sell
+                                    if self.telegram and self.telegram.enabled:
+                                        try:
+                                            message = (
+                                                f"🛑 **SELL BLOCKED FOR SAFETY**\n\n"
+                                                f"Symbol: {self.symbol}\n"
+                                                f"Tried to sell: {position['amount']:.6f} {coin}\n"
+                                                f"Actually own: {available:.6f} {coin}\n\n"
+                                                f"⚠️ This would have been a SHORT/MARGIN trade!\n"
+                                                f"🛡️ Bot prevented unsafe trade.\n\n"
+                                                f"Bot ID: {self.bot_id}"
+                                            )
+                                            self.telegram.send_message(message)
+                                        except:
+                                            pass
                                     continue  # Skip this sell!
                             except Exception as e:
                                 logger.error(f"🚨 Error checking balance before sell: {e}")
                                 logger.error(f"🛑 BLOCKED SELL for safety!")
+                                # Notify about balance check failure
+                                if self.telegram and self.telegram.enabled:
+                                    try:
+                                        message = (
+                                            f"🚨 **SELL BLOCKED - BALANCE CHECK FAILED**\n\n"
+                                            f"Symbol: {self.symbol}\n"
+                                            f"Error: {str(e)}\n\n"
+                                            f"🛡️ Bot blocked sell for safety.\n"
+                                            f"⚠️ Check your exchange connection.\n\n"
+                                            f"Bot ID: {self.bot_id}"
+                                        )
+                                        self.telegram.send_message(message)
+                                    except:
+                                        pass
                                 continue
                         
                         # Update the original BUY trade to mark it as closed
