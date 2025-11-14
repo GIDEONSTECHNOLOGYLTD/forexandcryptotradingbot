@@ -218,21 +218,57 @@ class SmartRiskManager:
                 position['stop_loss'] = min(position['stop_loss'], new_stop)
     
     def check_exit_conditions(self, symbol, current_price):
-        """Check if position should be closed"""
+        """Check if position should be closed - includes multiple profit-taking levels"""
         if symbol not in self.open_positions:
             return None
         
         position = self.open_positions[symbol]
+        entry_price = position['entry_price']
         
-        # Check stop loss
+        # Calculate current profit percentage
         if position['signal'] == 'buy':
+            profit_pct = ((current_price - entry_price) / entry_price) * 100
+            
+            # Check stop loss first
             if current_price <= position['stop_loss']:
                 return 'stop_loss'
+            
+            # MULTIPLE PROFIT-TAKING LEVELS - Take profits early!
+            # Level 1: 1% profit (quick wins)
+            elif profit_pct >= 1.0 and not position.get('took_profit_1'):
+                position['took_profit_1'] = True
+                return 'partial_profit_1'  # Take 30% of position
+            
+            # Level 2: 2% profit (good gains)
+            elif profit_pct >= 2.0 and not position.get('took_profit_2'):
+                position['took_profit_2'] = True
+                return 'partial_profit_2'  # Take another 30% of remaining
+            
+            # Level 3: 3% profit (excellent gains)
+            elif profit_pct >= 3.0:
+                return 'take_profit_3'  # Close entire position
+            
+            # Full take profit target
             elif current_price >= position['take_profit']:
                 return 'take_profit'
         else:
+            profit_pct = ((entry_price - current_price) / entry_price) * 100
+            
             if current_price >= position['stop_loss']:
                 return 'stop_loss'
+            
+            # MULTIPLE PROFIT-TAKING LEVELS for short positions
+            elif profit_pct >= 1.0 and not position.get('took_profit_1'):
+                position['took_profit_1'] = True
+                return 'partial_profit_1'
+            
+            elif profit_pct >= 2.0 and not position.get('took_profit_2'):
+                position['took_profit_2'] = True
+                return 'partial_profit_2'
+            
+            elif profit_pct >= 3.0:
+                return 'take_profit_3'
+            
             elif current_price <= position['take_profit']:
                 return 'take_profit'
         

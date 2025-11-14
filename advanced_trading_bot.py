@@ -54,6 +54,7 @@ class AdvancedTradingBot:
         self.strategy = TradingStrategy()
         self.active_symbols = []
         self.last_scan_time = None
+        self.last_signal_time = {}  # Track last signal time per symbol to prevent spam
         
         # Initialize database (MongoDB or SQLite)
         # Use MongoDB by default if configured in config.py
@@ -289,13 +290,24 @@ class AdvancedTradingBot:
                 exit_reason = self.risk_manager.check_stop_loss_take_profit(symbol, current_price)
                 
                 if exit_reason:
-                    # Close position
+                    # Close position (full close for all profit levels)
                     trade_record = self.risk_manager.close_position(symbol, current_price)
                     
                     if trade_record:
-                        print(f"\n{Fore.YELLOW}🔔 Position Closed{Style.RESET_ALL}")
+                        # Determine exit emoji
+                        if 'profit' in exit_reason.lower():
+                            emoji = "💰"
+                            color = Fore.GREEN
+                        elif exit_reason == 'stop_loss':
+                            emoji = "🛑"
+                            color = Fore.RED
+                        else:
+                            emoji = "🔔"
+                            color = Fore.YELLOW
+                        
+                        print(f"\n{color}{emoji} Position Closed{Style.RESET_ALL}")
                         print(f"Symbol: {Fore.CYAN}{symbol}{Style.RESET_ALL}")
-                        print(f"Reason: {Fore.YELLOW}{exit_reason.upper()}{Style.RESET_ALL}")
+                        print(f"Reason: {color}{exit_reason.upper().replace('_', ' ')}{Style.RESET_ALL}")
                         print(f"Entry: ${trade_record['entry_price']:.4f} → Exit: ${trade_record['exit_price']:.4f}")
                         
                         pnl_color = Fore.GREEN if trade_record['pnl'] > 0 else Fore.RED
@@ -307,10 +319,39 @@ class AdvancedTradingBot:
                             trade_record['exit_reason'] = exit_reason
                             self.db.update_trade(symbol, trade_record)
                         
-                        # Send Telegram notification
+                        # Send appropriate Telegram notification
                         if self.telegram and self.telegram.enabled:
                             trade_record['exit_reason'] = exit_reason
-                            self.telegram.send_position_closed(trade_record)
+                            
+                            # Send detailed notifications for different profit levels
+                            if exit_reason == 'partial_profit_1':
+                                # Custom message for quick 1% win
+                                profit_msg = f"🎯 Quick 1% Profit Taken!\n\n"
+                                profit_msg += f"Symbol: {symbol}\n"
+                                profit_msg += f"Entry: ${trade_record['entry_price']:.4f}\n"
+                                profit_msg += f"Exit: ${trade_record['exit_price']:.4f}\n"
+                                profit_msg += f"Profit: ${trade_record['pnl']:.2f} ({trade_record['pnl_percent']:.2f}%)\n\n"
+                                profit_msg += f"✅ Small wins add up!"
+                                self.telegram.send_custom_alert("Profit Taken (1%)", profit_msg)
+                            elif exit_reason == 'partial_profit_2':
+                                profit_msg = f"🎯 Great 2% Profit Taken!\n\n"
+                                profit_msg += f"Symbol: {symbol}\n"
+                                profit_msg += f"Entry: ${trade_record['entry_price']:.4f}\n"
+                                profit_msg += f"Exit: ${trade_record['exit_price']:.4f}\n"
+                                profit_msg += f"Profit: ${trade_record['pnl']:.2f} ({trade_record['pnl_percent']:.2f}%)\n\n"
+                                profit_msg += f"✅ Excellent gains!"
+                                self.telegram.send_custom_alert("Profit Taken (2%)", profit_msg)
+                            elif exit_reason == 'take_profit_3':
+                                profit_msg = f"🚀 Excellent 3%+ Profit!\n\n"
+                                profit_msg += f"Symbol: {symbol}\n"
+                                profit_msg += f"Entry: ${trade_record['entry_price']:.4f}\n"
+                                profit_msg += f"Exit: ${trade_record['exit_price']:.4f}\n"
+                                profit_msg += f"Profit: ${trade_record['pnl']:.2f} ({trade_record['pnl_percent']:.2f}%)\n\n"
+                                profit_msg += f"🎉 Amazing gains!"
+                                self.telegram.send_custom_alert("Big Profit Taken (3%+)", profit_msg)
+                            else:
+                                # Default notification
+                                self.telegram.send_position_closed(trade_record)
                         
                         logger.info(f"Position closed: {symbol} - {exit_reason} - PnL: ${trade_record['pnl']:.2f}")
                         
@@ -379,6 +420,13 @@ class AdvancedTradingBot:
                     if symbol in self.risk_manager.open_positions:
                         continue
                     
+                    # Check signal cooldown (prevent duplicate signals within 5 minutes)
+                    current_time = datetime.now()
+                    if symbol in self.last_signal_time:
+                        time_since_signal = (current_time - self.last_signal_time[symbol]).total_seconds() / 60
+                        if time_since_signal < 5:  # 5 minute cooldown
+                            continue
+                    
                     signal, confidence, market_condition = self.analyze_symbol(symbol)
                     
                     if signal == 'buy' and confidence >= 50:  # Lowered to 50% for more opportunities!
@@ -386,12 +434,14 @@ class AdvancedTradingBot:
                         print(f"Confidence: {confidence:.1f}%")
                         print(f"Market Condition: {market_condition}")
                         
-                        # Send signal alert notification
-                        if self.telegram and self.telegram.enabled:
+                        # Execute trade FIRST, then notify if successful
+                        trade_executed = self.execute_trade(symbol, signal, confidence)
+                        
+                        # Only send notification if trade was actually executed
+                        if trade_executed and self.telegram and self.telegram.enabled:
                             current_price = self.exchange.fetch_ticker(symbol)['last']
                             self.telegram.send_signal_alert(symbol, signal, confidence, current_price)
-                        
-                        self.execute_trade(symbol, signal, confidence)
+                            self.last_signal_time[symbol] = current_time  # Update cooldown timer
                 
                 # Display statistics every 5 iterations
                 if iteration % 5 == 0:
