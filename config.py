@@ -91,3 +91,10 @@ FOREX_MARKETS = False  # Trade forex (requires different account type on OKX)
 
 # Preferred quote currencies
 QUOTE_CURRENCIES = ['USDT', 'USDC', 'USD']
+
+# New Listing Bot Configuration
+NEW_LISTING_BUY_AMOUNT = float(os.getenv('NEW_LISTING_BUY_AMOUNT', '50'))  # USDT to invest per new listing
+NEW_LISTING_TAKE_PROFIT = float(os.getenv('NEW_LISTING_TAKE_PROFIT', '30'))  # Take profit % (default 30%)
+NEW_LISTING_STOP_LOSS = float(os.getenv('NEW_LISTING_STOP_LOSS', '15'))  # Stop loss % (default 15%)
+NEW_LISTING_MAX_HOLD = int(os.getenv('NEW_LISTING_MAX_HOLD', '3600'))  # Max hold time in seconds (default 1 hour)
+NEW_LISTING_CHECK_INTERVAL = int(os.getenv('NEW_LISTING_CHECK_INTERVAL', '60'))  # Check interval in seconds

@@ -32,8 +32,15 @@ class AdminAutoTrader:
             'options': {'defaultType': 'spot'}
         })
         
-        # Initialize bots
-        self.new_listing_bot = NewListingBot(self.exchange, self.db)
+        # Initialize bots with configuration from config.py
+        new_listing_config = {
+            'check_interval': config.NEW_LISTING_CHECK_INTERVAL,
+            'buy_amount_usdt': config.NEW_LISTING_BUY_AMOUNT,
+            'take_profit_percent': config.NEW_LISTING_TAKE_PROFIT,
+            'stop_loss_percent': config.NEW_LISTING_STOP_LOSS,
+            'max_hold_time': config.NEW_LISTING_MAX_HOLD
+        }
+        self.new_listing_bot = NewListingBot(self.exchange, self.db, config=new_listing_config)
         self.profit_protector = AutoProfitProtector(self.exchange, self.db)
         
         # Trading settings (optimized for $16.78)
