@@ -458,7 +458,14 @@ class AdvancedTradingBot:
                         continue
                     
                     # ⚠️ CRITICAL: Check if symbol was recently closed (prevent buy-back!)
-                    in_cooldown, cooldown_reason = self.risk_manager.is_symbol_in_cooldown(symbol, cooldown_minutes=30)
+                    in_cooldown, cooldown_reason, expired_symbols = self.risk_manager.is_symbol_in_cooldown(symbol, cooldown_minutes=30)
+                    
+                    # Clean up notification tracking for ANY expired symbols (prevents memory leak)
+                    for expired_sym in expired_symbols:
+                        if expired_sym in self.cooldown_notifications_sent:
+                            self.cooldown_notifications_sent.remove(expired_sym)
+                            logger.info(f"Cleared notification tracking for expired cooldown: {expired_sym}")
+                    
                     if in_cooldown:
                         print(f"\n{Fore.YELLOW}⏳ Skipping {symbol}: {cooldown_reason}{Style.RESET_ALL}")
                         
@@ -471,10 +478,6 @@ class AdvancedTradingBot:
                             self.cooldown_notifications_sent.add(symbol)
                             logger.info(f"✅ Cooldown notification sent for {symbol}")
                         continue
-                    else:
-                        # Cooldown expired, clear notification tracking so it can be sent again next time
-                        if symbol in self.cooldown_notifications_sent:
-                            self.cooldown_notifications_sent.remove(symbol)
                     
                     # Check signal cooldown (prevent duplicate signals within 5 minutes)
                     current_time = datetime.now()

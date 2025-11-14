@@ -80,7 +80,12 @@ class TelegramNotifier:
                     time.sleep(retry_after)
                     continue
                 else:
-                    print(f"{Fore.RED}❌ Telegram error (status {response.status_code}): {response.text}{Style.RESET_ALL}")
+                    # Any other error code (500, 503, etc.) - retry
+                    print(f"{Fore.RED}❌ Telegram error (status {response.status_code}, attempt {attempt + 1}/{max_retries}): {response.text}{Style.RESET_ALL}")
+                    if attempt < max_retries - 1:
+                        time.sleep(1)  # Wait before retry
+                        continue
+                    # Last attempt failed, fall through to return False
                     
             except requests.exceptions.Timeout:
                 print(f"{Fore.YELLOW}⚠️ Telegram timeout (attempt {attempt + 1}/{max_retries}){Style.RESET_ALL}")

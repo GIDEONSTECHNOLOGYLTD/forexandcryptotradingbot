@@ -36,55 +36,107 @@ class RiskManager:
     def is_symbol_in_cooldown(self, symbol, cooldown_minutes=30):
         """
         Check if a symbol was recently closed and is in cooldown period
-        Returns (is_in_cooldown, reason_message)
+        Returns (is_in_cooldown, reason_message, expired_symbols_list)
+        
+        Also cleans up ANY expired cooldowns found, not just the one being checked.
+        This prevents memory leaks when symbols leave active_symbols list.
         """
+        # First, clean up ALL expired cooldowns (prevents memory leak)
+        expired_symbols = []
+        for sym in list(self.recently_closed_positions.keys()):
+            close_time = self.recently_closed_positions[sym]['close_time']
+            time_since_close = (datetime.now() - close_time).total_seconds() / 60
+            
+            if time_since_close >= cooldown_minutes:
+                expired_symbols.append(sym)
+                logger.info(f"Cooldown expired for {sym}, re-entry now allowed")
+                del self.recently_closed_positions[sym]
+        
+        # Save if we cleaned up any expired cooldowns
+        if expired_symbols:
+            self._save_cooldown_data()
+        
+        # Now check the specific symbol requested
         if symbol in self.recently_closed_positions:
             close_time = self.recently_closed_positions[symbol]['close_time']
             pnl = self.recently_closed_positions[symbol]['pnl']
             time_since_close = (datetime.now() - close_time).total_seconds() / 60
             
-            if time_since_close < cooldown_minutes:
-                remaining_mins = int(cooldown_minutes - time_since_close)
-                profit_status = "PROFIT" if pnl > 0 else "LOSS"
-                return True, f"Symbol {symbol} recently closed with {profit_status} ${pnl:.2f}. Cooldown: {remaining_mins} mins remaining"
-            else:
-                # Cooldown expired, remove from tracking
-                logger.info(f"Cooldown expired for {symbol}, re-entry now allowed")
-                del self.recently_closed_positions[symbol]
-                self._save_cooldown_data()  # Persist the change
+            remaining_mins = int(cooldown_minutes - time_since_close)
+            profit_status = "PROFIT" if pnl > 0 else "LOSS"
+            return True, f"Symbol {symbol} recently closed with {profit_status} ${pnl:.2f}. Cooldown: {remaining_mins} mins remaining", expired_symbols
         
-        return False, ""
+        return False, "", expired_symbols
     
     def get_recently_closed_symbols(self):
         """Get list of symbols currently in cooldown"""
         return list(self.recently_closed_positions.keys())
     
-    def _load_cooldown_data(self):
-        """Load cooldown data from file (survives bot restarts)"""
+    def _load_cooldown_data(self, cooldown_minutes=30):
+        """
+        Load cooldown data from file (survives bot restarts)
+        Automatically filters out expired cooldowns
+        """
         try:
             if os.path.exists(self.COOLDOWN_FILE):
                 with open(self.COOLDOWN_FILE, 'r') as f:
                     data = json.load(f)
-                    
-                # Convert timestamps back to datetime objects
+                
+                loaded_count = len(data)
+                expired_count = 0
+                
+                # Convert timestamps and filter expired cooldowns
                 for symbol, info in data.items():
                     info['close_time'] = datetime.fromisoformat(info['close_time'])
-                    self.recently_closed_positions[symbol] = info
+                    
+                    # Check if cooldown is still valid
+                    time_since_close = (datetime.now() - info['close_time']).total_seconds() / 60
+                    
+                    if time_since_close < cooldown_minutes:
+                        # Still in cooldown, keep it
+                        self.recently_closed_positions[symbol] = info
+                    else:
+                        # Expired, skip it
+                        expired_count += 1
+                        logger.info(f"Skipping expired cooldown for {symbol} (closed {time_since_close:.1f} mins ago)")
                 
-                logger.info(f"✅ Loaded cooldown data: {len(self.recently_closed_positions)} symbols in cooldown")
+                logger.info(f"✅ Loaded cooldown data: {len(self.recently_closed_positions)} active, {expired_count} expired (filtered)")
                 
                 # Log which symbols are in cooldown
                 for symbol in self.recently_closed_positions:
                     logger.info(f"  - {symbol}: {self.recently_closed_positions[symbol]}")
+                
+                # Save cleaned data back to file if we filtered any
+                if expired_count > 0:
+                    self._save_cooldown_data()
             else:
                 logger.info("No previous cooldown data found (first run)")
         except Exception as e:
             logger.error(f"Error loading cooldown data: {e}")
+            logger.error(f"Renaming corrupted file to {self.COOLDOWN_FILE}.corrupt")
+            
+            # Rename corrupted file so it doesn't cause issues on next load
+            try:
+                if os.path.exists(self.COOLDOWN_FILE):
+                    os.rename(self.COOLDOWN_FILE, f"{self.COOLDOWN_FILE}.corrupt")
+            except:
+                pass
+            
             self.recently_closed_positions = {}
     
     def _save_cooldown_data(self):
-        """Save cooldown data to file (persists across restarts)"""
+        """
+        Save cooldown data to file (persists across restarts)
+        Deletes file if empty to keep directory clean
+        """
         try:
+            # If no cooldowns, delete the file instead of saving empty data
+            if not self.recently_closed_positions:
+                if os.path.exists(self.COOLDOWN_FILE):
+                    os.remove(self.COOLDOWN_FILE)
+                    logger.info(f"✅ Deleted empty cooldown file (all cooldowns expired)")
+                return
+            
             # Convert datetime objects to ISO format strings for JSON
             data = {}
             for symbol, info in self.recently_closed_positions.items():
