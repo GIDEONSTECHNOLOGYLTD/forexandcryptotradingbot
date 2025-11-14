@@ -35,20 +35,40 @@ export default function PaymentScreen({ navigation }: any) {
   }, [selectedPaymentMethod]);
 
   const initializeIAP = async () => {
-    if (isInitializingIAP) return; // Prevent double initialization
+    // ⚠️ STEP 1: Create products in App Store Connect first!
+    // Product IDs MUST match:
+    // - com.gtechldt.tradingbot.pro.monthly
+    // - com.gtechldt.tradingbot.enterprise.monthly
+    //
+    // ⚠️ STEP 2: Once products exist, delete lines 38-42 below to enable IAP!
     
+    console.log('ℹ️ IAP initialization skipped - products not configured yet');
+    setIsInitializingIAP(false);
+    return; // ← DELETE THIS LINE + 2 LINES ABOVE when ready!
+    
+    // IAP ENABLED CODE (runs once you delete the return above):
+    if (isInitializingIAP) return;
     try {
       setIsInitializingIAP(true);
+      console.log('🔄 Connecting to App Store...');
       await InAppPurchases.connectAsync();
+      
+      console.log('📦 Loading products...');
       const { responseCode, results } = await InAppPurchases.getProductsAsync([
         PRODUCT_IDS.pro,
         PRODUCT_IDS.enterprise
       ]);
+      
       if (responseCode === InAppPurchases.IAPResponseCode.OK) {
-        console.log('IAP products loaded:', results);
+        console.log('✅ IAP products loaded successfully:', results?.length || 0);
+        results?.forEach(product => {
+          console.log(`  - ${product.title}: ${product.price}`);
+        });
+      } else {
+        console.error('❌ Failed to load IAP products. Response code:', responseCode);
       }
     } catch (error) {
-      console.error('IAP initialization error:', error);
+      console.error('❌ IAP initialization error:', error);
     } finally {
       setIsInitializingIAP(false);
     }
@@ -167,22 +187,21 @@ export default function PaymentScreen({ navigation }: any) {
   };
 
   const handleInAppPurchase = async (plan: string) => {
-    if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
-      Alert.alert('Mobile Only', 'In-app purchases are only available on iOS and Android. Please use Card or Crypto payment.');
-      return;
-    }
+    // ⚠️ STEP 3: Once App Store Connect is configured, delete lines 176-186 below!
     
-    // Show coming soon alert for now
+    // IAP NOT YET CONFIGURED - Show user-friendly message
     Alert.alert(
-      'Coming Soon',
-      'In-app purchases are being configured. Please use Card or Crypto payment.',
+      '📱 App Store Purchases Coming Soon!',
+      `App Store subscriptions are being set up in Apple's system.\n\nFor now, please use:\n✅ Card Payment (Instant)\n✅ Crypto Payment (USDT)`,
       [
-        { text: 'Use Card', onPress: () => setSelectedPaymentMethod('card') },
-        { text: 'Use Crypto', onPress: () => setSelectedPaymentMethod('crypto') },
-        { text: 'OK', style: 'cancel' }
+        { text: 'Use Card Payment', onPress: () => setSelectedPaymentMethod('card') },
+        { text: 'Use Crypto Payment', onPress: () => setSelectedPaymentMethod('crypto') },
+        { text: 'Cancel', style: 'cancel' }
       ]
     );
-    return;
+    return; // ← DELETE THIS LINE + alert above when ready!
+    
+    // IAP ENABLED CODE (runs once you delete the return above):
 
     try {
       setPurchasing(true);

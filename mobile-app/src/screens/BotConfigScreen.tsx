@@ -299,7 +299,12 @@ export default function BotConfigScreen({ route, navigation }: any) {
           />
 
           <Text style={styles.label}>Timeframe</Text>
-          <Picker selectedValue={timeframe} onValueChange={setTimeframe} style={styles.picker}>
+          <Picker 
+            selectedValue={timeframe} 
+            onValueChange={setTimeframe} 
+            style={styles.picker}
+            itemStyle={styles.pickerItem}
+          >
             <Picker.Item label="1 Minute" value="1m" />
             <Picker.Item label="5 Minutes" value="5m" />
             <Picker.Item label="15 Minutes" value="15m" />
