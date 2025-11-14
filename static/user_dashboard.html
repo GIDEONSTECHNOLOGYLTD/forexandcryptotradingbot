@@ -200,8 +200,9 @@
 
                     <div>
                         <label class="block text-gray-700 font-semibold mb-2">Initial Capital ($)</label>
-                        <input type="number" id="capital" value="1000" min="100" step="100"
+                        <input type="number" id="capital" value="1000" min="1" step="1"
                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600">
+                        <p class="text-sm text-gray-600 mt-1">⚠️ Real trading requires minimum $7 (OKX $5 order minimum)</p>
                     </div>
 
                     <div>
@@ -428,7 +429,8 @@
                 const response = await fetch(`${API_URL}/api/bots/my-bots`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                const bots = Array.isArray(await response.json()) ? await response.json() : [];
+                const data = await response.json();
+                const bots = Array.isArray(data) ? data : [];
                 
                 let totalCapital = 0;
                 let totalPnL = 0;
@@ -449,12 +451,21 @@
 
         // Create Bot
         async function createBot() {
+            const capital = parseFloat(document.getElementById('capital').value);
+            const isPaperTrading = document.getElementById('tradingMode').value === 'true';
+            
+            // Validate minimum capital (OKX requires minimum $5 order, so need at least $7 with 80% buffer)
+            if (!isPaperTrading && capital < 7) {
+                alert('❌ Minimum capital for REAL trading is $7\n\n💡 Reason: OKX requires minimum $5 per order, and the bot uses 80% of your capital ($7 × 0.8 = $5.6).\n\n✅ You can:\n1. Increase capital to at least $7, OR\n2. Use Paper Trading mode to practice');
+                return;
+            }
+            
             const config = {
                 user_id: currentUser?.email || 'user',
                 strategy: document.getElementById('botType').value,
                 symbol: document.getElementById('symbol').value,
-                initial_capital: parseFloat(document.getElementById('capital').value),
-                paper_trading: document.getElementById('tradingMode').value === 'true',
+                initial_capital: capital,
+                paper_trading: isPaperTrading,
                 risk_level: document.getElementById('riskLevel').value
             };
 
