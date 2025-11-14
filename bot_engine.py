@@ -502,14 +502,29 @@ class BotInstance:
                         if self.paper_trading:
                             logger.info(f"📝 PAPER SELL: {position['amount']:.6f} @ ${price:.2f} | PnL: {final_pnl_pct:.2f}% | Reason: {exit_reason}")
                         else:
-                            # CRITICAL: Use spot market order (no margin/leverage)
-                            order = self.exchange.create_market_order(
-                                self.symbol, 
-                                'sell', 
-                                position['amount'],
-                                params={'tdMode': 'cash'}  # SPOT trading only!
-                            )
-                            logger.info(f"💰 SPOT SELL (NO LEVERAGE): {position['amount']:.6f} @ ${price:.2f} | PnL: {final_pnl_pct:.2f}% | Reason: {exit_reason}")
+                            # EMERGENCY: Verify we actually own the coins before selling!
+                            try:
+                                balance = self.exchange.fetch_balance()
+                                coin = self.symbol.split('/')[0]  # e.g., "BTC" from "BTC/USDT"
+                                available = balance.get(coin, {}).get('free', 0)
+                                
+                                if available >= position['amount'] * 0.99:  # Allow 1% slippage
+                                    # SAFE: We own the coins, can sell on SPOT
+                                    order = self.exchange.create_market_order(
+                                        self.symbol, 
+                                        'sell', 
+                                        position['amount'],
+                                        params={'tdMode': 'cash'}  # SPOT trading only!
+                                    )
+                                    logger.info(f"💰 SPOT SELL (NO LEVERAGE): {position['amount']:.6f} @ ${price:.2f} | PnL: {final_pnl_pct:.2f}% | Reason: {exit_reason}")
+                                else:
+                                    logger.error(f"🚨 BLOCKED SELL! Don't own {position['amount']:.6f} {coin} (only have {available:.6f})")
+                                    logger.error(f"🛑 This would have been a SHORT/MARGIN trade - PREVENTED!")
+                                    continue  # Skip this sell!
+                            except Exception as e:
+                                logger.error(f"🚨 Error checking balance before sell: {e}")
+                                logger.error(f"🛑 BLOCKED SELL for safety!")
+                                continue
                         
                         # Update the original BUY trade to mark it as closed
                         if position.get('trade_id'):
