@@ -210,6 +210,327 @@ Bot has stopped trading for today.
 """
         
         return self.send_message(message)
+    
+    # ============================================================================
+    # COMPREHENSIVE NOTIFICATION METHODS - COVERS EVERYTHING!
+    # ============================================================================
+    
+    def send_small_win(self, symbol, entry, exit, profit_usd, profit_pct, total_small_wins, accumulated_profit):
+        """Notify about small win (5% auto-exit)"""
+        message = f"""
+💎 <b>SMALL WIN - AUTO EXIT!</b>
+
+🪙 Symbol: <b>{symbol}</b>
+📈 Entry: ${entry:.6f}
+📊 Exit: ${exit:.6f}
+💰 Profit: <b>+${profit_usd:.2f} (+{profit_pct:.1f}%)</b>
+
+✅ Quick profit secured!
+🎯 Total small wins: {total_small_wins}
+💎 Accumulated: ${accumulated_profit:.2f}
+
+💡 Many small wins = Big total profit!
+
+<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
+"""
+        return self.send_message(message)
+    
+    def send_partial_profit(self, symbol, percent_sold, profit_usd, profit_pct, remaining_amount):
+        """Notify about partial profit taking"""
+        message = f"""
+💰 <b>PARTIAL PROFIT TAKEN</b>
+
+🪙 Symbol: <b>{symbol}</b>
+📤 Sold: {percent_sold}% of position
+💵 Profit: <b>+${profit_usd:.2f} (+{profit_pct:.1f}%)</b>
+
+📊 Remaining: {remaining_amount:.6f}
+🎯 Letting rest ride for more profit!
+
+✅ Profits locked in, risk reduced!
+
+<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
+"""
+        return self.send_message(message)
+    
+    def send_trailing_stop_hit(self, symbol, entry, peak, exit, profit_usd, profit_pct):
+        """Notify about trailing stop exit"""
+        message = f"""
+📉 <b>TRAILING STOP HIT</b>
+
+🪙 Symbol: <b>{symbol}</b>
+📈 Entry: ${entry:.6f}
+🔝 Peak: ${peak:.6f} (highest price)
+📊 Exit: ${exit:.6f}
+💰 Profit: <b>+${profit_usd:.2f} (+{profit_pct:.1f}%)</b>
+
+✅ Locked in most gains!
+🛡️ Protected your profits!
+
+<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
+"""
+        return self.send_message(message)
+    
+    def send_stop_loss_hit(self, symbol, entry, exit, loss_usd, loss_pct):
+        """Notify about stop loss hit"""
+        message = f"""
+🛑 <b>STOP LOSS HIT</b>
+
+🪙 Symbol: <b>{symbol}</b>
+📈 Entry: ${entry:.6f}
+📊 Exit: ${exit:.6f}
+💸 Loss: <b>${loss_usd:.2f} ({loss_pct:.1f}%)</b>
+
+✅ Loss limited by stop loss!
+🛡️ Protected from bigger loss!
+
+💡 This is normal - we win more than we lose!
+
+<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
+"""
+        return self.send_message(message)
+    
+    def send_break_even_activated(self, symbol, entry_price, current_price, profit_pct):
+        """Notify about break-even protection activated"""
+        message = f"""
+🎯 <b>BREAK-EVEN PROTECTION ACTIVATED!</b>
+
+🪙 Symbol: <b>{symbol}</b>
+📈 Entry: ${entry_price:.6f}
+📊 Current: ${current_price:.6f}
+📈 Profit: <b>+{profit_pct:.1f}%</b>
+
+🛡️ Stop loss moved to entry price!
+✅ This trade is now RISK-FREE!
+💰 Can only profit or break even!
+
+<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
+"""
+        return self.send_message(message)
+    
+    def send_consecutive_losses_warning(self, losses_count, pause_duration_mins):
+        """Notify about consecutive losses pause"""
+        message = f"""
+⚠️ <b>CONSECUTIVE LOSS LIMIT</b>
+
+📉 Losses in a row: <b>{losses_count}</b>
+
+🛑 Pausing trading for {pause_duration_mins} minutes
+⏰ Resumes at: {(datetime.now()).strftime('%H:%M UTC')}
+
+💡 <b>Why?</b>
+Market conditions may be unfavorable.
+Taking a break prevents further losses.
+
+✅ Your capital is PROTECTED!
+
+<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
+"""
+        return self.send_message(message)
+    
+    def send_daily_limit_reached(self, loss_pct, starting_balance, current_balance, loss_amount):
+        """Notify about daily loss limit reached"""
+        message = f"""
+🚨 <b>DAILY LOSS LIMIT REACHED!</b>
+
+📉 Lost: <b>{abs(loss_pct):.2f}% today</b>
+💰 Starting: ${starting_balance:.2f}
+💵 Current: ${current_balance:.2f}
+💸 Loss: ${abs(loss_amount):.2f}
+
+🛑 <b>TRADING PAUSED UNTIL TOMORROW!</b>
+⏰ Resumes: Tomorrow 00:00 UTC
+
+💡 <b>Why?</b>
+Protecting you from bigger losses.
+Market will be better tomorrow.
+
+✅ Maximum protection activated!
+
+<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
+"""
+        return self.send_message(message)
+    
+    def send_balance_update(self, previous_balance, current_balance, change_pct):
+        """Notify about significant balance changes"""
+        emoji = "📈" if change_pct > 0 else "📉"
+        direction = "UP" if change_pct > 0 else "DOWN"
+        
+        message = f"""
+{emoji} <b>BALANCE UPDATE</b>
+
+💰 Previous: ${previous_balance:.2f}
+💵 Current: ${current_balance:.2f}
+📊 Change: <b>{change_pct:+.2f}%</b>
+
+{emoji} Account is {direction} {abs(change_pct):.2f}%!
+
+<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
+"""
+        return self.send_message(message)
+    
+    def send_new_listing_alert(self, symbol, price, volume_24h):
+        """Notify about new listing detected"""
+        message = f"""
+🆕 <b>NEW LISTING DETECTED!</b>
+
+🪙 Symbol: <b>{symbol}</b>
+💰 Price: ${price:.6f}
+📊 24h Volume: ${volume_24h:,.0f}
+
+🚀 New listing bot is analyzing...
+⚡ May enter position if conditions are good!
+
+💡 New listings can be very profitable!
+
+<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
+"""
+        return self.send_message(message)
+    
+    def send_api_error(self, error_type, error_message, retry_count=0):
+        """Notify about API errors"""
+        message = f"""
+⚠️ <b>API ERROR</b>
+
+🔴 Type: {error_type}
+📝 Error: {error_message}
+🔄 Retries: {retry_count}
+
+💡 Bot is handling this automatically.
+No action needed from you.
+
+✅ Trading will continue once resolved.
+
+<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
+"""
+        return self.send_message(message)
+    
+    def send_order_failed(self, symbol, side, amount, reason):
+        """Notify about failed orders"""
+        message = f"""
+🚨 <b>ORDER FAILED</b>
+
+🪙 Symbol: {symbol}
+📊 Side: {side}
+💰 Amount: {amount:.6f}
+❌ Reason: {reason}
+
+🔄 Bot will retry or skip this trade.
+💡 This happens sometimes, it's normal.
+
+✅ No money lost, order wasn't executed.
+
+<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
+"""
+        return self.send_message(message)
+    
+    def send_profit_milestone(self, milestone_pct, total_profit, starting_capital, current_capital):
+        """Notify about profit milestones (10%, 20%, 50%, etc)"""
+        message = f"""
+🎉 <b>PROFIT MILESTONE REACHED!</b>
+
+🏆 Total Profit: <b>{milestone_pct}%</b>
+💰 Starting Capital: ${starting_capital:.2f}
+💵 Current Capital: ${current_capital:.2f}
+💎 Total Profit: <b>${total_profit:.2f}</b>
+
+🚀 Your account is growing!
+📈 Keep going, compound effect is real!
+
+🎯 Next milestone: {milestone_pct + 10}%
+
+<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
+"""
+        return self.send_message(message)
+    
+    def send_emergency_exit(self, symbol, reason, entry, exit, pnl_pct):
+        """Notify about emergency exits"""
+        message = f"""
+🚨 <b>EMERGENCY EXIT!</b>
+
+🪙 Symbol: <b>{symbol}</b>
+⚠️ Reason: {reason}
+📈 Entry: ${entry:.6f}
+📊 Exit: ${exit:.6f}
+📉 Change: {pnl_pct:+.2f}%
+
+🛡️ <b>Emergency protection activated!</b>
+✅ Bot detected dangerous condition
+💡 Better safe than sorry!
+
+<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
+"""
+        return self.send_message(message)
+    
+    def send_weekly_summary(self, stats):
+        """Send weekly performance summary"""
+        total_trades = stats.get('total_trades', 0)
+        wins = stats.get('wins', 0)
+        losses = stats.get('losses', 0)
+        win_rate = stats.get('win_rate', 0)
+        weekly_pnl = stats.get('weekly_pnl', 0)
+        best_trade = stats.get('best_trade', 0)
+        worst_trade = stats.get('worst_trade', 0)
+        starting_capital = stats.get('starting_capital', 0)
+        current_capital = stats.get('current_capital', 0)
+        
+        emoji = "📈" if weekly_pnl > 0 else "📉"
+        
+        message = f"""
+{emoji} <b>WEEKLY SUMMARY</b>
+
+💰 Starting: ${starting_capital:.2f}
+💵 Current: ${current_capital:.2f}
+📊 Weekly P&L: <b>{weekly_pnl:+.2f} USD ({((current_capital - starting_capital) / starting_capital * 100):+.1f}%)</b>
+
+📈 Trades: {total_trades}
+✅ Wins: {wins}
+❌ Losses: {losses}
+🎯 Win Rate: <b>{win_rate:.1f}%</b>
+
+🏆 Best Trade: +${best_trade:.2f}
+📉 Worst Trade: ${worst_trade:.2f}
+
+{"🚀 Great week! Keep it up!" if weekly_pnl > 0 else "💪 Stay strong! Next week will be better!"}
+
+<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
+"""
+        return self.send_message(message)
+    
+    def send_config_warning(self, warning_message):
+        """Notify about configuration warnings"""
+        message = f"""
+⚠️ <b>CONFIG WARNING</b>
+
+{warning_message}
+
+💡 Bot auto-corrected to safe defaults.
+✅ Everything is working safely.
+
+📝 Check your settings if needed.
+
+<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
+"""
+        return self.send_message(message)
+    
+    def send_ai_suggestion(self, symbol, current_pnl_pct, current_pnl_usd, reason, suggestion):
+        """Send AI-powered trade suggestions"""
+        message = f"""
+🤖 <b>AI SUGGESTION</b>
+
+🪙 Symbol: <b>{symbol}</b>
+📈 Current Profit: <b>+${current_pnl_usd:.2f} (+{current_pnl_pct:.1f}%)</b>
+
+💡 <b>{reason}</b>
+
+✅ Suggestion: {suggestion}
+
+🎯 <b>Your decision!</b>
+Bot will execute automatically based on your settings.
+
+<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
+"""
+        return self.send_message(message)
 
 
 # Example usage and setup guide

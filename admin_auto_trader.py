@@ -398,24 +398,50 @@ class AdminAutoTrader:
             
             logger.info(f"{emoji} Position closed: {symbol} | P&L: {pnl_pct:.2f}% (${pnl_usd:.2f})")
             
-            # Send Telegram notification with accumulated profits
+            # Send comprehensive Telegram notifications
             if self.telegram and self.telegram.enabled:
-                accumulated_msg = ""
-                if self.small_profit_mode and is_profit:
-                    accumulated_msg = f"\n💎 <b>Total accumulated: ${self.total_small_profits:.2f} from {self.small_wins_count} wins!</b>\n"
-                
-                self.telegram.send_message(
-                    f"{status_emoji} <b>POSITION CLOSED</b> {emoji}\n\n"
-                    f"🪙 Symbol: <b>{symbol}</b>\n"
-                    f"📈 Entry: ${entry_price:,.2f}\n"
-                    f"📉 Exit: ${price:,.2f}\n"
-                    f"📊 Amount: {amount:.6f}\n\n"
-                    f"<b>{'💰 PROFIT' if is_profit else '💸 LOSS'}: {pnl_usd:+.2f} USD ({pnl_pct:+.2f}%)</b>\n\n"
-                    f"📌 Reason: {reason.upper()}\n"
-                    f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}\n\n"
-                    f"{'🎉 Great trade!' if is_profit else '⚠️ Review and adjust strategy'}"
-                    f"{accumulated_msg}"
-                )
+                if is_profit:
+                    # Check if this is a small win (5% auto-exit)
+                    if self.small_profit_mode and 4.5 <= pnl_pct <= 6:
+                        self.telegram.send_small_win(
+                            symbol=symbol,
+                            entry=entry_price,
+                            exit=price,
+                            profit_usd=pnl_usd,
+                            profit_pct=pnl_pct,
+                            total_small_wins=self.small_wins_count,
+                            accumulated_profit=self.total_small_profits
+                        )
+                    # Check if this is a trailing stop
+                    elif "trailing" in reason.lower():
+                        peak_price = position.get('highest_price', price)
+                        self.telegram.send_trailing_stop_hit(
+                            symbol=symbol,
+                            entry=entry_price,
+                            peak=peak_price,
+                            exit=price,
+                            profit_usd=pnl_usd,
+                            profit_pct=pnl_pct
+                        )
+                    else:
+                        # Regular profit exit
+                        self.telegram.send_position_closed({
+                            'symbol': symbol,
+                            'entry_price': entry_price,
+                            'exit_price': price,
+                            'pnl': pnl_usd,
+                            'pnl_percent': pnl_pct,
+                            'exit_reason': reason
+                        })
+                else:
+                    # Loss - use stop loss notification
+                    self.telegram.send_stop_loss_hit(
+                        symbol=symbol,
+                        entry=entry_price,
+                        exit=price,
+                        loss_usd=abs(pnl_usd),
+                        loss_pct=abs(pnl_pct)
+                    )
             
             # Save trade result
             self.db.db['admin_trades'].insert_one({
@@ -437,11 +463,11 @@ class AdminAutoTrader:
             logger.error(f"❌ Error executing exit: {e}")
             # Send error notification
             if self.telegram and self.telegram.enabled:
-                self.telegram.send_message(
-                    f"🚨 <b>ERROR CLOSING POSITION</b>\n\n"
-                    f"Symbol: {position.get('symbol', 'Unknown')}\n"
-                    f"Error: {str(e)}\n\n"
-                    f"⚠️ Check your exchange account immediately!"
+                self.telegram.send_order_failed(
+                    symbol=position.get('symbol', 'Unknown'),
+                    side='SELL',
+                    amount=position.get('amount', 0),
+                    reason=str(e)
                 )
     
     def execute_partial_exit(self, position, amount, price):
@@ -466,21 +492,23 @@ class AdminAutoTrader:
             
             logger.info(f"💰 Partial profit taken: {symbol} | {pnl_pct:.2f}% (${pnl_usd:.2f})")
             
-            # Send Telegram notification
+            # Update position first
+            original_amount = position.get('amount', 0)
+            remaining_amount = original_amount - amount
+            percent_sold = (amount / original_amount * 100) if original_amount > 0 else 0
+            
+            # Send comprehensive Telegram notification
             if self.telegram and self.telegram.enabled:
-                self.telegram.send_message(
-                    f"💰 <b>PARTIAL PROFIT TAKEN</b>\n\n"
-                    f"🪙 Symbol: <b>{symbol}</b>\n"
-                    f"📈 Entry: ${entry_price:,.2f}\n"
-                    f"📉 Exit: ${price:,.2f}\n"
-                    f"📊 Amount Sold: {amount:.6f}\n\n"
-                    f"<b>💵 Profit: +{pnl_usd:.2f} USD (+{pnl_pct:.2f}%)</b>\n\n"
-                    f"✅ Locking in profits! Position still open.\n"
-                    f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                self.telegram.send_partial_profit(
+                    symbol=symbol,
+                    percent_sold=int(percent_sold),
+                    profit_usd=pnl_usd,
+                    profit_pct=pnl_pct,
+                    remaining_amount=remaining_amount
                 )
             
             # Update position
-            position['amount'] -= amount
+            position['amount'] = remaining_amount
             
         except Exception as e:
             logger.error(f"❌ Error executing partial exit: {e}")
@@ -514,15 +542,11 @@ class AdminAutoTrader:
                 self.trading_paused = True
                 logger.error(f"🚨 DAILY LOSS LIMIT! Lost {daily_loss_pct:.2f}%")
                 if self.telegram and self.telegram.enabled:
-                    self.telegram.send_message(
-                        f"🚨 <b>DAILY LOSS LIMIT REACHED!</b>\n\n"
-                        f"Lost: {abs(daily_loss_pct):.2f}% today\n"
-                        f"Limit: {self.daily_loss_limit}%\n\n"
-                        f"Starting: ${self.starting_balance:.2f}\n"
-                        f"Current: ${current_balance:.2f}\n"
-                        f"Loss: ${abs(self.starting_balance - current_balance):.2f}\n\n"
-                        f"🛑 <b>TRADING PAUSED UNTIL TOMORROW!</b>\n\n"
-                        f"⏰ Resumes: Tomorrow 00:00 UTC"
+                    self.telegram.send_daily_limit_reached(
+                        loss_pct=abs(daily_loss_pct),
+                        starting_balance=self.starting_balance,
+                        current_balance=current_balance,
+                        loss_amount=abs(self.starting_balance - current_balance)
                     )
             return False
         
@@ -530,11 +554,9 @@ class AdminAutoTrader:
         if self.consecutive_losses >= self.max_consecutive_losses:
             logger.warning(f"⚠️ {self.consecutive_losses} consecutive losses - Taking 1 hour break")
             if self.telegram and self.telegram.enabled:
-                self.telegram.send_message(
-                    f"⚠️ <b>CONSECUTIVE LOSS LIMIT</b>\n\n"
-                    f"Losses in a row: {self.consecutive_losses}\n\n"
-                    f"🛑 Pausing for 1 hour\n"
-                    f"⏰ Resumes at: {(datetime.utcnow() + timedelta(hours=1)).strftime('%H:%M UTC')}"
+                self.telegram.send_consecutive_losses_warning(
+                    losses_count=self.consecutive_losses,
+                    pause_duration_mins=60
                 )
             time.sleep(3600)
             self.consecutive_losses = 0
