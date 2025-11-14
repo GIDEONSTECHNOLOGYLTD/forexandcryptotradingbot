@@ -315,16 +315,25 @@ class AdvancedTradingBot:
                 
                 # Get position for profit calculation
                 position = self.risk_manager.open_positions.get(symbol)
-                if position:
-                    entry_price = position['entry_price']
-                    profit_pct = ((current_price - entry_price) / entry_price) * 100
-                    logger.info(f"Checking {symbol}: Entry ${entry_price:.4f}, Current ${current_price:.4f}, Profit {profit_pct:+.2f}%")
+                if not position:
+                    logger.warning(f"⚠️ Position for {symbol} not found, skipping...")
+                    continue
+                
+                entry_price = position['entry_price']
+                profit_pct = ((current_price - entry_price) / entry_price) * 100
+                logger.info(f"Checking {symbol}: Entry ${entry_price:.4f}, Current ${current_price:.4f}, Profit {profit_pct:+.2f}%")
                 
                 # Check if stop-loss or take-profit hit
                 exit_reason = self.risk_manager.check_stop_loss_take_profit(symbol, current_price)
                 
                 if exit_reason:
+                    # Verify position still exists and has amount
+                    if 'amount' not in position or position['amount'] <= 0:
+                        logger.error(f"❌ Invalid position data for {symbol}, cannot execute sell")
+                        continue
+                    
                     # 🔴 EXECUTE ACTUAL SELL ORDER ON EXCHANGE (if not paper trading)
+                    sell_order_success = True
                     if not config.PAPER_TRADING:
                         try:
                             # Execute market sell order to close position
@@ -338,12 +347,31 @@ class AdvancedTradingBot:
                         except Exception as e:
                             logger.error(f"❌ Failed to execute sell order for {symbol}: {e}")
                             print(f"{Fore.RED}❌ Failed to close position on exchange: {e}{Style.RESET_ALL}")
-                            # Continue to update internal state even if exchange order fails
+                            sell_order_success = False
+                            
+                            # Send alert about failed sell
+                            if self.telegram and self.telegram.enabled:
+                                self.telegram.send_custom_alert(
+                                    "⚠️ SELL ORDER FAILED",
+                                    f"Failed to close {symbol} on exchange!\n\n"
+                                    f"Reason: {exit_reason}\n"
+                                    f"Price: ${current_price:.4f}\n"
+                                    f"Amount: {position['amount']}\n\n"
+                                    f"Error: {str(e)}\n\n"
+                                    f"⚠️ Check your exchange manually!"
+                                )
+                            
+                            # Skip internal state update if exchange order failed
+                            continue
                     else:
                         logger.info(f"📝 Paper trading - simulated close for {symbol}")
                     
-                    # Close position (full close for all profit levels)
-                    trade_record = self.risk_manager.close_position(symbol, current_price)
+                    # Close position in internal state (only if paper trading OR sell succeeded)
+                    if sell_order_success or config.PAPER_TRADING:
+                        trade_record = self.risk_manager.close_position(symbol, current_price)
+                    else:
+                        logger.error(f"❌ Skipping internal close for {symbol} - exchange order failed")
+                        continue
                     
                     if trade_record:
                         # Determine exit emoji
