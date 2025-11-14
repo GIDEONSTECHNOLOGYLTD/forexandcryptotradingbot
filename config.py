@@ -43,7 +43,7 @@ API_URL = os.getenv('API_URL', 'http://localhost:8000')
 
 # Trading Configuration
 TIMEFRAME = '1h'  # 1 hour candles
-PAPER_TRADING = True  # PAPER MODE - Testing profit/loss logic! Switch to False only after confirming it works! ⚠️
+PAPER_TRADING = False  # 💰 LIVE TRADING MODE - Real trades on OKX! ✅
 
 # Risk Management - ULTRA SAFE FOR SMALL BALANCE!
 MAX_POSITION_SIZE_PERCENT = float(os.getenv('MAX_POSITION_SIZE_PERCENT', '80.0'))
