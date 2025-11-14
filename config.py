@@ -46,7 +46,7 @@ MAX_POSITION_SIZE_PERCENT = 2.0  # Max 2% of portfolio per trade
 STOP_LOSS_PERCENT = 2.0  # 2% stop loss
 TAKE_PROFIT_PERCENT = 4.0  # 4% take profit (2:1 risk-reward ratio)
 MAX_DAILY_LOSS_PERCENT = 5.0  # Stop trading if daily loss exceeds 5%
-MAX_OPEN_POSITIONS = 3  # Maximum number of concurrent positions
+MAX_OPEN_POSITIONS = 20  # Maximum 20 concurrent positions (was 3 - increased for admin!)
 
 # Token Scanner Configuration
 MIN_VOLUME_USD = 1000000  # Minimum 24h volume in USD

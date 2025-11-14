@@ -1541,12 +1541,14 @@ def get_plan_features(plan: str) -> dict:
             "paper_trading": True,
             "real_trading": True,
             "max_real_trades": -1,  # Unlimited
-            "max_bots": 999,
+            "max_bots": -1,  # UNLIMITED! No limits for admin!
             "strategies": ["all"],
             "support": "dedicated",
             "api_access": True,
             "custom_strategies": True,
-            "admin_access": True
+            "admin_access": True,
+            "no_limits": True,  # Admin has zero restrictions
+            "free_access": True  # Everything free for admin
         }
     }
     return features.get(plan, features["free"])
@@ -2634,14 +2636,7 @@ async def publish_strategy(
 # AI ASSISTANT ENDPOINTS
 # ============================================================================
 
-@app.get("/api/ai/suggestions")
-async def get_ai_suggestions(user: dict = Depends(get_current_user)):
-    """Get AI-powered trading suggestions"""
-    from ai_assistant import AITradingAssistant
-    assistant = AITradingAssistant(db)
-    
-    analysis = assistant.analyze_user_performance(user['_id'])
-    return analysis
+# Removed duplicate - using simpler version at line 860
 
 @app.get("/api/ai/performance-analysis")
 async def get_performance_analysis(user: dict = Depends(get_current_user)):
@@ -2931,11 +2926,14 @@ async def startup_event():
                 {"email": admin_email},
                 {"$set": {
                     "role": "admin",
-                    "subscription": "enterprise",
+                    "subscription": "admin",  # Special admin subscription with NO LIMITS!
                     "exchange_connected": True,
                     "paper_trading": False,
                     "is_active": True,
                     "all_features_free": True,  # Admin gets everything free!
+                    "no_bot_limit": True,  # Unlimited bots!
+                    "no_trade_limit": True,  # Unlimited trades!
+                    "no_restrictions": True,  # ZERO restrictions!
                     "balance": 1000.0  # Starting admin balance
                 }}
             )
