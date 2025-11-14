@@ -95,19 +95,19 @@ class EnhancedRiskManager:
     def dynamic_stop_loss(self, symbol, volatility):
         """
         Adjust stop loss based on market volatility
-        Higher volatility = wider stops
+        TIGHTENED FOR USER PROTECTION!
         """
-        base_stop = 0.02  # 2% base
+        base_stop = 0.03  # 3% base (tightened from 2%)
         
         if volatility > 0.05:  # High volatility (5%+)
-            stop_loss = 0.05  # 5% stop
+            stop_loss = 0.05  # 5% stop (MAXIMUM ALLOWED!)
             logger.info(f"{symbol}: High volatility, using 5% stop")
         elif volatility > 0.03:  # Medium volatility (3-5%)
-            stop_loss = 0.03  # 3% stop
-            logger.info(f"{symbol}: Medium volatility, using 3% stop")
+            stop_loss = 0.04  # 4% stop (tightened from 3%)
+            logger.info(f"{symbol}: Medium volatility, using 4% stop")
         else:  # Low volatility (<3%)
-            stop_loss = base_stop  # 2% stop
-            logger.info(f"{symbol}: Low volatility, using 2% stop")
+            stop_loss = base_stop  # 3% stop (tightened from 2%)
+            logger.info(f"{symbol}: Low volatility, using 3% stop")
         
         return stop_loss
     

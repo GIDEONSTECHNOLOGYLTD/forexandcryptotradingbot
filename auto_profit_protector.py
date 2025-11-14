@@ -36,21 +36,21 @@ class AutoProfitProtector:
         # PROFIT PROTECTION SETTINGS
         # ============================================================================
         
-        # Basic Stop Loss / Take Profit
-        self.stop_loss_percent = 15          # Stop loss at -15%
-        self.take_profit_percent = 30        # Take profit at +30%
+        # Basic Stop Loss / Take Profit - TIGHTENED FOR USER PROTECTION!
+        self.stop_loss_percent = 5           # Stop loss at -5% (PROTECTED!)
+        self.take_profit_percent = 15        # Take profit at +15% (realistic)
         
         # Trailing Stop Loss (locks in profits)
         self.trailing_stop_enabled = True
-        self.trailing_stop_activation = 10   # Activate after +10% profit
-        self.trailing_stop_distance = 5      # Trail 5% below peak
+        self.trailing_stop_activation = 5    # Activate after +5% profit (FASTER!)
+        self.trailing_stop_distance = 3      # Trail 3% below peak (TIGHTER!)
         
-        # Partial Profit Taking (secure gains gradually)
+        # Partial Profit Taking (secure gains gradually) - SMALL PROFIT MODE!
         self.partial_profit_enabled = True
         self.partial_profit_levels = [
-            {'percent': 15, 'sell': 25},     # Sell 25% at +15%
-            {'percent': 30, 'sell': 25},     # Sell 25% at +30%
-            {'percent': 50, 'sell': 25},     # Sell 25% at +50%
+            {'percent': 5, 'sell': 50},      # Sell 50% at +5% (QUICK WIN!)
+            {'percent': 10, 'sell': 30},     # Sell 30% at +10%
+            {'percent': 15, 'sell': 20},     # Sell 20% at +15%
         ]
         
         # Time-Based Exit (don't hold too long)
@@ -59,7 +59,7 @@ class AutoProfitProtector:
         
         # Break-Even Stop (move stop to entry after profit)
         self.breakeven_enabled = True
-        self.breakeven_trigger = 8           # Move to breakeven after +8%
+        self.breakeven_trigger = 3           # Move to breakeven after +3% (FASTER!)
         
         # Dynamic Stop Loss (adjust based on volatility)
         self.dynamic_stop_enabled = True
@@ -67,12 +67,12 @@ class AutoProfitProtector:
         
         # Profit Lock (secure minimum profit)
         self.profit_lock_enabled = True
-        self.profit_lock_trigger = 20        # After +20%, lock minimum 10%
-        self.profit_lock_minimum = 10
+        self.profit_lock_trigger = 8         # After +8%, lock minimum 5%
+        self.profit_lock_minimum = 5
         
-        # Emergency Exit (market conditions)
+        # Emergency Exit (market conditions) - TIGHTER FOR PROTECTION!
         self.emergency_exit_enabled = True
-        self.max_drawdown_percent = 25       # Exit if down 25% from peak
+        self.max_drawdown_percent = 8        # Exit if down 8% from peak (PROTECTED!)
         self.volume_drop_threshold = 0.5     # Exit if volume drops 50%
         
         # Smart Exit (AI-based)

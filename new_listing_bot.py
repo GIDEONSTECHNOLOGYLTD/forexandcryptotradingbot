@@ -43,12 +43,12 @@ class NewListingBot:
         self.new_listings = []
         self.trading_enabled = True
         
-        # Default configuration (can be overridden)
+        # Default configuration (can be overridden) - TIGHTENED FOR USER PROTECTION!
         default_config = {
             'check_interval': 60,  # Check every 60 seconds
             'buy_amount_usdt': 50,  # Amount to invest per new listing
-            'take_profit_percent': 30,  # Sell at 30% profit
-            'stop_loss_percent': 15,  # Stop loss at 15% loss
+            'take_profit_percent': 15,  # Sell at 15% profit (realistic target)
+            'stop_loss_percent': 5,  # Stop loss at 5% loss (PROTECTED!)
             'max_hold_time': 3600  # Max hold time: 1 hour
         }
         
