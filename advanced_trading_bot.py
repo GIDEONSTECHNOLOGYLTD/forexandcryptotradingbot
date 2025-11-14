@@ -194,17 +194,55 @@ class AdvancedTradingBot:
     def execute_trade(self, symbol, signal, confidence):
         """Execute a trade (paper or live)"""
         try:
+            # 🔴 CRITICAL: Check REAL balance from exchange BEFORE every trade
+            if not config.PAPER_TRADING:
+                try:
+                    balance_info = self.exchange.fetch_balance()
+                    actual_usdt = balance_info['free']['USDT']
+                    logger.info(f"💰 Current OKX Balance: ${actual_usdt:.2f} USDT")
+                    print(f"{Fore.CYAN}💰 Balance: ${actual_usdt:.2f} USDT{Style.RESET_ALL}")
+                    
+                    # Update risk manager with REAL balance
+                    self.risk_manager.current_capital = actual_usdt
+                    
+                    # Safety check: Don't trade if balance too low
+                    if actual_usdt < 10:
+                        logger.error(f"❌ Balance too low: ${actual_usdt:.2f}")
+                        print(f"{Fore.RED}❌ Balance too low to trade: ${actual_usdt:.2f}{Style.RESET_ALL}")
+                        return False
+                except Exception as e:
+                    logger.error(f"❌ Failed to fetch balance: {e}")
+                    print(f"{Fore.RED}❌ Cannot verify balance - skipping trade for safety{Style.RESET_ALL}")
+                    return False
+            
             # Check if we can trade
             can_trade, reason = self.risk_manager.can_trade()
             if not can_trade:
                 logger.warning(f"Cannot trade: {reason}")
                 print(f"{Fore.RED}❌ Cannot trade: {reason}{Style.RESET_ALL}")
                 
+                # 🚨 EMERGENCY: If daily loss limit hit, send urgent alert
+                if "Daily loss limit" in reason:
+                    logger.error(f"🚨 CIRCUIT BREAKER ACTIVATED - Daily loss limit reached!")
+                    print(f"{Fore.RED}🚨 CIRCUIT BREAKER: Trading stopped for today!{Style.RESET_ALL}")
+                    print(f"{Fore.YELLOW}Daily P&L: ${self.risk_manager.daily_pnl:.2f}{Style.RESET_ALL}")
+                    print(f"{Fore.YELLOW}Open Positions: {len(self.risk_manager.open_positions)}{Style.RESET_ALL}")
+                
                 # Send notification about why trade was blocked
                 if self.telegram and self.telegram.enabled:
                     if "Daily loss limit" in reason:
                         loss_percent = abs((self.risk_manager.daily_pnl / self.risk_manager.current_capital) * 100)
-                        self.telegram.send_daily_loss_limit(loss_percent)
+                        
+                        # Send urgent circuit breaker alert
+                        self.telegram.send_custom_alert(
+                            "🚨 CIRCUIT BREAKER ACTIVATED",
+                            f"🛑 Trading stopped for today!\n\n"
+                            f"Daily Loss: ${self.risk_manager.daily_pnl:.2f} ({loss_percent:.2f}%)\n"
+                            f"Current Balance: ${self.risk_manager.current_capital:.2f}\n"
+                            f"Open Positions: {len(self.risk_manager.open_positions)}\n\n"
+                            f"🔒 Bot will resume tomorrow\n"
+                            f"💡 This protects you from bigger losses"
+                        )
                     else:
                         self.telegram.send_custom_alert(
                             "Trade Blocked",
@@ -212,6 +250,15 @@ class AdvancedTradingBot:
                         )
                 
                 return False
+            
+            # 📊 Show current positions status
+            if len(self.risk_manager.open_positions) > 0:
+                logger.info(f"📊 Open Positions: {len(self.risk_manager.open_positions)}")
+                print(f"\n{Fore.CYAN}📊 Currently Holding:{Style.RESET_ALL}")
+                for pos_symbol, pos in self.risk_manager.open_positions.items():
+                    entry = pos['entry_price']
+                    print(f"  {pos_symbol}: Entry ${entry:.4f}, Amount: {pos['amount']:.6f}")
+                print()
             
             # Get current price
             ticker = self.exchange.fetch_ticker(symbol)
@@ -447,6 +494,72 @@ class AdvancedTradingBot:
                         
             except Exception as e:
                 logger.error(f"Error checking position for {symbol}: {e}")
+    
+    def display_trading_status(self):
+        """Display comprehensive trading status - balance, positions, P&L"""
+        print(f"\n{Fore.GREEN}{'='*70}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}📊 TRADING STATUS - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}{'='*70}{Style.RESET_ALL}\n")
+        
+        # Get real balance if live trading
+        if not config.PAPER_TRADING:
+            try:
+                balance_info = self.exchange.fetch_balance()
+                actual_usdt = balance_info['free']['USDT']
+                locked_usdt = balance_info['used'].get('USDT', 0)
+                total_usdt = balance_info['total']['USDT']
+                
+                print(f"{Fore.CYAN}💰 BALANCE:{Style.RESET_ALL}")
+                print(f"  Available: ${actual_usdt:.2f} USDT")
+                print(f"  In Positions: ${locked_usdt:.2f} USDT")
+                print(f"  Total: ${total_usdt:.2f} USDT\n")
+                
+                self.risk_manager.current_capital = actual_usdt
+            except Exception as e:
+                logger.error(f"Failed to fetch balance: {e}")
+                print(f"{Fore.RED}❌ Could not fetch balance from exchange{Style.RESET_ALL}\n")
+        else:
+            print(f"{Fore.CYAN}💰 PAPER TRADING CAPITAL: ${self.risk_manager.current_capital:.2f}{Style.RESET_ALL}\n")
+        
+        # Daily P&L
+        daily_pnl_color = Fore.GREEN if self.risk_manager.daily_pnl >= 0 else Fore.RED
+        daily_pnl_percent = (self.risk_manager.daily_pnl / self.risk_manager.current_capital) * 100 if self.risk_manager.current_capital > 0 else 0
+        print(f"{Fore.CYAN}📈 TODAY'S PERFORMANCE:{Style.RESET_ALL}")
+        print(f"  Daily P&L: {daily_pnl_color}${self.risk_manager.daily_pnl:.2f} ({daily_pnl_percent:+.2f}%){Style.RESET_ALL}")
+        print(f"  Trades Today: {len([t for t in self.risk_manager.trade_history if t.get('entry_time', datetime.min).date() == datetime.now().date()])}\n")
+        
+        # Open positions
+        print(f"{Fore.CYAN}📊 OPEN POSITIONS: {len(self.risk_manager.open_positions)}{Style.RESET_ALL}")
+        if len(self.risk_manager.open_positions) > 0:
+            for symbol, pos in self.risk_manager.open_positions.items():
+                entry_price = pos['entry_price']
+                amount = pos['amount']
+                position_value = entry_price * amount
+                
+                # Get current price for unrealized P&L
+                try:
+                    ticker = self.exchange.fetch_ticker(symbol)
+                    current_price = ticker['last']
+                    unrealized_pnl = (current_price - entry_price) * amount
+                    unrealized_pnl_percent = ((current_price - entry_price) / entry_price) * 100
+                    pnl_color = Fore.GREEN if unrealized_pnl >= 0 else Fore.RED
+                    
+                    print(f"  {symbol}:")
+                    print(f"    Entry: ${entry_price:.4f} | Current: ${current_price:.4f}")
+                    print(f"    Amount: {amount:.6f} | Value: ${position_value:.2f}")
+                    print(f"    Unrealized P&L: {pnl_color}${unrealized_pnl:.2f} ({unrealized_pnl_percent:+.2f}%){Style.RESET_ALL}")
+                except:
+                    print(f"  {symbol}: Entry ${entry_price:.4f}, Amount: {amount:.6f}")
+        else:
+            print(f"  {Fore.YELLOW}No open positions{Style.RESET_ALL}")
+        
+        print(f"\n{Fore.GREEN}{'='*70}{Style.RESET_ALL}\n")
+        
+        # Risk warnings
+        loss_limit_percent = config.MAX_DAILY_LOSS_PERCENT
+        if daily_pnl_percent <= -loss_limit_percent * 0.7:  # 70% of limit
+            print(f"{Fore.RED}⚠️  WARNING: Approaching daily loss limit ({daily_pnl_percent:.2f}% of {loss_limit_percent}%){Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}💡 Trading will stop at -{loss_limit_percent}% to protect your capital{Style.RESET_ALL}\n")
     
     def display_statistics(self, send_telegram=False):
         """Display trading statistics"""
