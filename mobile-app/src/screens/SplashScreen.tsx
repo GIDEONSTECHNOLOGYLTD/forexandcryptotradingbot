@@ -14,8 +14,8 @@ export default function SplashScreen({ navigation }: any) {
       // Check if onboarding is complete
       const onboardingComplete = await SecureStore.getItemAsync('onboardingComplete');
       
-      // Check if user is logged in
-      const token = await SecureStore.getItemAsync('authToken');
+      // Check if user is logged in (match the key used in LoginScreen)
+      const token = await SecureStore.getItemAsync('token');
 
       // Wait minimum 2 seconds for splash screen
       await new Promise(resolve => setTimeout(resolve, 2000));

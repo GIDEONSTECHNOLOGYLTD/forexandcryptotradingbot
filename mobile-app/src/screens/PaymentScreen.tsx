@@ -167,10 +167,22 @@ export default function PaymentScreen({ navigation }: any) {
   };
 
   const handleInAppPurchase = async (plan: string) => {
-    if (Platform.OS !== 'ios') {
-      Alert.alert('iOS Only', 'In-app purchases are only available on iOS. Please use Card or Crypto payment.');
+    if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
+      Alert.alert('Mobile Only', 'In-app purchases are only available on iOS and Android. Please use Card or Crypto payment.');
       return;
     }
+    
+    // Show coming soon alert for now
+    Alert.alert(
+      'Coming Soon',
+      'In-app purchases are being configured. Please use Card or Crypto payment.',
+      [
+        { text: 'Use Card', onPress: () => setSelectedPaymentMethod('card') },
+        { text: 'Use Crypto', onPress: () => setSelectedPaymentMethod('crypto') },
+        { text: 'OK', style: 'cancel' }
+      ]
+    );
+    return;
 
     try {
       setPurchasing(true);
@@ -180,7 +192,15 @@ export default function PaymentScreen({ navigation }: any) {
       const { responseCode, results } = await InAppPurchases.getProductsAsync([productId]);
       
       if (responseCode !== InAppPurchases.IAPResponseCode.OK || !results || results.length === 0) {
-        Alert.alert('Error', 'Product not available. Please try again.');
+        Alert.alert(
+          'In-App Purchase Unavailable', 
+          'iOS subscriptions are currently being set up. Please use Card or Crypto payment instead.',
+          [
+            { text: 'Use Card Payment', onPress: () => setSelectedPaymentMethod('card') },
+            { text: 'Use Crypto Payment', onPress: () => setSelectedPaymentMethod('crypto') },
+            { text: 'Cancel', style: 'cancel' }
+          ]
+        );
         setPurchasing(false);
         return;
       }
