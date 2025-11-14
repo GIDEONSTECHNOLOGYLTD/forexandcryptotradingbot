@@ -102,6 +102,11 @@ NEW_LISTING_CHECK_INTERVAL = int(os.getenv('NEW_LISTING_CHECK_INTERVAL', '60')) 
 # Admin Auto-Trader Configuration
 ADMIN_MIN_TRADE_SIZE = float(os.getenv('ADMIN_MIN_TRADE_SIZE', '5'))  # Minimum trade size in USDT (OKX minimum)
 ADMIN_MAX_TRADE_SIZE = float(os.getenv('ADMIN_MAX_TRADE_SIZE', '1000'))  # Maximum trade size per position
-ADMIN_TARGET_PROFIT = float(os.getenv('ADMIN_TARGET_PROFIT', '50'))  # Target profit percentage
-ADMIN_STOP_LOSS = float(os.getenv('ADMIN_STOP_LOSS', '15'))  # Stop loss percentage
+ADMIN_TARGET_PROFIT = float(os.getenv('ADMIN_TARGET_PROFIT', '15'))  # Target profit % - LOWERED for consistent wins!
+ADMIN_STOP_LOSS = float(os.getenv('ADMIN_STOP_LOSS', '5'))  # Stop loss % - Tighter to protect capital
 ADMIN_MOMENTUM_MIN_BALANCE = float(os.getenv('ADMIN_MOMENTUM_MIN_BALANCE', '50'))  # Minimum balance for momentum strategy
+
+# Small Profit Strategy - Accumulate many small wins instead of chasing big gains
+ADMIN_SMALL_PROFIT_MODE = os.getenv('ADMIN_SMALL_PROFIT_MODE', 'true').lower() == 'true'  # Enable small profit accumulation
+ADMIN_SMALL_WIN_TARGET = float(os.getenv('ADMIN_SMALL_WIN_TARGET', '5'))  # Take profit at just 5%! ($0.50 on $10)
+ADMIN_QUICK_EXIT_THRESHOLD = float(os.getenv('ADMIN_QUICK_EXIT_THRESHOLD', '10'))  # Exit at 10% max

@@ -55,18 +55,33 @@ class AdminAutoTrader:
         self.max_loss_per_trade = config.ADMIN_STOP_LOSS
         self.momentum_min_balance = config.ADMIN_MOMENTUM_MIN_BALANCE
         
+        # Small profit accumulation strategy
+        self.small_profit_mode = config.ADMIN_SMALL_PROFIT_MODE
+        self.small_win_target = config.ADMIN_SMALL_WIN_TARGET  # Take profit at 5%
+        self.quick_exit_threshold = config.ADMIN_QUICK_EXIT_THRESHOLD  # Max 10%
+        
+        # Track accumulated small wins
+        self.small_wins_count = 0
+        self.total_small_profits = 0.0
+        
         logger.info(f"💰 Admin Auto-Trader initialized")
         logger.info(f"   Current Balance: ${self.capital:.2f} USDT")
         logger.info(f"   Min Trade: ${self.min_trade_size} | Max Trade: ${self.max_trade_size}")
         
         # Send startup notification
         if self.telegram and self.telegram.enabled:
+            strategy_mode = "💎 SMALL PROFIT MODE" if self.small_profit_mode else "🎯 STANDARD MODE"
+            strategy_details = f"Taking profits at {self.small_win_target}%-{self.quick_exit_threshold}%" if self.small_profit_mode else f"Target: {self.target_profit_per_trade}%"
+            
             self.telegram.send_message(
                 f"🤖 <b>ADMIN AUTO-TRADER STARTED</b>\n\n"
                 f"💰 Current Balance: <b>${self.capital:.2f} USDT</b>\n"
-                f"📊 Min Trade: ${self.min_trade_size} | Max: ${self.max_trade_size}\n"
-                f"🎯 Target Profit: {self.target_profit_per_trade}%\n"
+                f"📊 Min Trade: ${self.min_trade_size} | Max: ${self.max_trade_size}\n\n"
+                f"<b>{strategy_mode}</b>\n"
+                f"✅ {strategy_details}\n"
                 f"🛑 Stop Loss: {self.max_loss_per_trade}%\n\n"
+                f"💡 <b>Many small wins = Big total profit!</b>\n"
+                f"🎯 $0.50 × 10 trades = $5.00 profit\n\n"
                 f"✅ Trading 24/7 - You'll be notified of all trades!"
             )
     
@@ -247,16 +262,43 @@ class AdminAutoTrader:
                 # Check profit protector
                 actions = self.profit_protector.check_position(pos_id, current_price)
                 
-                # Calculate current P&L for AI suggestions
+                # Calculate current P&L for monitoring
                 entry_price = position['entry_price']
                 current_pnl_pct = ((current_price - entry_price) / entry_price) * 100
                 current_pnl_usd = (current_price - entry_price) * position['amount']
                 
-                # AI SUGGESTION: Notify when significant profit (let user decide)
-                if current_pnl_pct >= 20 and current_pnl_pct < self.target_profit_per_trade:
-                    # Send suggestion notification (once per 10% gain to avoid spam)
+                # SMALL PROFIT MODE: Auto-exit at small gains!
+                if self.small_profit_mode:
+                    # Take profit at small win target (5% default)
+                    if current_pnl_pct >= self.small_win_target:
+                        logger.info(f"💎 SMALL WIN! {symbol} up {current_pnl_pct:.1f}% - TAKING PROFIT!")
+                        # Send notification about small win
+                        if self.telegram and self.telegram.enabled:
+                            try:
+                                self.telegram.send_message(
+                                    f"💎 <b>SMALL WIN - AUTO EXIT!</b>\n\n"
+                                    f"🪙 Symbol: <b>{symbol}</b>\n"
+                                    f"📈 Entry: ${entry_price:,.2f}\n"
+                                    f"📊 Exit: ${current_price:,.2f}\n\n"
+                                    f"<b>💰 Profit: +{current_pnl_usd:.2f} USD (+{current_pnl_pct:.1f}%)</b>\n\n"
+                                    f"✅ Small profit taken automatically!\n"
+                                    f"💡 Many small wins = Big total!\n\n"
+                                    f"🎯 Total small wins today: {self.small_wins_count + 1}"
+                                )
+                            except:
+                                pass
+                        
+                        # Execute exit
+                        self.execute_exit(position, current_price, f"Small Win (+{current_pnl_pct:.1f}%)")
+                        self.small_wins_count += 1
+                        self.total_small_profits += current_pnl_usd
+                        continue
+                
+                # AI SUGGESTION: Notify when significant profit (let user decide) - Only in standard mode
+                if not self.small_profit_mode and current_pnl_pct >= 10 and current_pnl_pct < self.target_profit_per_trade:
+                    # Send suggestion notification (once per 5% gain to avoid spam)
                     if not hasattr(position, '_last_suggestion_pct') or \
-                       current_pnl_pct - position.get('_last_suggestion_pct', 0) >= 10:
+                       current_pnl_pct - position.get('_last_suggestion_pct', 0) >= 5:
                         if self.telegram and self.telegram.enabled:
                             try:
                                 self.telegram.send_message(
@@ -310,8 +352,12 @@ class AdminAutoTrader:
             
             logger.info(f"{emoji} Position closed: {symbol} | P&L: {pnl_pct:.2f}% (${pnl_usd:.2f})")
             
-            # Send Telegram notification
+            # Send Telegram notification with accumulated profits
             if self.telegram and self.telegram.enabled:
+                accumulated_msg = ""
+                if self.small_profit_mode and is_profit:
+                    accumulated_msg = f"\n💎 <b>Total accumulated: ${self.total_small_profits:.2f} from {self.small_wins_count} wins!</b>\n"
+                
                 self.telegram.send_message(
                     f"{status_emoji} <b>POSITION CLOSED</b> {emoji}\n\n"
                     f"🪙 Symbol: <b>{symbol}</b>\n"
@@ -322,6 +368,7 @@ class AdminAutoTrader:
                     f"📌 Reason: {reason.upper()}\n"
                     f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}\n\n"
                     f"{'🎉 Great trade!' if is_profit else '⚠️ Review and adjust strategy'}"
+                    f"{accumulated_msg}"
                 )
             
             # Save trade result
