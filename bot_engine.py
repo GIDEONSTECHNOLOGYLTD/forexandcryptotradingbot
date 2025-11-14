@@ -407,7 +407,7 @@ class BotInstance:
                         # Send notification about minimum order size (once per hour to avoid spam)
                         if self.telegram and self.telegram.enabled:
                             if not hasattr(self, '_last_min_order_alert') or \
-                               (datetime.utcnow() - self._last_min_order_alert).seconds > 3600:
+                               (datetime.utcnow() - self._last_min_order_alert).total_seconds() > 3600:
                                 try:
                                     message = (
                                         f"⚠️ **ORDER TOO SMALL**\n\n"

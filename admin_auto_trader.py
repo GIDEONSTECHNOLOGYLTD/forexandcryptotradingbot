@@ -272,9 +272,14 @@ class AdminAutoTrader:
                 actions = self.profit_protector.check_position(pos_id, current_price)
                 
                 # Calculate current P&L for monitoring
-                entry_price = position['entry_price']
+                entry_price = position.get('entry_price', 0)
+                if entry_price <= 0:
+                    logger.warning(f"Invalid entry_price for {symbol}: {entry_price}")
+                    continue
+                
                 current_pnl_pct = ((current_price - entry_price) / entry_price) * 100
-                current_pnl_usd = (current_price - entry_price) * position['amount']
+                amount = position.get('amount', 0)
+                current_pnl_usd = (current_price - entry_price) * amount
                 
                 # SMALL PROFIT MODE: Auto-exit at small gains!
                 if self.small_profit_mode:
@@ -343,14 +348,22 @@ class AdminAutoTrader:
     def execute_exit(self, position, price, reason):
         """Execute full exit"""
         try:
-            symbol = position['symbol']
-            amount = position['amount']
+            symbol = position.get('symbol')
+            amount = position.get('amount', 0)
+            
+            if not symbol or amount <= 0:
+                logger.error(f"Invalid position data for exit: {position}")
+                return
             
             # Place sell order
             order = self.exchange.create_market_order(symbol, 'sell', amount)
             
             # Calculate P&L
-            entry_price = position['entry_price']
+            entry_price = position.get('entry_price', 0)
+            if entry_price <= 0:
+                logger.error(f"Invalid entry_price: {entry_price}")
+                return
+            
             pnl_pct = ((price - entry_price) / entry_price) * 100
             pnl_usd = (price - entry_price) * amount
             
@@ -419,13 +432,20 @@ class AdminAutoTrader:
     def execute_partial_exit(self, position, amount, price):
         """Execute partial exit"""
         try:
-            symbol = position['symbol']
+            symbol = position.get('symbol')
+            if not symbol or amount <= 0:
+                logger.error(f"Invalid partial exit params: symbol={symbol}, amount={amount}")
+                return
             
             # Place sell order
             order = self.exchange.create_market_order(symbol, 'sell', amount)
             
             # Calculate P&L
-            entry_price = position['entry_price']
+            entry_price = position.get('entry_price', 0)
+            if entry_price <= 0:
+                logger.error(f"Invalid entry_price: {entry_price}")
+                return
+            
             pnl_pct = ((price - entry_price) / entry_price) * 100
             pnl_usd = (price - entry_price) * amount
             
