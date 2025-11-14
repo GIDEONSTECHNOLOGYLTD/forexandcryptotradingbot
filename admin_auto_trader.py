@@ -247,6 +247,35 @@ class AdminAutoTrader:
                 # Check profit protector
                 actions = self.profit_protector.check_position(pos_id, current_price)
                 
+                # Calculate current P&L for AI suggestions
+                entry_price = position['entry_price']
+                current_pnl_pct = ((current_price - entry_price) / entry_price) * 100
+                current_pnl_usd = (current_price - entry_price) * position['amount']
+                
+                # AI SUGGESTION: Notify when significant profit (let user decide)
+                if current_pnl_pct >= 20 and current_pnl_pct < self.target_profit_per_trade:
+                    # Send suggestion notification (once per 10% gain to avoid spam)
+                    if not hasattr(position, '_last_suggestion_pct') or \
+                       current_pnl_pct - position.get('_last_suggestion_pct', 0) >= 10:
+                        if self.telegram and self.telegram.enabled:
+                            try:
+                                self.telegram.send_message(
+                                    f"💡 <b>AI SUGGESTION - CONSIDER SELLING</b>\n\n"
+                                    f"🪙 Symbol: <b>{symbol}</b>\n"
+                                    f"📈 Entry: ${entry_price:,.2f}\n"
+                                    f"📊 Current: ${current_price:,.2f}\n\n"
+                                    f"<b>💰 Current Profit: +{current_pnl_usd:.2f} USD (+{current_pnl_pct:.1f}%)</b>\n\n"
+                                    f"🎯 Target: +{self.target_profit_per_trade}%\n\n"
+                                    f"💡 <b>You're up {current_pnl_pct:.1f}%!</b>\n"
+                                    f"✅ Consider taking profit now\n"
+                                    f"⚠️ Or hold for {self.target_profit_per_trade}% target\n\n"
+                                    f"🤖 You decide - I'm just suggesting!"
+                                )
+                                position['_last_suggestion_pct'] = current_pnl_pct
+                                logger.info(f"📱 Sent AI profit suggestion at {current_pnl_pct:.1f}%")
+                            except:
+                                pass
+                
                 # Execute any actions
                 if actions:
                     for action in actions:

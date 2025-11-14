@@ -536,6 +536,37 @@ class BotInstance:
                     except:
                         pass
                 
+                # AI SUGGESTIONS: Monitor position and suggest exits
+                if position and not signal:
+                    entry_price = position['entry']
+                    current_pnl_pct = ((price - entry_price) / entry_price) * 100
+                    current_pnl_usd = (price - entry_price) * position['amount']
+                    
+                    # Send AI suggestion at 15%, 25%, 35% profit milestones
+                    if current_pnl_pct >= 15 and current_pnl_pct < 45:
+                        milestone = int(current_pnl_pct / 10) * 10  # Round to nearest 10%
+                        if not hasattr(position, '_last_ai_suggestion') or \
+                           milestone > position.get('_last_ai_suggestion', 0):
+                            if self.telegram and self.telegram.enabled:
+                                try:
+                                    message = (
+                                        f"💡 <b>AI PROFIT SUGGESTION</b>\n\n"
+                                        f"🪙 Symbol: <b>{self.symbol}</b>\n"
+                                        f"📈 Entry: ${entry_price:,.2f}\n"
+                                        f"📊 Current: ${price:,.2f}\n\n"
+                                        f"<b>💰 Profit: +{current_pnl_usd:.2f} USD (+{current_pnl_pct:.1f}%)</b>\n\n"
+                                        f"💡 You're up {current_pnl_pct:.1f}%!\n"
+                                        f"✅ Consider selling now to lock profit\n"
+                                        f"⚠️ Or wait - but target may not be reached\n\n"
+                                        f"🤖 Your choice! I'm watching the trade.\n"
+                                        f"Bot ID: {self.bot_id}"
+                                    )
+                                    self.telegram.send_message(message)
+                                    position['_last_ai_suggestion'] = milestone
+                                    logger.info(f"📱 AI profit suggestion sent at {current_pnl_pct:.1f}%")
+                                except:
+                                    pass
+                
                 elif signal == 'sell' and position:
                     # Exit signal from strategy
                     should_exit = True

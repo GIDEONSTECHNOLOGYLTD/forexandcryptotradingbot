@@ -308,6 +308,33 @@ class NewListingBot:
                 # Check time limit
                 time_held = (datetime.utcnow() - trade['entry_time']).total_seconds()
                 
+                # AI SUGGESTION: Notify at profit milestones for new listings
+                if pnl_percent >= 15 and pnl_percent < self.take_profit_percent:
+                    milestone = int(pnl_percent / 5) * 5  # Every 5% (15%, 20%, 25%)
+                    if not trade.get('_last_ai_suggestion') or \
+                       milestone > trade.get('_last_ai_suggestion', 0):
+                        if self.telegram and self.telegram.enabled:
+                            try:
+                                minutes_held = time_held / 60
+                                message = (
+                                    f"💡 <b>AI SUGGESTION - NEW LISTING</b>\n\n"
+                                    f"🪙 Symbol: <b>{symbol}</b>\n"
+                                    f"📈 Entry: ${trade['entry_price']:.6f}\n"
+                                    f"📊 Current: ${current_price:.6f}\n\n"
+                                    f"<b>💰 Profit: +{pnl_usdt:.2f} USD (+{pnl_percent:.1f}%)</b>\n\n"
+                                    f"🎯 Target: +{self.take_profit_percent}%\n"
+                                    f"⏱️ Held: {minutes_held:.1f} minutes\n\n"
+                                    f"💡 <b>New listing is up {pnl_percent:.1f}%!</b>\n"
+                                    f"✅ Consider selling now (bird in hand)\n"
+                                    f"⚠️ New listings can crash fast!\n\n"
+                                    f"🤖 Your decision!"
+                                )
+                                self.telegram.send_message(message)
+                                trade['_last_ai_suggestion'] = milestone
+                                logger.info(f"📱 AI suggestion sent for {symbol} at {pnl_percent:.1f}%")
+                            except Exception as e:
+                                logger.warning(f"⚠️ Failed to send AI suggestion: {e}")
+                
                 should_close = False
                 close_reason = ""
                 
