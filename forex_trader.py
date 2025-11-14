@@ -152,8 +152,13 @@ class ForexTrader:
                     'paper_trading': True
                 }
             else:
-                # Real trade
-                order = self.exchange.create_market_order(symbol, side, amount)
+                # Real trade - SPOT ONLY (no margin/leverage)
+                order = self.exchange.create_market_order(
+                    symbol, 
+                    side, 
+                    amount,
+                    params={'tdMode': 'cash'}  # SPOT trading only - prevents debt
+                )
                 return order
                 
         except Exception as e:

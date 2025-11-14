@@ -201,11 +201,12 @@ class UserTradingBot:
                     'status': 'closed'
                 }
             else:
-                # Real order
+                # Real order - SPOT ONLY (no margin/leverage)
                 order = self.exchange.create_market_order(
                     symbol,
                     signal['signal'],
-                    position_size
+                    position_size,
+                    params={'tdMode': 'cash'}  # SPOT trading only - prevents debt
                 )
             
             # Calculate take profit
