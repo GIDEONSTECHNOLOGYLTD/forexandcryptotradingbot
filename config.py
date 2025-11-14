@@ -79,7 +79,7 @@ MACD_SIGNAL = 9
 
 # Backtesting
 BACKTEST_DAYS = 90  # Number of days to backtest
-INITIAL_CAPITAL = 10000  # Starting capital for backtesting
+INITIAL_CAPITAL = float(os.getenv('INITIAL_CAPITAL', '10000'))  # Starting capital (configurable)
 
 # Logging
 LOG_LEVEL = 'INFO'
@@ -98,3 +98,10 @@ NEW_LISTING_TAKE_PROFIT = float(os.getenv('NEW_LISTING_TAKE_PROFIT', '30'))  # T
 NEW_LISTING_STOP_LOSS = float(os.getenv('NEW_LISTING_STOP_LOSS', '15'))  # Stop loss % (default 15%)
 NEW_LISTING_MAX_HOLD = int(os.getenv('NEW_LISTING_MAX_HOLD', '3600'))  # Max hold time in seconds (default 1 hour)
 NEW_LISTING_CHECK_INTERVAL = int(os.getenv('NEW_LISTING_CHECK_INTERVAL', '60'))  # Check interval in seconds
+
+# Admin Auto-Trader Configuration
+ADMIN_MIN_TRADE_SIZE = float(os.getenv('ADMIN_MIN_TRADE_SIZE', '5'))  # Minimum trade size in USDT (OKX minimum)
+ADMIN_MAX_TRADE_SIZE = float(os.getenv('ADMIN_MAX_TRADE_SIZE', '1000'))  # Maximum trade size per position
+ADMIN_TARGET_PROFIT = float(os.getenv('ADMIN_TARGET_PROFIT', '50'))  # Target profit percentage
+ADMIN_STOP_LOSS = float(os.getenv('ADMIN_STOP_LOSS', '15'))  # Stop loss percentage
+ADMIN_MOMENTUM_MIN_BALANCE = float(os.getenv('ADMIN_MOMENTUM_MIN_BALANCE', '50'))  # Minimum balance for momentum strategy

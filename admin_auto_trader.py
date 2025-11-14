@@ -1,6 +1,6 @@
 """
 ADMIN AUTO-TRADER - Fully Automated Trading While You Sleep
-Grows your $16.78 to $1,000+ automatically
+Grows your capital automatically with full Telegram notifications
 """
 import ccxt
 import time
@@ -9,6 +9,7 @@ from datetime import datetime
 from mongodb_database import MongoTradingDatabase
 from new_listing_bot import NewListingBot
 from auto_profit_protector import AutoProfitProtector
+from telegram_notifier import TelegramNotifier
 import config
 
 logging.basicConfig(level=logging.INFO)
@@ -43,14 +44,31 @@ class AdminAutoTrader:
         self.new_listing_bot = NewListingBot(self.exchange, self.db, config=new_listing_config)
         self.profit_protector = AutoProfitProtector(self.exchange, self.db)
         
-        # Trading settings (optimized for $16.78)
-        self.capital = 16.78
-        self.min_trade_size = 5  # OKX minimum
-        self.max_trade_size = 15  # Leave $1.78 buffer
-        self.target_profit_per_trade = 50  # 50% profit target
-        self.max_loss_per_trade = 15  # 15% stop loss
+        # Initialize Telegram notifications
+        self.telegram = TelegramNotifier()
         
-        logger.info(f"💰 Admin Auto-Trader initialized with ${self.capital}")
+        # Trading settings - dynamically fetched from actual balance
+        self.capital = self.get_current_balance()  # Get real balance instead of hardcoded
+        self.min_trade_size = config.ADMIN_MIN_TRADE_SIZE
+        self.max_trade_size = config.ADMIN_MAX_TRADE_SIZE
+        self.target_profit_per_trade = config.ADMIN_TARGET_PROFIT
+        self.max_loss_per_trade = config.ADMIN_STOP_LOSS
+        self.momentum_min_balance = config.ADMIN_MOMENTUM_MIN_BALANCE
+        
+        logger.info(f"💰 Admin Auto-Trader initialized")
+        logger.info(f"   Current Balance: ${self.capital:.2f} USDT")
+        logger.info(f"   Min Trade: ${self.min_trade_size} | Max Trade: ${self.max_trade_size}")
+        
+        # Send startup notification
+        if self.telegram and self.telegram.enabled:
+            self.telegram.send_message(
+                f"🤖 <b>ADMIN AUTO-TRADER STARTED</b>\n\n"
+                f"💰 Current Balance: <b>${self.capital:.2f} USDT</b>\n"
+                f"📊 Min Trade: ${self.min_trade_size} | Max: ${self.max_trade_size}\n"
+                f"🎯 Target Profit: {self.target_profit_per_trade}%\n"
+                f"🛑 Stop Loss: {self.max_loss_per_trade}%\n\n"
+                f"✅ Trading 24/7 - You'll be notified of all trades!"
+            )
     
     def get_current_balance(self):
         """Get current USDT balance"""
@@ -71,6 +89,18 @@ class AdminAutoTrader:
         # Ensure minimum trade size
         if trade_size < self.min_trade_size:
             logger.warning(f"⚠️ Balance too low for trading: ${balance:.2f}")
+            # Send low balance notification (only once per hour to avoid spam)
+            if self.telegram and self.telegram.enabled:
+                if not hasattr(self, '_last_low_balance_alert') or \
+                   (datetime.utcnow() - self._last_low_balance_alert).seconds > 3600:
+                    self.telegram.send_message(
+                        f"⚠️ <b>BALANCE TOO LOW</b>\n\n"
+                        f"Current Balance: <b>${balance:.2f} USDT</b>\n"
+                        f"Minimum Required: ${self.min_trade_size} USDT\n\n"
+                        f"💡 Add funds to continue trading!\n"
+                        f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                    )
+                    self._last_low_balance_alert = datetime.utcnow()
             return 0
         
         return trade_size
@@ -82,11 +112,8 @@ class AdminAutoTrader:
         """
         logger.info("🔍 Scanning for new listings...")
         
-        # Configure new listing bot for small capital
-        self.new_listing_bot.buy_amount_usdt = self.max_trade_size
-        self.new_listing_bot.take_profit_percent = self.target_profit_per_trade
-        self.new_listing_bot.stop_loss_percent = self.max_loss_per_trade
-        self.new_listing_bot.max_hold_time = 3600  # 1 hour max
+        # New listing bot already configured from config.py
+        # No need to override unless balance-specific adjustment needed
         
         # Start monitoring
         try:
@@ -98,10 +125,10 @@ class AdminAutoTrader:
     def run_momentum_strategy(self, balance):
         """
         Run momentum trading on BTC/ETH
-        Use this when balance > $50
+        Use this when balance meets minimum threshold
         """
-        if balance < 50:
-            logger.info("💡 Balance too low for momentum trading, using new listing strategy")
+        if balance < self.momentum_min_balance:
+            logger.info(f"💡 Balance ${balance:.2f} below ${self.momentum_min_balance} minimum for momentum trading")
             return
         
         logger.info("📈 Running momentum strategy on BTC/USDT...")
@@ -123,6 +150,10 @@ class AdminAutoTrader:
                 # Place order
                 order = self.exchange.create_market_order('BTC/USDT', 'buy', amount)
                 
+                # Calculate targets
+                take_profit_price = price * (1 + self.target_profit_per_trade / 100)
+                stop_loss_price = price * (1 - self.max_loss_per_trade / 100)
+                
                 # Add to profit protector
                 position_id = self.profit_protector.add_position(
                     symbol='BTC/USDT',
@@ -133,6 +164,20 @@ class AdminAutoTrader:
                 )
                 
                 logger.info(f"✅ Position opened and protected: {position_id}")
+                
+                # Send Telegram notification
+                if self.telegram and self.telegram.enabled:
+                    self.telegram.send_message(
+                        f"🟢 <b>MOMENTUM TRADE - BUY</b>\n\n"
+                        f"🪙 Symbol: <b>BTC/USDT</b>\n"
+                        f"💰 Entry Price: <b>${price:,.2f}</b>\n"
+                        f"📊 Amount: {amount:.6f} BTC\n"
+                        f"💵 Trade Size: ${trade_size:.2f} USDT\n\n"
+                        f"🎯 Take Profit: ${take_profit_price:,.2f} (+{self.target_profit_per_trade}%)\n"
+                        f"🛑 Stop Loss: ${stop_loss_price:,.2f} (-{self.max_loss_per_trade}%)\n\n"
+                        f"📈 Strategy: Momentum\n"
+                        f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                    )
                 
                 # Save trade
                 self.db.db['admin_trades'].insert_one({
@@ -147,6 +192,15 @@ class AdminAutoTrader:
                 
         except Exception as e:
             logger.error(f"❌ Error in momentum strategy: {e}")
+            # Send error notification
+            if self.telegram and self.telegram.enabled:
+                self.telegram.send_message(
+                    f"⚠️ <b>ERROR IN MOMENTUM STRATEGY</b>\n\n"
+                    f"Failed to execute momentum trade.\n"
+                    f"Error: {str(e)}\n\n"
+                    f"Bot will continue monitoring.\n"
+                    f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                )
     
     def is_momentum_bullish(self, symbol):
         """
@@ -220,7 +274,26 @@ class AdminAutoTrader:
             pnl_pct = ((price - entry_price) / entry_price) * 100
             pnl_usd = (price - entry_price) * amount
             
-            logger.info(f"✅ Position closed: {symbol} | P&L: {pnl_pct:.2f}% (${pnl_usd:.2f})")
+            # Determine emoji and message tone
+            is_profit = pnl_usd > 0
+            emoji = "✅" if is_profit else "❌"
+            status_emoji = "🟢" if is_profit else "🔴"
+            
+            logger.info(f"{emoji} Position closed: {symbol} | P&L: {pnl_pct:.2f}% (${pnl_usd:.2f})")
+            
+            # Send Telegram notification
+            if self.telegram and self.telegram.enabled:
+                self.telegram.send_message(
+                    f"{status_emoji} <b>POSITION CLOSED</b> {emoji}\n\n"
+                    f"🪙 Symbol: <b>{symbol}</b>\n"
+                    f"📈 Entry: ${entry_price:,.2f}\n"
+                    f"📉 Exit: ${price:,.2f}\n"
+                    f"📊 Amount: {amount:.6f}\n\n"
+                    f"<b>{'💰 PROFIT' if is_profit else '💸 LOSS'}: {pnl_usd:+.2f} USD ({pnl_pct:+.2f}%)</b>\n\n"
+                    f"📌 Reason: {reason.upper()}\n"
+                    f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}\n\n"
+                    f"{'🎉 Great trade!' if is_profit else '⚠️ Review and adjust strategy'}"
+                )
             
             # Save trade result
             self.db.db['admin_trades'].insert_one({
@@ -240,6 +313,14 @@ class AdminAutoTrader:
             
         except Exception as e:
             logger.error(f"❌ Error executing exit: {e}")
+            # Send error notification
+            if self.telegram and self.telegram.enabled:
+                self.telegram.send_message(
+                    f"🚨 <b>ERROR CLOSING POSITION</b>\n\n"
+                    f"Symbol: {position.get('symbol', 'Unknown')}\n"
+                    f"Error: {str(e)}\n\n"
+                    f"⚠️ Check your exchange account immediately!"
+                )
     
     def execute_partial_exit(self, position, amount, price):
         """Execute partial exit"""
@@ -256,11 +337,32 @@ class AdminAutoTrader:
             
             logger.info(f"💰 Partial profit taken: {symbol} | {pnl_pct:.2f}% (${pnl_usd:.2f})")
             
+            # Send Telegram notification
+            if self.telegram and self.telegram.enabled:
+                self.telegram.send_message(
+                    f"💰 <b>PARTIAL PROFIT TAKEN</b>\n\n"
+                    f"🪙 Symbol: <b>{symbol}</b>\n"
+                    f"📈 Entry: ${entry_price:,.2f}\n"
+                    f"📉 Exit: ${price:,.2f}\n"
+                    f"📊 Amount Sold: {amount:.6f}\n\n"
+                    f"<b>💵 Profit: +{pnl_usd:.2f} USD (+{pnl_pct:.2f}%)</b>\n\n"
+                    f"✅ Locking in profits! Position still open.\n"
+                    f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                )
+            
             # Update position
             position['amount'] -= amount
             
         except Exception as e:
             logger.error(f"❌ Error executing partial exit: {e}")
+            # Send error notification
+            if self.telegram and self.telegram.enabled:
+                self.telegram.send_message(
+                    f"🚨 <b>ERROR - PARTIAL EXIT FAILED</b>\n\n"
+                    f"Symbol: {position.get('symbol', 'Unknown')}\n"
+                    f"Error: {str(e)}\n\n"
+                    f"⚠️ Manual intervention may be required!"
+                )
     
     def run_forever(self):
         """
@@ -287,8 +389,8 @@ class AdminAutoTrader:
                 # Monitor existing positions
                 self.monitor_positions()
                 
-                # Run momentum strategy if balance is high enough
-                if balance >= 50:
+                # Run momentum strategy if balance meets minimum
+                if balance >= self.momentum_min_balance:
                     self.run_momentum_strategy(balance)
                 
                 # Sleep for 1 minute
@@ -296,9 +398,25 @@ class AdminAutoTrader:
                 
             except KeyboardInterrupt:
                 logger.info("⏹️ Stopping Admin Auto-Trader...")
+                # Send stop notification
+                if self.telegram and self.telegram.enabled:
+                    self.telegram.send_message(
+                        f"🛑 <b>ADMIN AUTO-TRADER STOPPED</b>\n\n"
+                        f"Trading bot has been stopped manually.\n\n"
+                        f"⏰ {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}"
+                    )
                 break
             except Exception as e:
                 logger.error(f"❌ Error in main loop: {e}")
+                # Send critical error notification
+                if self.telegram and self.telegram.enabled:
+                    self.telegram.send_message(
+                        f"🚨 <b>CRITICAL ERROR IN AUTO-TRADER</b>\n\n"
+                        f"Error: {str(e)}\n\n"
+                        f"Bot will retry in 60 seconds.\n"
+                        f"⚠️ Check logs if this persists!\n\n"
+                        f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                    )
                 time.sleep(60)  # Wait before retrying
 
 if __name__ == "__main__":
