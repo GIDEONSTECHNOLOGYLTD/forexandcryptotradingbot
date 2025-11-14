@@ -224,12 +224,24 @@ class BotInstance:
                 logger.warning(f"⚠️ Could not initialize Telegram: {e}")
         
         # Track last loss time to prevent immediate re-buy
-        self.last_loss_time = None
-        self.cooldown_minutes = 15  # Wait 15 min after loss before buying again
+        # Load from database if exists (persist across restarts)
+        bot_state = self.db.db['bot_states'].find_one({'bot_id': bot_id})
+        if bot_state:
+            self.last_loss_time = bot_state.get('last_loss_time')
+            self.price_history = bot_state.get('price_history', [])
+            self.daily_losses = bot_state.get('daily_losses', 0.0)
+            self.last_reset_date = bot_state.get('last_reset_date')
+            logger.info(f"✅ Restored bot state from database")
+        else:
+            self.last_loss_time = None
+            self.price_history = []
+            self.daily_losses = 0.0
+            self.last_reset_date = datetime.utcnow().date()
         
-        # Track price history for trend detection
-        self.price_history = []  # Last 10 prices
+        self.cooldown_minutes = 15  # Base cooldown after loss
         self.max_history_length = 10
+        self.max_daily_loss_percent = 5.0  # Stop trading if lose 5% in one day
+        self.slippage_tolerance = 0.5  # Max 0.5% slippage allowed
     
     def _init_strategy(self):
         """Initialize trading strategy based on config"""
@@ -301,11 +313,24 @@ class BotInstance:
                 # Return buy/sell based on momentum as fallback
                 return 'buy' if not position else 'hold'
             
-            # Basic momentum (default)
+            # Basic momentum (default) - IMPROVED
             else:
                 # Smart momentum: check conditions before buying
                 if not position:
-                    # Check cooldown period after last loss
+                    # Reset daily losses at start of new day
+                    today = datetime.utcnow().date()
+                    if self.last_reset_date != today:
+                        self.daily_losses = 0.0
+                        self.last_reset_date = today
+                        logger.info(f"📅 New day - reset daily loss counter")
+                    
+                    # Check daily loss limit
+                    daily_loss_pct = (self.daily_losses / self.balance) * 100 if self.balance > 0 else 0
+                    if daily_loss_pct >= self.max_daily_loss_percent:
+                        logger.warning(f"🛑 Daily loss limit reached: {daily_loss_pct:.2f}% (max {self.max_daily_loss_percent}%)")
+                        return 'hold'  # Stop trading for today
+                    
+                    # Check cooldown period after last loss (dynamic based on loss size)
                     if self.last_loss_time:
                         minutes_since_loss = (datetime.utcnow() - self.last_loss_time).total_seconds() / 60
                         if minutes_since_loss < self.cooldown_minutes:
@@ -313,31 +338,75 @@ class BotInstance:
                             return 'hold'  # Don't buy yet
                     
                     # Check trend: only buy if price is stable or rising
-                    if len(self.price_history) >= 3:
-                        recent_prices = self.price_history[-3:]
-                        # Check if price is in downtrend (each price lower than previous)
-                        is_falling = all(recent_prices[i] > recent_prices[i+1] for i in range(len(recent_prices)-1))
+                    if len(self.price_history) >= 5:
+                        recent_prices = self.price_history[-5:]
+                        # Calculate trend: average of last 5 vs average of previous 5
+                        if len(self.price_history) >= 10:
+                            recent_avg = sum(self.price_history[-5:]) / 5
+                            previous_avg = sum(self.price_history[-10:-5]) / 5
+                            trend_change = ((recent_avg - previous_avg) / previous_avg) * 100
+                            
+                            if trend_change < -1.0:  # Downtrend if avg dropped >1%
+                                logger.info(f"📉 Downtrend detected: {trend_change:.2f}% - waiting")
+                                return 'hold'
                         
+                        # Also check immediate trend (last 3 prices)
+                        last_3 = self.price_history[-3:]
+                        is_falling = all(last_3[i] > last_3[i+1] for i in range(len(last_3)-1))
                         if is_falling:
-                            logger.info(f"📉 Price falling - waiting for stability")
-                            return 'hold'  # Don't buy in downtrend
+                            logger.info(f"📉 Price falling (last 3) - waiting for stability")
+                            return 'hold'
                     
-                    # Safe to buy: no cooldown, price not falling
+                    # Safe to buy: no cooldown, price not falling, within daily limit
                     return 'buy'
                 else:
                     # Have position: check exit conditions
                     entry_price = position.get('entry', 0)
+                    profit_pct = ((current_price - entry_price) / entry_price) * 100
                     
-                    # Take profit at 4%
-                    if current_price >= entry_price * 1.04:
-                        logger.info(f"✅ Taking profit: +{((current_price/entry_price - 1) * 100):.2f}%")
-                        self.last_loss_time = None  # Reset cooldown
+                    # Dynamic take profit: 2-3% based on volatility
+                    if len(self.price_history) >= 10:
+                        # Calculate volatility (standard deviation of returns)
+                        returns = [(self.price_history[i] - self.price_history[i-1]) / self.price_history[i-1] 
+                                   for i in range(1, len(self.price_history))]
+                        volatility = (sum(r**2 for r in returns) / len(returns)) ** 0.5
+                        
+                        # Lower volatility = tighter take profit (2%)
+                        # Higher volatility = wider take profit (3%)
+                        take_profit_pct = 2.0 if volatility < 0.02 else 3.0
+                    else:
+                        take_profit_pct = 2.5  # Default
+                    
+                    # Take profit
+                    if profit_pct >= take_profit_pct:
+                        logger.info(f"✅ Taking profit: +{profit_pct:.2f}% (target: {take_profit_pct:.1f}%)")
+                        self.last_loss_time = None  # Reset cooldown on win
+                        self._save_bot_state()  # Persist state
                         return 'sell'
                     
-                    # Stop loss at 2% - but set cooldown
-                    elif current_price <= entry_price * 0.98:
-                        logger.warning(f"⚠️ Stop loss triggered: -{((1 - current_price/entry_price) * 100):.2f}%")
-                        self.last_loss_time = datetime.utcnow()  # Start cooldown
+                    # Dynamic stop loss: 3% base, but tighter if market crashing
+                    stop_loss_pct = 3.0
+                    if len(self.price_history) >= 5:
+                        last_5_change = ((self.price_history[-1] - self.price_history[-5]) / self.price_history[-5]) * 100
+                        if last_5_change < -2.0:  # Market dropping fast
+                            stop_loss_pct = 2.0  # Tighter stop loss
+                    
+                    # Stop loss
+                    if profit_pct <= -stop_loss_pct:
+                        loss_amount = abs((current_price - entry_price) * position.get('amount', 0))
+                        logger.warning(f"⚠️ Stop loss: {profit_pct:.2f}% (limit: {stop_loss_pct:.1f}%)")
+                        
+                        # Dynamic cooldown: bigger loss = longer cooldown
+                        if abs(profit_pct) >= 5:
+                            self.cooldown_minutes = 30  # 30 min for big loss
+                        elif abs(profit_pct) >= 3:
+                            self.cooldown_minutes = 20  # 20 min for medium loss
+                        else:
+                            self.cooldown_minutes = 15  # 15 min for small loss
+                        
+                        self.last_loss_time = datetime.utcnow()
+                        self.daily_losses += loss_amount
+                        self._save_bot_state()  # Persist state
                         return 'sell'
                     
                 return 'hold'
@@ -368,10 +437,30 @@ class BotInstance:
             except Exception as e:
                 logger.warning(f"⚠️ Failed to send bot started notification: {e}")
     
+    def _save_bot_state(self):
+        """Persist bot state to database (survives restarts)"""
+        try:
+            self.db.db['bot_states'].update_one(
+                {'bot_id': self.bot_id},
+                {'$set': {
+                    'last_loss_time': self.last_loss_time,
+                    'price_history': self.price_history,
+                    'daily_losses': self.daily_losses,
+                    'last_reset_date': self.last_reset_date,
+                    'updated_at': datetime.utcnow()
+                }},
+                upsert=True
+            )
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to save bot state: {e}")
+    
     async def stop(self):
         self.running = False
         if self.task:
             self.task.cancel()
+        
+        # Save final state
+        self._save_bot_state()
         
         # Send Telegram notification for bot stopped
         if self.telegram and self.telegram.enabled:
@@ -483,14 +572,51 @@ class BotInstance:
                     else:
                         # CRITICAL: Use spot market order (no margin/leverage)
                         try:
+                            expected_price = price
                             order = self.exchange.create_market_order(
                                 self.symbol, 
                                 'buy', 
                                 amount,
                                 params={'tdMode': 'cash'}  # SPOT trading only!
                             )
-                            logger.info(f"💰 SPOT BUY (NO LEVERAGE): {amount:.6f} {self.symbol} @ ${price:.2f}")
+                            
+                            # Check for slippage
+                            actual_fill_price = order.get('average') or order.get('price') or price
+                            slippage_pct = abs((actual_fill_price - expected_price) / expected_price) * 100
+                            
+                            if slippage_pct > self.slippage_tolerance:
+                                logger.warning(f"⚠️ HIGH SLIPPAGE: {slippage_pct:.2f}% (expected ${expected_price:.2f}, got ${actual_fill_price:.2f})")
+                                # If slippage too high, consider it a warning but continue
+                                if self.telegram and self.telegram.enabled:
+                                    try:
+                                        self.telegram.send_message(
+                                            f"⚠️ High slippage detected!\n"
+                                            f"Expected: ${expected_price:.2f}\n"
+                                            f"Actual: ${actual_fill_price:.2f}\n"
+                                            f"Slippage: {slippage_pct:.2f}%"
+                                        )
+                                    except:
+                                        pass
+                            
+                            logger.info(f"💰 SPOT BUY (NO LEVERAGE): {amount:.6f} {self.symbol} @ ${actual_fill_price:.2f}")
                             logger.info(f"📊 Used ${order_value:.2f} of your ${actual_usdt:.2f} balance")
+                            price = actual_fill_price  # Use actual fill price going forward
+                            
+                        except ccxt.ExchangeNotAvailable as e:
+                            logger.error(f"🔧 Exchange maintenance: {e}")
+                            logger.info("⏸️ Waiting 5 minutes for exchange to come back online...")
+                            await asyncio.sleep(300)  # Wait 5 minutes
+                            continue
+                        except ccxt.NetworkError as e:
+                            logger.error(f"🌐 Network error: {e}")
+                            logger.info("⏸️ Retrying in 30 seconds...")
+                            await asyncio.sleep(30)
+                            continue
+                        except ccxt.InsufficientFunds as e:
+                            logger.error(f"💸 Insufficient funds: {e}")
+                            logger.error("🛑 Stopping bot - not enough balance")
+                            self.running = False
+                            break
                         except Exception as order_error:
                             logger.error(f"❌ ORDER FAILED: {str(order_error)}")
                             # Send immediate notification for order failure
@@ -803,6 +929,9 @@ class BotInstance:
                             pass
                         
                         position = None
+                
+                # Save bot state periodically (every loop = every 60 seconds)
+                self._save_bot_state()
                 
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
