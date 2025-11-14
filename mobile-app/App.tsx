@@ -7,8 +7,8 @@ if (typeof global.process === 'undefined') {
   global.process = { env: {}, nextTick: (fn) => setTimeout(fn, 0) } as any;
 }
 
-import React, { useState, useEffect } from 'react';
-import { View, Text } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, AppState } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -16,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 import { UserProvider } from './src/context/UserContext';
+import { BiometricService } from './src/services/biometrics';
+import * as LocalAuthentication from 'expo-local-authentication';
 
 // Screens
 import SplashScreen from './src/screens/SplashScreen';
@@ -121,10 +123,90 @@ class ErrorBoundary extends React.Component<
 }
 
 export default function App() {
+  const appState = useRef(AppState.currentState);
+  const navigationRef = useRef<any>(null);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', async (nextAppState) => {
+      // App coming back to foreground from background
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        console.log('📱 App has come to the foreground!');
+        await handleAppForeground();
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  const handleAppForeground = async () => {
+    // Prevent multiple authentication prompts
+    if (isAuthenticating) return;
+    
+    try {
+      setIsAuthenticating(true);
+      
+      // Check if user is logged in (MUST match api.ts key!)
+      const token = await SecureStore.getItemAsync('authToken');
+      if (!token) {
+        console.log('⚠️ No token, user needs to login');
+        return;
+      }
+
+      // Check if biometric is enabled
+      const biometricEnabled = await BiometricService.isBiometricLoginEnabled();
+      if (!biometricEnabled) {
+        console.log('ℹ️ Biometric not enabled, skipping');
+        return;
+      }
+
+      // Check if biometric is available
+      const available = await BiometricService.isAvailable();
+      if (!available) {
+        console.log('⚠️ Biometric not available on this device');
+        return;
+      }
+
+      // Check current route - only trigger if on MainTabs (not on Login screen)
+      const currentRoute = navigationRef.current?.getCurrentRoute()?.name;
+      if (currentRoute === 'Login' || currentRoute === 'Signup' || currentRoute === 'Splash') {
+        console.log('ℹ️ On auth screen, skipping biometric');
+        return;
+      }
+
+      console.log('🔐 Triggering biometric authentication...');
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Authenticate to continue',
+        fallbackLabel: 'Use Passcode',
+        cancelLabel: 'Cancel',
+        disableDeviceFallback: false,
+      });
+
+      if (!result.success) {
+        console.log('❌ Biometric authentication failed, logging out');
+        // Clear token and navigate to login (MUST match api.ts key!)
+        await SecureStore.deleteItemAsync('authToken');
+        navigationRef.current?.navigate('Login');
+      } else {
+        console.log('✅ Biometric authentication successful!');
+      }
+    } catch (error) {
+      console.error('Error in biometric foreground check:', error);
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
   return (
     <ErrorBoundary>
       <UserProvider>
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
           <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Splash">
           {/* Initial Screens */}
           <Stack.Screen name="Splash" component={SplashScreen} />
