@@ -43,7 +43,7 @@ API_URL = os.getenv('API_URL', 'http://localhost:8000')
 
 # Trading Configuration
 TIMEFRAME = '1h'  # 1 hour candles
-PAPER_TRADING = False  # REAL TRADING ENABLED! Bot will use real money and make real profits! 💰
+PAPER_TRADING = True  # PAPER MODE - Testing profit/loss logic! Switch to False only after confirming it works! ⚠️
 
 # Risk Management - ULTRA SAFE FOR SMALL BALANCE!
 MAX_POSITION_SIZE_PERCENT = float(os.getenv('MAX_POSITION_SIZE_PERCENT', '80.0'))

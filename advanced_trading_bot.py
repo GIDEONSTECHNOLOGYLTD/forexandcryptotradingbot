@@ -313,6 +313,13 @@ class AdvancedTradingBot:
                 ticker = self.exchange.fetch_ticker(symbol)
                 current_price = ticker['last']
                 
+                # Get position for profit calculation
+                position = self.risk_manager.open_positions.get(symbol)
+                if position:
+                    entry_price = position['entry_price']
+                    profit_pct = ((current_price - entry_price) / entry_price) * 100
+                    logger.info(f"Checking {symbol}: Entry ${entry_price:.4f}, Current ${current_price:.4f}, Profit {profit_pct:+.2f}%")
+                
                 # Check if stop-loss or take-profit hit
                 exit_reason = self.risk_manager.check_stop_loss_take_profit(symbol, current_price)
                 
@@ -507,9 +514,9 @@ class AdvancedTradingBot:
                 if datetime.now().hour == 0 and datetime.now().minute < 2:
                     self.display_statistics(send_telegram=True)
                 
-                # Wait before next iteration
-                print(f"\n{Fore.YELLOW}⏳ Waiting 60 seconds...{Style.RESET_ALL}")
-                time.sleep(60)
+                # Wait before next iteration (REDUCED to 10 seconds for faster profit taking!)
+                print(f"\n{Fore.YELLOW}⏳ Waiting 10 seconds...{Style.RESET_ALL}")
+                time.sleep(10)  # Changed from 60 to 10 - CHECK PRICES MORE FREQUENTLY!
                 
         except KeyboardInterrupt:
             print(f"\n\n{Fore.YELLOW}🛑 Stopping trading bot...{Style.RESET_ALL}")
