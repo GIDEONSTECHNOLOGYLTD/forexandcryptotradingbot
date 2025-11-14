@@ -196,6 +196,12 @@ class AdvancedTradingBot:
             can_trade, reason = self.risk_manager.can_trade()
             if not can_trade:
                 logger.warning(f"Cannot trade: {reason}")
+                
+                # Send daily loss limit notification if that's the reason
+                if "Daily loss limit" in reason and self.telegram and self.telegram.enabled:
+                    loss_percent = abs((self.risk_manager.daily_pnl / self.risk_manager.current_capital) * 100)
+                    self.telegram.send_daily_loss_limit(loss_percent)
+                
                 return False
             
             # Get current price
@@ -379,6 +385,12 @@ class AdvancedTradingBot:
                         print(f"\n{Fore.GREEN}✅ BUY Signal detected for {symbol}{Style.RESET_ALL}")
                         print(f"Confidence: {confidence:.1f}%")
                         print(f"Market Condition: {market_condition}")
+                        
+                        # Send signal alert notification
+                        if self.telegram and self.telegram.enabled:
+                            current_price = self.exchange.fetch_ticker(symbol)['last']
+                            self.telegram.send_signal_alert(symbol, signal, confidence, current_price)
+                        
                         self.execute_trade(symbol, signal, confidence)
                 
                 # Display statistics every 5 iterations
