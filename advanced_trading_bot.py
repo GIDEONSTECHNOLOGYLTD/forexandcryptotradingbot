@@ -175,6 +175,11 @@ class AdvancedTradingBot:
             # Generate signal
             signal, confidence = self.strategy.generate_signal(df)
             
+            # FORCE BUY ONLY for spot trading with USDT balance
+            # Cannot sell/short without owning the coins first!
+            if signal == 'sell':
+                signal = 'hold'  # Skip sell signals, we need USDT to buy first!
+            
             # Get market condition
             market_condition = self.strategy.analyze_market_condition(df)
             
@@ -229,13 +234,21 @@ class AdvancedTradingBot:
                 return True
                 
             else:
-                # Live trading
+                # Live trading - SPOT ONLY!
                 logger.warning("Live trading is enabled!")
                 
                 if signal == 'buy':
-                    order = self.exchange.create_market_buy_order(symbol, position_size)
+                    # SPOT BUY with USDT - no margin/leverage!
+                    order = self.exchange.create_market_buy_order(
+                        symbol, 
+                        position_size,
+                        params={'tdMode': 'cash'}  # SPOT trading only!
+                    )
+                    logger.info(f"✅ SPOT BUY executed: {symbol} - {position_size} @ ${current_price}")
                 else:
-                    order = self.exchange.create_market_sell_order(symbol, position_size)
+                    # Should never reach here with our fix, but just in case
+                    logger.warning(f"⚠️ Skipping SELL signal for {symbol} - need to BUY first!")
+                    return False
                 
                 logger.info(f"Live trade executed: {order}")
                 
@@ -362,8 +375,8 @@ class AdvancedTradingBot:
                     
                     signal, confidence, market_condition = self.analyze_symbol(symbol)
                     
-                    if signal and confidence >= 60:
-                        print(f"\n{Fore.GREEN}✅ Signal detected for {symbol}{Style.RESET_ALL}")
+                    if signal == 'buy' and confidence >= 60:  # Only BUY signals!
+                        print(f"\n{Fore.GREEN}✅ BUY Signal detected for {symbol}{Style.RESET_ALL}")
                         print(f"Market Condition: {market_condition}")
                         self.execute_trade(symbol, signal, confidence)
                 
