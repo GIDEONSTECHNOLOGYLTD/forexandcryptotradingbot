@@ -222,6 +222,14 @@ class BotInstance:
                     logger.info(f"⚠️ Telegram configured but not enabled (check .env)")
             except Exception as e:
                 logger.warning(f"⚠️ Could not initialize Telegram: {e}")
+        
+        # Track last loss time to prevent immediate re-buy
+        self.last_loss_time = None
+        self.cooldown_minutes = 15  # Wait 15 min after loss before buying again
+        
+        # Track price history for trend detection
+        self.price_history = []  # Last 10 prices
+        self.max_history_length = 10
     
     def _init_strategy(self):
         """Initialize trading strategy based on config"""
@@ -295,17 +303,43 @@ class BotInstance:
             
             # Basic momentum (default)
             else:
-                # Simple momentum: buy low, sell high
+                # Smart momentum: check conditions before buying
                 if not position:
-                    return 'buy'  # Open position
+                    # Check cooldown period after last loss
+                    if self.last_loss_time:
+                        minutes_since_loss = (datetime.utcnow() - self.last_loss_time).total_seconds() / 60
+                        if minutes_since_loss < self.cooldown_minutes:
+                            logger.info(f"⏸️ Cooldown active: {self.cooldown_minutes - minutes_since_loss:.1f} min remaining")
+                            return 'hold'  # Don't buy yet
+                    
+                    # Check trend: only buy if price is stable or rising
+                    if len(self.price_history) >= 3:
+                        recent_prices = self.price_history[-3:]
+                        # Check if price is in downtrend (each price lower than previous)
+                        is_falling = all(recent_prices[i] > recent_prices[i+1] for i in range(len(recent_prices)-1))
+                        
+                        if is_falling:
+                            logger.info(f"📉 Price falling - waiting for stability")
+                            return 'hold'  # Don't buy in downtrend
+                    
+                    # Safe to buy: no cooldown, price not falling
+                    return 'buy'
                 else:
-                    # Check take profit (4%)
+                    # Have position: check exit conditions
                     entry_price = position.get('entry', 0)
-                    if current_price >= entry_price * 1.04:  # 4% profit
+                    
+                    # Take profit at 4%
+                    if current_price >= entry_price * 1.04:
+                        logger.info(f"✅ Taking profit: +{((current_price/entry_price - 1) * 100):.2f}%")
+                        self.last_loss_time = None  # Reset cooldown
                         return 'sell'
-                    # Check stop loss (2%)
-                    elif current_price <= entry_price * 0.98:  # 2% loss
+                    
+                    # Stop loss at 2% - but set cooldown
+                    elif current_price <= entry_price * 0.98:
+                        logger.warning(f"⚠️ Stop loss triggered: -{((1 - current_price/entry_price) * 100):.2f}%")
+                        self.last_loss_time = datetime.utcnow()  # Start cooldown
                         return 'sell'
+                    
                 return 'hold'
                 
         except Exception as e:
@@ -373,6 +407,12 @@ class BotInstance:
                         await asyncio.sleep(10)
                         continue
                     price = ticker['last']
+                    
+                    # Track price history for trend detection
+                    self.price_history.append(price)
+                    if len(self.price_history) > self.max_history_length:
+                        self.price_history.pop(0)  # Keep only last 10 prices
+                    
                 except Exception as e:
                     logger.error(f"Failed to fetch ticker for {self.symbol}: {e}")
                     await asyncio.sleep(10)
