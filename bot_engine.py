@@ -364,8 +364,20 @@ class BotInstance:
         
         while self.running:
             try:
-                ticker = self.exchange.fetch_ticker(self.symbol)
-                price = ticker['last']
+                # Validate symbol exists on exchange before trading
+                try:
+                    ticker = self.exchange.fetch_ticker(self.symbol)
+                    price = ticker['last']
+                except ccxt.BadSymbol as e:
+                    logger.error(f"🚨 Invalid symbol: {self.symbol} - {str(e)}")
+                    logger.error(f"💡 Tip: MATIC is now POL on OKX. Use POL/USDT instead.")
+                    # Stop bot - symbol doesn't exist
+                    self.running = False
+                    break
+                except Exception as ticker_error:
+                    logger.warning(f"⚠️ Error fetching ticker for {self.symbol}: {ticker_error}")
+                    await asyncio.sleep(10)
+                    continue
                 
                 # Execute strategy-specific logic
                 signal = self._get_trading_signal(price, position)

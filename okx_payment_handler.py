@@ -71,18 +71,31 @@ class OKXPaymentHandler:
     def get_all_usdt_networks(self) -> List[Dict]:
         """Get all supported USDT networks on OKX"""
         return [
-            {'network': 'TRC20', 'name': 'Tron (TRC20)', 'fee': 'Low (~1 USDT)'},
-            {'network': 'ERC20', 'name': 'Ethereum (ERC20)', 'fee': 'High (~5-20 USDT)'},
-            {'network': 'BEP20', 'name': 'BSC (BEP20)', 'fee': 'Low (~0.5 USDT)'},
-            {'network': 'Polygon', 'name': 'Polygon', 'fee': 'Very Low (~0.1 USDT)'},
-            {'network': 'Arbitrum', 'name': 'Arbitrum One', 'fee': 'Low (~1 USDT)'},
-            {'network': 'Optimism', 'name': 'Optimism', 'fee': 'Low (~1 USDT)'},
-            {'network': 'Avalanche', 'name': 'Avalanche C-Chain', 'fee': 'Low (~0.5 USDT)'},
+            {'network': 'TRC20', 'name': 'Tron (TRC20)', 'fee': 'Low (~1 USDT)', 'okx_name': 'USDT-TRC20'},
+            {'network': 'ERC20', 'name': 'Ethereum (ERC20)', 'fee': 'High (~5-20 USDT)', 'okx_name': 'USDT-ERC20'},
+            {'network': 'BEP20', 'name': 'BSC (BEP20)', 'fee': 'Low (~0.5 USDT)', 'okx_name': 'USDT-BSC'},
+            {'network': 'Polygon', 'name': 'Polygon (MATIC)', 'fee': 'Very Low (~0.1 USDT)', 'okx_name': 'USDT-Polygon'},
+            {'network': 'Arbitrum', 'name': 'Arbitrum One', 'fee': 'Low (~1 USDT)', 'okx_name': 'USDT-Arbitrum One'},
+            {'network': 'Optimism', 'name': 'Optimism', 'fee': 'Low (~1 USDT)', 'okx_name': 'USDT-Optimism'},
+            {'network': 'Avalanche', 'name': 'Avalanche C-Chain', 'fee': 'Low (~0.5 USDT)', 'okx_name': 'USDT-Avalanche C-Chain'},
         ]
     
     def create_deposit_address(self, crypto: str, network: str = None) -> Dict:
         """Get deposit address for crypto from admin OKX account"""
         try:
+            # OKX network mapping - EXACT names from OKX API
+            # Note: OKX uses just the network name, NOT "USDT-NetworkName" format!
+            okx_network_map = {
+                'TRC20': 'TRC20',
+                'ERC20': 'ERC20',
+                'BEP20': 'BSC',  # OKX calls it just "BSC"!
+                'Polygon': 'Polygon',
+                'Arbitrum': 'Arbitrum One',
+                'Optimism': 'Optimism',
+                'Avalanche': 'Avalanche C-Chain',
+                'BSC': 'BSC',
+            }
+            
             # Default networks for each crypto
             default_networks = {
                 'BTC': 'Bitcoin',
@@ -94,10 +107,18 @@ class OKXPaymentHandler:
             }
             
             # Use provided network or default
-            selected_network = network or default_networks.get(crypto, 'default')
+            selected_network = network or default_networks.get(crypto, 'TRC20')
+            
+            # Map to OKX's actual network name if it's USDT
+            if crypto == 'USDT' and selected_network in okx_network_map:
+                okx_network_name = okx_network_map[selected_network]
+            else:
+                okx_network_name = selected_network
+            
+            print(f"🔍 Fetching deposit address: {crypto} on {okx_network_name}")
             
             # Fetch deposit address with network
-            deposit_address = self.exchange.fetch_deposit_address(crypto, {'network': selected_network})
+            deposit_address = self.exchange.fetch_deposit_address(crypto, {'network': okx_network_name})
             
             return {
                 'address': deposit_address['address'],
@@ -106,14 +127,36 @@ class OKXPaymentHandler:
                 'crypto': crypto
             }
         except Exception as e:
-            print(f"Error creating deposit address for {crypto} on {network}: {e}")
-            # For testing/demo, return a clear message
+            error_msg = str(e)
+            print(f"❌ Error creating deposit address for {crypto} on {network}: {error_msg}")
+            
+            # Check if it's a network name issue
+            if 'network' in error_msg.lower() or 'chain' in error_msg.lower():
+                return {
+                    'address': 'ERROR_INVALID_NETWORK',
+                    'tag': None,
+                    'network': network,
+                    'crypto': crypto,
+                    'error': f'Network "{network}" not supported by OKX. Please try TRC20, ERC20, or Polygon.'
+                }
+            
+            # Check if it's an API credentials issue
+            if 'api' in error_msg.lower() or 'auth' in error_msg.lower() or 'key' in error_msg.lower():
+                return {
+                    'address': 'ERROR_API_SETUP',
+                    'tag': None,
+                    'network': network,
+                    'crypto': crypto,
+                    'error': 'OKX API not configured. Contact support: ceo@gideonstechnology.com'
+                }
+            
+            # General error
             return {
-                'address': 'DEMO_MODE_CONTACT_SUPPORT',
+                'address': 'ERROR_CONTACT_SUPPORT',
                 'tag': None,
-                'network': network or default_networks.get(crypto, 'default'),
+                'network': network,
                 'crypto': crypto,
-                'error': 'Deposit address generation requires OKX account verification'
+                'error': f'Unable to generate address. Error: {error_msg}. Contact support.'
             }
     
     def initialize_payment(self, user_id: str, plan: str, crypto: str, network: str = None) -> Dict:
