@@ -260,6 +260,12 @@ class UserTradingBot:
                 ticker = self.exchange.fetch_ticker(symbol)
                 current_price = ticker['last']
                 
+                # Validate position exists
+                position = self.risk_manager.open_positions.get(symbol)
+                if not position:
+                    logger.warning(f"⚠️ Position for {symbol} not found, skipping...")
+                    continue
+                
                 # Update position
                 self.risk_manager.update_position(symbol, current_price)
                 
@@ -277,19 +283,57 @@ class UserTradingBot:
         try:
             position = self.risk_manager.open_positions.get(symbol)
             if not position:
+                logger.warning(f"⚠️ Position for {symbol} not found, cannot close")
                 return
             
-            # Execute close order
-            if not self.paper_trading:
-                side = 'sell' if position['signal'] == 'buy' else 'buy'
-                self.exchange.create_market_order(
-                    symbol,
-                    side,
-                    position['position_size']
-                )
+            # Verify position has valid amount
+            position_size = position.get('position_size', 0)
+            if position_size <= 0:
+                logger.error(f"❌ Invalid position size for {symbol}: {position_size}")
+                return
             
-            # Close position in risk manager
-            self.risk_manager.close_position(symbol, exit_price, reason)
+            # Execute close order on exchange (if not paper trading)
+            sell_order_success = True
+            if not self.paper_trading:
+                try:
+                    side = 'sell' if position['signal'] == 'buy' else 'buy'
+                    order = self.exchange.create_market_order(
+                        symbol,
+                        side,
+                        position_size,
+                        params={'tdMode': 'cash'}  # SPOT trading only
+                    )
+                    logger.info(f"✅ Close order executed on exchange: {symbol} - {position_size} @ ${exit_price:.4f}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to execute close order for {symbol}: {e}")
+                    sell_order_success = False
+                    
+                    # Try to send notification if available
+                    try:
+                        from telegram_notifier import TelegramNotifier
+                        telegram = TelegramNotifier()
+                        if telegram.enabled:
+                            telegram.send_custom_alert(
+                                "⚠️ CLOSE ORDER FAILED",
+                                f"Failed to close {symbol} on exchange!\n\n"
+                                f"Reason: {reason}\n"
+                                f"Price: ${exit_price:.4f}\n"
+                                f"Amount: {position_size}\n\n"
+                                f"Error: {str(e)}\n\n"
+                                f"⚠️ Check your exchange manually!"
+                            )
+                    except:
+                        pass
+                    
+                    # Don't close position internally if exchange order failed
+                    return
+            
+            # Close position in risk manager (only if paper trading OR sell succeeded)
+            if sell_order_success or self.paper_trading:
+                self.risk_manager.close_position(symbol, exit_price, reason)
+            else:
+                logger.error(f"❌ Skipping internal close for {symbol} - exchange order failed")
+                return
             
             # Update trade in database
             self.db.trades.update_one(

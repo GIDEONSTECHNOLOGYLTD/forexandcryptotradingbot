@@ -333,10 +333,21 @@ class AutoProfitProtector:
                 # Close entire position
                 logger.info(f"{Fore.YELLOW}🔔 {action['reason']}{Style.RESET_ALL}")
                 
-                order = self.exchange.create_market_sell_order(
-                    symbol,
-                    action['amount']
-                )
+                # Validate amount
+                if action['amount'] <= 0:
+                    logger.error(f"❌ Invalid amount for {symbol}: {action['amount']}")
+                    return False
+                
+                try:
+                    order = self.exchange.create_market_sell_order(
+                        symbol,
+                        action['amount'],
+                        params={'tdMode': 'cash'}  # SPOT trading only
+                    )
+                    logger.info(f"✅ Close order executed on exchange: {symbol}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to execute close order for {symbol}: {e}")
+                    return False
                 
                 # Calculate final P&L
                 pnl = (action['price'] - position['entry_price']) * action['amount']
@@ -360,10 +371,21 @@ class AutoProfitProtector:
                 # Close partial position
                 logger.info(f"{Fore.CYAN}📊 {action['reason']}{Style.RESET_ALL}")
                 
-                order = self.exchange.create_market_sell_order(
-                    symbol,
-                    action['amount']
-                )
+                # Validate amount
+                if action['amount'] <= 0:
+                    logger.error(f"❌ Invalid partial amount for {symbol}: {action['amount']}")
+                    return False
+                
+                try:
+                    order = self.exchange.create_market_sell_order(
+                        symbol,
+                        action['amount'],
+                        params={'tdMode': 'cash'}  # SPOT trading only
+                    )
+                    logger.info(f"✅ Partial close order executed on exchange: {symbol}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to execute partial close for {symbol}: {e}")
+                    return False
                 
                 partial_pnl = (action['price'] - position['entry_price']) * action['amount']
                 

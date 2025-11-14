@@ -216,7 +216,11 @@ class NewListingBot:
             # Place market buy order
             logger.info(f"{Fore.GREEN}🛒 BUYING {symbol}: {amount:.4f} @ ${current_price:.6f}{Style.RESET_ALL}")
             
-            order = self.exchange.create_market_buy_order(symbol, amount)
+            order = self.exchange.create_market_buy_order(
+                symbol,
+                amount,
+                params={'tdMode': 'cash'}  # SPOT trading only
+            )
             
             # Calculate targets
             take_profit_price = current_price * (1 + self.take_profit_percent / 100)
@@ -380,10 +384,36 @@ class NewListingBot:
                     # Close position
                     logger.info(f"{Fore.YELLOW}🔔 Closing {symbol}: {close_reason}{Style.RESET_ALL}")
                     
-                    close_order = self.exchange.create_market_sell_order(
-                        symbol,
-                        trade['amount']
-                    )
+                    # Validate trade has amount
+                    if 'amount' not in trade or trade['amount'] <= 0:
+                        logger.error(f"❌ Invalid trade amount for {symbol}, cannot close")
+                        continue
+                    
+                    try:
+                        close_order = self.exchange.create_market_sell_order(
+                            symbol,
+                            trade['amount'],
+                            params={'tdMode': 'cash'}  # SPOT trading only
+                        )
+                        logger.info(f"✅ Close order executed on exchange: {symbol}")
+                    except Exception as e:
+                        logger.error(f"❌ Failed to execute close order for {symbol}: {e}")
+                        
+                        # Send Telegram alert if available
+                        if self.telegram and self.telegram.enabled:
+                            try:
+                                self.telegram.send_custom_alert(
+                                    "⚠️ NEW LISTING CLOSE FAILED",
+                                    f"Failed to close new listing {symbol}!\n\n"
+                                    f"Reason: {close_reason}\n"
+                                    f"Price: ${current_price:.6f}\n"
+                                    f"Amount: {trade['amount']}\n\n"
+                                    f"Error: {str(e)}\n\n"
+                                    f"⚠️ Check your exchange manually!"
+                                )
+                            except:
+                                pass
+                        continue  # Skip updating trade status if close failed
                     
                     trade['status'] = 'closed'
                     trade['exit_price'] = current_price
@@ -527,14 +557,21 @@ class NewListingBot:
                 logger.info("🔄 Closing remaining open trades...")
                 for trade in open_trades:
                     if trade['status'] == 'open':
+                        # Validate amount before closing
+                        if 'amount' not in trade or trade['amount'] <= 0:
+                            logger.error(f"❌ Invalid amount for {trade['symbol']}, skipping close")
+                            continue
+                        
                         try:
                             self.exchange.create_market_sell_order(
                                 trade['symbol'],
-                                trade['amount']
+                                trade['amount'],
+                                params={'tdMode': 'cash'}  # SPOT trading only
                             )
                             logger.info(f"✅ Closed {trade['symbol']}")
                         except Exception as e:
-                            logger.error(f"Error closing {trade['symbol']}: {e}")
+                            logger.error(f"❌ Error closing {trade['symbol']}: {e}")
+                            logger.warning(f"⚠️ Check {trade['symbol']} on exchange manually!")
     
     def _save_trade(self, trade: Dict):
         """Save trade to database"""

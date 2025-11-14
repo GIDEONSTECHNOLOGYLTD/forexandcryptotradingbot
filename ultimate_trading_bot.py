@@ -305,9 +305,17 @@ class UltimateTradingBot:
         logger.warning("LIVE TRADING ENABLED!")
         
         if signal == 'buy':
-            order = self.exchange.create_market_buy_order(symbol, position_size)
+            order = self.exchange.create_market_buy_order(
+                symbol,
+                position_size,
+                params={'tdMode': 'cash'}  # SPOT trading only
+            )
         else:
-            order = self.exchange.create_market_sell_order(symbol, position_size)
+            order = self.exchange.create_market_sell_order(
+                symbol,
+                position_size,
+                params={'tdMode': 'cash'}  # SPOT trading only
+            )
         
         logger.info(f"Live trade executed: {order}")
     
