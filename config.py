@@ -46,7 +46,7 @@ MAX_POSITION_SIZE_PERCENT = 80.0  # Use 80% per trade (with $16, trade $12-13)
 STOP_LOSS_PERCENT = 2.0  # 2% stop loss (max $0.32 loss per trade)
 TAKE_PROFIT_PERCENT = 4.0  # 4% take profit ($0.64 profit per trade)
 MAX_DAILY_LOSS_PERCENT = 5.0  # Stop trading if daily loss exceeds 5% ($0.80 max loss per day)
-MAX_OPEN_POSITIONS = 1  # Only 1 position at a time with small balance! SAFE!
+MAX_OPEN_POSITIONS = 10  # ADMIN MODE: Multiple positions for profit! 🚀 (Regular users limited by subscription)
 
 # Token Scanner Configuration
 MIN_VOLUME_USD = 1000000  # Minimum 24h volume in USD
