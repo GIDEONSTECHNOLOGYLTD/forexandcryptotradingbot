@@ -233,9 +233,131 @@ Trading bot has been stopped manually.
 
 ---
 
+### 11. 🚨 BUY Order Failed
+**When**: Exchange rejects your buy order
+**You receive**:
+```
+🚨 ORDER FAILED 💰
+
+Symbol: BTC/USDT
+Side: BUY
+Amount: 0.002000
+Price: $45,000.00
+Value: $90.00
+
+Error: insufficient balance
+
+💡 Add funds to your OKX account!
+Bot ID: bot_123
+```
+
+**Perfect Clarity**:
+- ✅ Exactly what failed
+- ✅ Real error from exchange
+- ✅ If it's balance issue (💰) or other issue (⚠️)
+- ✅ Clear action needed
+
+---
+
+### 12. 🚨 SELL Order Failed
+**When**: Exchange rejects your sell order
+**You receive**:
+```
+🚨 SELL ORDER FAILED
+
+Symbol: BTC/USDT
+Amount: 0.002000
+Price: $47,000.00
+Reason: TAKE_PROFIT
+
+Error: Order rejected by exchange
+
+⚠️ Position still open! Check exchange.
+Bot ID: bot_123
+```
+
+**Perfect Clarity**:
+- ✅ Sell didn't execute
+- ✅ Position still open
+- ✅ Why it was trying to sell
+- ✅ What went wrong
+
+---
+
+### 13. 🛑 SELL Blocked for Safety
+**When**: Bot prevents unsafe short/margin trade
+**You receive**:
+```
+🛑 SELL BLOCKED FOR SAFETY
+
+Symbol: BTC/USDT
+Tried to sell: 0.002000 BTC
+Actually own: 0.000100 BTC
+
+⚠️ This would have been a SHORT/MARGIN trade!
+🛡️ Bot prevented unsafe trade.
+
+Bot ID: bot_123
+```
+
+**Perfect Clarity**:
+- ✅ Bot protected you
+- ✅ Shows what you actually own
+- ✅ Explains why it was blocked
+- ✅ No accidental shorts/margin
+
+---
+
+### 14. ⚠️ Order Too Small
+**When**: Order below $5 minimum (once per hour)
+**You receive**:
+```
+⚠️ ORDER TOO SMALL
+
+Symbol: BTC/USDT
+Order Value: $3.50
+Minimum Required: $5.00
+
+💡 Add more funds to make larger trades!
+Current Balance: $4.00
+
+Bot ID: bot_123
+```
+
+**Perfect Clarity**:
+- ✅ Why order didn't execute
+- ✅ Current balance shown
+- ✅ How much you need
+- ✅ Won't spam (once per hour)
+
+---
+
+### 15. 🚨 Balance Check Failed
+**When**: Can't verify you own coins before sell
+**You receive**:
+```
+🚨 SELL BLOCKED - BALANCE CHECK FAILED
+
+Symbol: BTC/USDT
+Error: Connection timeout
+
+🛡️ Bot blocked sell for safety.
+⚠️ Check your exchange connection.
+
+Bot ID: bot_123
+```
+
+**Perfect Clarity**:
+- ✅ Safety-first approach
+- ✅ Why check failed
+- ✅ What to verify
+- ✅ No unsafe trades
+
+---
+
 ## 📊 NEW LISTING BOT NOTIFICATIONS (Already Implemented)
 
-### 11. 🚀 New Listing Bot Started
+### 16. 🚀 New Listing Bot Started
 ```
 🚀 New Listing Bot Started!
 
@@ -247,7 +369,7 @@ Trading bot has been stopped manually.
 👀 Monitoring OKX for new listings...
 ```
 
-### 12. 🚨 New Listing Detected & Bought
+### 17. 🚨 New Listing Detected & Bought
 ```
 🚨 NEW LISTING DETECTED!
 🟢 BUY Executed
@@ -264,7 +386,7 @@ Trading bot has been stopped manually.
 ✅ Position opened successfully!
 ```
 
-### 13. 🔴 New Listing Position Closed
+### 18. 🔴 New Listing Position Closed
 ```
 🟢 NEW LISTING CLOSED!
 🔴 SELL Executed
@@ -286,7 +408,7 @@ Trading bot has been stopped manually.
 
 ## 🎯 ADVANCED TRADING BOT NOTIFICATIONS (Already Implemented)
 
-### 14. 🤖 Advanced Bot Started
+### 19. 🤖 Advanced Bot Started
 ```
 🤖 BOT STARTED
 
@@ -295,7 +417,7 @@ Trading bot is now running and monitoring markets.
 2025-11-14 08:49:31
 ```
 
-### 15. 🔔 Signal Detected
+### 20. 🔔 Signal Detected
 ```
 🔔 SIGNAL DETECTED
 
@@ -307,7 +429,7 @@ Price: $2,500.00
 2025-11-14 09:00:00
 ```
 
-### 16. 🟢 Advanced Bot Trade
+### 21. 🟢 Advanced Bot Trade
 ```
 🟢 TRADE EXECUTED
 
@@ -323,7 +445,7 @@ Take Profit: $2,600.00
 2025-11-14 09:00:15
 ```
 
-### 17. ✅ Advanced Bot Position Closed
+### 22. ✅ Advanced Bot Position Closed
 ```
 ✅ POSITION CLOSED
 
@@ -337,7 +459,7 @@ PnL: $2.00 (+4.00%)
 2025-11-14 09:30:00
 ```
 
-### 18. ⚠️ Daily Loss Limit
+### 23. ⚠️ Daily Loss Limit
 ```
 ⚠️ DAILY LOSS LIMIT REACHED
 
@@ -347,7 +469,7 @@ Bot has stopped trading for today.
 2025-11-14 14:00:00
 ```
 
-### 19. 🛑 Advanced Bot Stopped
+### 24. 🛑 Advanced Bot Stopped
 ```
 🛑 BOT STOPPED
 
