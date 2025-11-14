@@ -64,6 +64,15 @@ class AdminAutoTrader:
         self.small_wins_count = 0
         self.total_small_profits = 0.0
         
+        # CRITICAL PROTECTION: Daily loss limits
+        self.daily_loss_limit = config.ADMIN_DAILY_LOSS_LIMIT
+        self.max_consecutive_losses = config.ADMIN_MAX_CONSECUTIVE_LOSSES
+        self.daily_pnl = 0.0
+        self.starting_balance = self.capital
+        self.consecutive_losses = 0
+        self.last_reset_date = datetime.utcnow().date()
+        self.trading_paused = False
+        
         logger.info(f"💰 Admin Auto-Trader initialized")
         logger.info(f"   Current Balance: ${self.capital:.2f} USDT")
         logger.info(f"   Min Trade: ${self.min_trade_size} | Max Trade: ${self.max_trade_size}")
@@ -350,6 +359,15 @@ class AdminAutoTrader:
             emoji = "✅" if is_profit else "❌"
             status_emoji = "🟢" if is_profit else "🔴"
             
+            # Track consecutive losses for daily limit protection
+            if is_profit:
+                self.consecutive_losses = 0  # Reset on win
+            else:
+                self.consecutive_losses += 1  # Increment on loss
+            
+            # Update daily P&L
+            self.daily_pnl += pnl_usd
+            
             logger.info(f"{emoji} Position closed: {symbol} | P&L: {pnl_pct:.2f}% (${pnl_usd:.2f})")
             
             # Send Telegram notification with accumulated profits
@@ -440,6 +458,55 @@ class AdminAutoTrader:
                     f"⚠️ Manual intervention may be required!"
                 )
     
+    def check_daily_limits(self):
+        """CRITICAL: Check daily loss limits to protect users!"""
+        # Reset daily tracking if new day
+        current_date = datetime.utcnow().date()
+        if current_date > self.last_reset_date:
+            self.daily_pnl = 0.0
+            self.consecutive_losses = 0
+            self.last_reset_date = current_date
+            self.trading_paused = False
+            self.starting_balance = self.get_current_balance()
+            logger.info("📅 New day - Daily limits reset")
+        
+        # Check daily loss limit
+        current_balance = self.get_current_balance()
+        daily_loss_pct = ((current_balance - self.starting_balance) / self.starting_balance) * 100 if self.starting_balance > 0 else 0
+        
+        if daily_loss_pct <= -self.daily_loss_limit:
+            if not self.trading_paused:
+                self.trading_paused = True
+                logger.error(f"🚨 DAILY LOSS LIMIT! Lost {daily_loss_pct:.2f}%")
+                if self.telegram and self.telegram.enabled:
+                    self.telegram.send_message(
+                        f"🚨 <b>DAILY LOSS LIMIT REACHED!</b>\n\n"
+                        f"Lost: {abs(daily_loss_pct):.2f}% today\n"
+                        f"Limit: {self.daily_loss_limit}%\n\n"
+                        f"Starting: ${self.starting_balance:.2f}\n"
+                        f"Current: ${current_balance:.2f}\n"
+                        f"Loss: ${abs(self.starting_balance - current_balance):.2f}\n\n"
+                        f"🛑 <b>TRADING PAUSED UNTIL TOMORROW!</b>\n\n"
+                        f"⏰ Resumes: Tomorrow 00:00 UTC"
+                    )
+            return False
+        
+        # Check consecutive loss limit
+        if self.consecutive_losses >= self.max_consecutive_losses:
+            logger.warning(f"⚠️ {self.consecutive_losses} consecutive losses - Taking 1 hour break")
+            if self.telegram and self.telegram.enabled:
+                self.telegram.send_message(
+                    f"⚠️ <b>CONSECUTIVE LOSS LIMIT</b>\n\n"
+                    f"Losses in a row: {self.consecutive_losses}\n\n"
+                    f"🛑 Pausing for 1 hour\n"
+                    f"⏰ Resumes at: {(datetime.utcnow() + timedelta(hours=1)).strftime('%H:%M UTC')}"
+                )
+            time.sleep(3600)
+            self.consecutive_losses = 0
+            return True
+        
+        return True
+    
     def run_forever(self):
         """
         Main loop - runs 24/7
@@ -453,6 +520,12 @@ class AdminAutoTrader:
         
         while True:
             try:
+                # CRITICAL: Check daily loss limits FIRST!
+                if not self.check_daily_limits():
+                    logger.info("⏸️ Trading paused - Daily loss limit reached")
+                    time.sleep(3600)  # Check again in 1 hour
+                    continue
+                
                 # Get current balance
                 balance = self.get_current_balance()
                 

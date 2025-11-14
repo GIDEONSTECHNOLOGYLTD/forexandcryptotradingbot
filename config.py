@@ -110,3 +110,7 @@ ADMIN_MOMENTUM_MIN_BALANCE = float(os.getenv('ADMIN_MOMENTUM_MIN_BALANCE', '50')
 ADMIN_SMALL_PROFIT_MODE = os.getenv('ADMIN_SMALL_PROFIT_MODE', 'true').lower() == 'true'  # Enable small profit accumulation
 ADMIN_SMALL_WIN_TARGET = float(os.getenv('ADMIN_SMALL_WIN_TARGET', '5'))  # Take profit at just 5%! ($0.50 on $10)
 ADMIN_QUICK_EXIT_THRESHOLD = float(os.getenv('ADMIN_QUICK_EXIT_THRESHOLD', '10'))  # Exit at 10% max
+
+# CRITICAL PROTECTION: Daily Loss Limits (prevent catastrophic losses!)
+ADMIN_DAILY_LOSS_LIMIT = float(os.getenv('ADMIN_DAILY_LOSS_LIMIT', '10'))  # Stop trading if lose 10% of capital in one day
+ADMIN_MAX_CONSECUTIVE_LOSSES = int(os.getenv('ADMIN_MAX_CONSECUTIVE_LOSSES', '3'))  # Stop after 3 losses in a row
