@@ -177,7 +177,10 @@ class AdvancedRiskManager:
         # Cap the stop loss
         dynamic_stop_percent = max(0.01, min(dynamic_stop_percent, 0.1))  # 1% to 10%
         
-        if side == 'long':
+        # Normalize side to 'long' or 'short'
+        normalized_side = 'long' if side.lower() in ['long', 'buy'] else 'short'
+        
+        if normalized_side == 'long':
             stop_loss = entry_price * (1 - dynamic_stop_percent)
         else:  # short
             stop_loss = entry_price * (1 + dynamic_stop_percent)
@@ -201,7 +204,10 @@ class AdvancedRiskManager:
         # Cap the take profit
         dynamic_tp_percent = max(0.02, min(dynamic_tp_percent, 0.5))  # 2% to 50%
         
-        if side == 'long':
+        # Normalize side to 'long' or 'short'
+        normalized_side = 'long' if side.lower() in ['long', 'buy'] else 'short'
+        
+        if normalized_side == 'long':
             take_profit = entry_price * (1 + dynamic_tp_percent)
         else:  # short
             take_profit = entry_price * (1 - dynamic_tp_percent)

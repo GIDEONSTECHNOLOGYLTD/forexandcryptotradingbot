@@ -52,7 +52,10 @@ class RiskManager:
     
     def calculate_stop_loss(self, entry_price, side='long'):
         """Calculate stop loss price"""
-        if side == 'long':
+        # Normalize side to 'long' or 'short'
+        normalized_side = 'long' if side.lower() in ['long', 'buy'] else 'short'
+        
+        if normalized_side == 'long':
             stop_loss = entry_price * (1 - config.STOP_LOSS_PERCENT / 100)
         else:  # short
             stop_loss = entry_price * (1 + config.STOP_LOSS_PERCENT / 100)
@@ -60,7 +63,10 @@ class RiskManager:
     
     def calculate_take_profit(self, entry_price, side='long'):
         """Calculate take profit price"""
-        if side == 'long':
+        # Normalize side to 'long' or 'short'
+        normalized_side = 'long' if side.lower() in ['long', 'buy'] else 'short'
+        
+        if normalized_side == 'long':
             take_profit = entry_price * (1 + config.TAKE_PROFIT_PERCENT / 100)
         else:  # short
             take_profit = entry_price * (1 - config.TAKE_PROFIT_PERCENT / 100)
