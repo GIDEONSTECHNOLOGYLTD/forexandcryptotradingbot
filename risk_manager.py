@@ -3,10 +3,17 @@ Risk Management Module
 Handles position sizing, stop-loss, take-profit, and risk controls
 """
 import config
+import logging
+import json
+import os
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 
 class RiskManager:
+    COOLDOWN_FILE = 'cooldown_data.json'
+    
     def __init__(self, initial_capital):
         self.initial_capital = initial_capital
         self.current_capital = initial_capital
@@ -14,6 +21,10 @@ class RiskManager:
         self.daily_reset_time = datetime.now().date()
         self.open_positions = {}
         self.trade_history = []
+        self.recently_closed_positions = {}  # Track recently closed positions with cooldown
+        
+        # Load persisted cooldown data from previous session
+        self._load_cooldown_data()
         
     def reset_daily_stats(self):
         """Reset daily statistics"""
@@ -22,6 +33,75 @@ class RiskManager:
             self.daily_pnl = 0
             self.daily_reset_time = current_date
             
+    def is_symbol_in_cooldown(self, symbol, cooldown_minutes=30):
+        """
+        Check if a symbol was recently closed and is in cooldown period
+        Returns (is_in_cooldown, reason_message)
+        """
+        if symbol in self.recently_closed_positions:
+            close_time = self.recently_closed_positions[symbol]['close_time']
+            pnl = self.recently_closed_positions[symbol]['pnl']
+            time_since_close = (datetime.now() - close_time).total_seconds() / 60
+            
+            if time_since_close < cooldown_minutes:
+                remaining_mins = int(cooldown_minutes - time_since_close)
+                profit_status = "PROFIT" if pnl > 0 else "LOSS"
+                return True, f"Symbol {symbol} recently closed with {profit_status} ${pnl:.2f}. Cooldown: {remaining_mins} mins remaining"
+            else:
+                # Cooldown expired, remove from tracking
+                logger.info(f"Cooldown expired for {symbol}, re-entry now allowed")
+                del self.recently_closed_positions[symbol]
+                self._save_cooldown_data()  # Persist the change
+        
+        return False, ""
+    
+    def get_recently_closed_symbols(self):
+        """Get list of symbols currently in cooldown"""
+        return list(self.recently_closed_positions.keys())
+    
+    def _load_cooldown_data(self):
+        """Load cooldown data from file (survives bot restarts)"""
+        try:
+            if os.path.exists(self.COOLDOWN_FILE):
+                with open(self.COOLDOWN_FILE, 'r') as f:
+                    data = json.load(f)
+                    
+                # Convert timestamps back to datetime objects
+                for symbol, info in data.items():
+                    info['close_time'] = datetime.fromisoformat(info['close_time'])
+                    self.recently_closed_positions[symbol] = info
+                
+                logger.info(f"✅ Loaded cooldown data: {len(self.recently_closed_positions)} symbols in cooldown")
+                
+                # Log which symbols are in cooldown
+                for symbol in self.recently_closed_positions:
+                    logger.info(f"  - {symbol}: {self.recently_closed_positions[symbol]}")
+            else:
+                logger.info("No previous cooldown data found (first run)")
+        except Exception as e:
+            logger.error(f"Error loading cooldown data: {e}")
+            self.recently_closed_positions = {}
+    
+    def _save_cooldown_data(self):
+        """Save cooldown data to file (persists across restarts)"""
+        try:
+            # Convert datetime objects to ISO format strings for JSON
+            data = {}
+            for symbol, info in self.recently_closed_positions.items():
+                data[symbol] = {
+                    'close_time': info['close_time'].isoformat(),
+                    'pnl': info['pnl'],
+                    'exit_price': info['exit_price'],
+                    'exit_reason': info['exit_reason']
+                }
+            
+            with open(self.COOLDOWN_FILE, 'w') as f:
+                json.dump(data, f, indent=2)
+            
+            logger.info(f"✅ Saved cooldown data: {len(data)} symbols")
+        except Exception as e:
+            logger.error(f"Error saving cooldown data: {e}")
+    
     def can_trade(self):
         """Check if trading is allowed based on risk parameters"""
         self.reset_daily_stats()
@@ -129,12 +209,36 @@ class RiskManager:
         # Remove from open positions
         del self.open_positions[symbol]
         
+        # Add to recently closed positions for cooldown tracking
+        self.recently_closed_positions[symbol] = {
+            'close_time': datetime.now(),
+            'pnl': pnl,
+            'exit_price': exit_price,
+            'exit_reason': trade_record.get('exit_reason', 'manual')
+        }
+        logger.info(f"Symbol {symbol} added to cooldown - PnL: ${pnl:.2f}")
+        
+        # Save cooldown data to persist across restarts
+        self._save_cooldown_data()
+        
         return trade_record
     
     def check_stop_loss_take_profit(self, symbol, current_price):
         """
         Check if stop loss or take profit has been hit
         Returns: 'stop_loss', 'take_profit', 'partial_profit_1/2/3', or None
+        
+        IMPORTANT NOTE: Despite the name "partial_profit", the bot closes 100% of the position
+        when ANY of these profit levels are hit. The levels are tiered exit points:
+        - 1% = Quick exit (capture small wins fast)
+        - 2% = Good profit exit
+        - 3% = Excellent profit exit
+        
+        This is a "SCALPING STRATEGY" - take profits early and often, rather than
+        holding for bigger gains. The bot will only hit ONE of these levels before
+        closing the entire position.
+        
+        If you want true partial exits (sell 25%, 50%, 75%), that requires different logic.
         """
         if symbol not in self.open_positions:
             return None
@@ -150,22 +254,22 @@ class RiskManager:
             if current_price <= position['stop_loss']:
                 return 'stop_loss'
             
-            # MULTIPLE PROFIT-TAKING LEVELS - Capture profits early!
-            # Level 1: 1% profit (quick wins)
+            # TIERED EXIT STRATEGY - First profit level hit = FULL EXIT
+            # Level 1: 1% profit (quick scalp exit - closes 100%)
             elif profit_pct >= 1.0 and not position.get('took_profit_1'):
                 position['took_profit_1'] = True
-                return 'partial_profit_1'
+                return 'partial_profit_1'  # NOTE: Closes 100% despite name
             
-            # Level 2: 2% profit (good gains)  
+            # Level 2: 2% profit (if 1% was missed - closes 100%)
             elif profit_pct >= 2.0 and not position.get('took_profit_2'):
                 position['took_profit_2'] = True
-                return 'partial_profit_2'
+                return 'partial_profit_2'  # NOTE: Closes 100% despite name
             
-            # Level 3: 3% profit (excellent gains - close all)
+            # Level 3: 3% profit (if 1% and 2% were missed - closes 100%)
             elif profit_pct >= 3.0:
-                return 'take_profit_3'
+                return 'take_profit_3'  # Closes 100%
             
-            # Full take profit target
+            # Full take profit target (from config)
             elif current_price >= position['take_profit']:
                 return 'take_profit'
                 

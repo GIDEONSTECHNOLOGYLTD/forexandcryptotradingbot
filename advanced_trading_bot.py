@@ -55,6 +55,7 @@ class AdvancedTradingBot:
         self.active_symbols = []
         self.last_scan_time = None
         self.last_signal_time = {}  # Track last signal time per symbol to prevent spam
+        self.cooldown_notifications_sent = set()  # Track which cooldown notifications have been sent
         
         # Initialize database (MongoDB or SQLite)
         # Use MongoDB by default if configured in config.py
@@ -197,11 +198,18 @@ class AdvancedTradingBot:
             can_trade, reason = self.risk_manager.can_trade()
             if not can_trade:
                 logger.warning(f"Cannot trade: {reason}")
+                print(f"{Fore.RED}❌ Cannot trade: {reason}{Style.RESET_ALL}")
                 
-                # Send daily loss limit notification if that's the reason
-                if "Daily loss limit" in reason and self.telegram and self.telegram.enabled:
-                    loss_percent = abs((self.risk_manager.daily_pnl / self.risk_manager.current_capital) * 100)
-                    self.telegram.send_daily_loss_limit(loss_percent)
+                # Send notification about why trade was blocked
+                if self.telegram and self.telegram.enabled:
+                    if "Daily loss limit" in reason:
+                        loss_percent = abs((self.risk_manager.daily_pnl / self.risk_manager.current_capital) * 100)
+                        self.telegram.send_daily_loss_limit(loss_percent)
+                    else:
+                        self.telegram.send_custom_alert(
+                            "Trade Blocked",
+                            f"⚠️ Cannot execute trade for {symbol}\n\nReason: {reason}\n\n💡 This is normal risk management protection."
+                        )
                 
                 return False
             
@@ -233,16 +241,18 @@ class AdvancedTradingBot:
                 if self.db:
                     self.db.save_trade(position)
                 
-                # Send Telegram notification
+                # 📢 Send comprehensive Telegram notification for paper trade
                 if self.telegram and self.telegram.enabled:
                     self.telegram.send_trade_alert(position)
+                    logger.info(f"✅ Telegram notification sent for {symbol}")
                 
                 logger.info(f"Paper trade executed: {signal} {symbol} at ${current_price:.4f}")
                 return True
                 
             else:
                 # Live trading - SPOT ONLY!
-                logger.warning("Live trading is enabled!")
+                logger.warning("🔴 Live trading is enabled - Using REAL MONEY!")
+                print(f"\n{Fore.RED}💰 LIVE TRADE - REAL MONEY!{Style.RESET_ALL}")
                 
                 if signal == 'buy':
                     # SPOT BUY with USDT - no margin/leverage!
@@ -252,9 +262,11 @@ class AdvancedTradingBot:
                         params={'tdMode': 'cash'}  # SPOT trading only!
                     )
                     logger.info(f"✅ SPOT BUY executed: {symbol} - {position_size} @ ${current_price}")
+                    print(f"{Fore.GREEN}✅ Order executed successfully!{Style.RESET_ALL}")
                 else:
                     # Should never reach here with our fix, but just in case
                     logger.warning(f"⚠️ Skipping SELL signal for {symbol} - need to BUY first!")
+                    print(f"{Fore.YELLOW}⚠️ Skipping SELL signal - need to BUY first!{Style.RESET_ALL}")
                     return False
                 
                 logger.info(f"Live trade executed: {order}")
@@ -264,18 +276,33 @@ class AdvancedTradingBot:
                 position['confidence'] = confidence
                 position['entry_time'] = datetime.now()
                 
+                print(f"Symbol: {Fore.CYAN}{symbol}{Style.RESET_ALL}")
+                print(f"Entry Price: {Fore.CYAN}${current_price:.4f}{Style.RESET_ALL}")
+                print(f"Stop Loss: {Fore.RED}${position['stop_loss']:.4f}{Style.RESET_ALL}")
+                print(f"Take Profit: {Fore.GREEN}${position['take_profit']:.4f}{Style.RESET_ALL}")
+                
                 # Save to database
                 if self.db:
                     self.db.save_trade(position)
                 
-                # Send Telegram notification
+                # 📢 Send comprehensive Telegram notification for live trade
                 if self.telegram and self.telegram.enabled:
                     self.telegram.send_trade_alert(position)
+                    logger.info(f"✅ Telegram notification sent for LIVE trade {symbol}")
                 
                 return True
                 
         except Exception as e:
             logger.error(f"Error executing trade for {symbol}: {e}")
+            print(f"{Fore.RED}❌ Trade execution failed: {e}{Style.RESET_ALL}")
+            
+            # Notify user about failed trade
+            if self.telegram and self.telegram.enabled:
+                self.telegram.send_custom_alert(
+                    "Trade Execution Failed",
+                    f"🚨 Failed to execute trade for {symbol}\n\nError: {str(e)}\n\n💡 The bot will retry on next signal."
+                )
+            
             return False
     
     def check_open_positions(self):
@@ -319,7 +346,7 @@ class AdvancedTradingBot:
                             trade_record['exit_reason'] = exit_reason
                             self.db.update_trade(symbol, trade_record)
                         
-                        # Send appropriate Telegram notification
+                        # 📢 Send appropriate Telegram notification - ALWAYS!
                         if self.telegram and self.telegram.enabled:
                             trade_record['exit_reason'] = exit_reason
                             
@@ -333,6 +360,7 @@ class AdvancedTradingBot:
                                 profit_msg += f"Profit: ${trade_record['pnl']:.2f} ({trade_record['pnl_percent']:.2f}%)\n\n"
                                 profit_msg += f"✅ Small wins add up!"
                                 self.telegram.send_custom_alert("Profit Taken (1%)", profit_msg)
+                                logger.info(f"✅ Telegram: 1% profit notification sent for {symbol}")
                             elif exit_reason == 'partial_profit_2':
                                 profit_msg = f"🎯 Great 2% Profit Taken!\n\n"
                                 profit_msg += f"Symbol: {symbol}\n"
@@ -341,6 +369,7 @@ class AdvancedTradingBot:
                                 profit_msg += f"Profit: ${trade_record['pnl']:.2f} ({trade_record['pnl_percent']:.2f}%)\n\n"
                                 profit_msg += f"✅ Excellent gains!"
                                 self.telegram.send_custom_alert("Profit Taken (2%)", profit_msg)
+                                logger.info(f"✅ Telegram: 2% profit notification sent for {symbol}")
                             elif exit_reason == 'take_profit_3':
                                 profit_msg = f"🚀 Excellent 3%+ Profit!\n\n"
                                 profit_msg += f"Symbol: {symbol}\n"
@@ -349,9 +378,17 @@ class AdvancedTradingBot:
                                 profit_msg += f"Profit: ${trade_record['pnl']:.2f} ({trade_record['pnl_percent']:.2f}%)\n\n"
                                 profit_msg += f"🎉 Amazing gains!"
                                 self.telegram.send_custom_alert("Big Profit Taken (3%+)", profit_msg)
+                                logger.info(f"✅ Telegram: 3% profit notification sent for {symbol}")
+                            elif exit_reason == 'stop_loss':
+                                # Send stop loss notification
+                                self.telegram.send_position_closed(trade_record)
+                                logger.info(f"✅ Telegram: Stop loss notification sent for {symbol}")
                             else:
                                 # Default notification
                                 self.telegram.send_position_closed(trade_record)
+                                logger.info(f"✅ Telegram: Position closed notification sent for {symbol}")
+                        else:
+                            logger.warning(f"⚠️ Telegram not enabled - notification NOT sent for {symbol}")
                         
                         logger.info(f"Position closed: {symbol} - {exit_reason} - PnL: ${trade_record['pnl']:.2f}")
                         
@@ -420,6 +457,25 @@ class AdvancedTradingBot:
                     if symbol in self.risk_manager.open_positions:
                         continue
                     
+                    # ⚠️ CRITICAL: Check if symbol was recently closed (prevent buy-back!)
+                    in_cooldown, cooldown_reason = self.risk_manager.is_symbol_in_cooldown(symbol, cooldown_minutes=30)
+                    if in_cooldown:
+                        print(f"\n{Fore.YELLOW}⏳ Skipping {symbol}: {cooldown_reason}{Style.RESET_ALL}")
+                        
+                        # Notify user about skipped re-entry (ONCE per cooldown period)
+                        if self.telegram and self.telegram.enabled and symbol not in self.cooldown_notifications_sent:
+                            self.telegram.send_custom_alert(
+                                "Re-Entry Prevented (Cooldown)",
+                                f"🛡️ Protected you from buying back too soon!\n\n{cooldown_reason}\n\n💡 This prevents emotional trading and gives better entry points."
+                            )
+                            self.cooldown_notifications_sent.add(symbol)
+                            logger.info(f"✅ Cooldown notification sent for {symbol}")
+                        continue
+                    else:
+                        # Cooldown expired, clear notification tracking so it can be sent again next time
+                        if symbol in self.cooldown_notifications_sent:
+                            self.cooldown_notifications_sent.remove(symbol)
+                    
                     # Check signal cooldown (prevent duplicate signals within 5 minutes)
                     current_time = datetime.now()
                     if symbol in self.last_signal_time:
@@ -434,13 +490,10 @@ class AdvancedTradingBot:
                         print(f"Confidence: {confidence:.1f}%")
                         print(f"Market Condition: {market_condition}")
                         
-                        # Execute trade FIRST, then notify if successful
+                        # Execute trade - notification is sent inside execute_trade()
                         trade_executed = self.execute_trade(symbol, signal, confidence)
                         
-                        # Only send notification if trade was actually executed
-                        if trade_executed and self.telegram and self.telegram.enabled:
-                            current_price = self.exchange.fetch_ticker(symbol)['last']
-                            self.telegram.send_signal_alert(symbol, signal, confidence, current_price)
+                        if trade_executed:
                             self.last_signal_time[symbol] = current_time  # Update cooldown timer
                 
                 # Display statistics every 5 iterations

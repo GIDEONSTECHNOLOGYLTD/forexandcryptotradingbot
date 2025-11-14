@@ -4,6 +4,7 @@ Send real-time alerts about trades, performance, and errors
 """
 import requests
 import os
+import time
 from datetime import datetime
 from colorama import Fore, Style
 
@@ -21,6 +22,10 @@ class TelegramNotifier:
         self.chat_id = chat_id or os.getenv('TELEGRAM_CHAT_ID')
         self.enabled = bool(self.bot_token and self.chat_id)
         
+        # Rate limiting: Track last message time
+        self.last_message_time = 0
+        self.min_message_interval = 0.1  # 100ms between messages (max 10/second)
+        
         # DEBUG: Show what we're getting
         print(f"{Fore.CYAN}🔍 Telegram Config Debug:{Style.RESET_ALL}")
         print(f"  Bot Token: {'✅ Found' if self.bot_token else '❌ Missing'} {f'({self.bot_token[:10]}...)' if self.bot_token else ''}")
@@ -31,25 +36,66 @@ class TelegramNotifier:
         else:
             print(f"{Fore.GREEN}✅ Telegram notifications enabled{Style.RESET_ALL}")
     
-    def send_message(self, message, parse_mode='HTML'):
-        """Send a message to Telegram"""
+    def send_message(self, message, parse_mode='HTML', max_retries=3):
+        """
+        Send a message to Telegram with retry logic and rate limiting
+        
+        Args:
+            message: The message to send
+            parse_mode: HTML or Markdown
+            max_retries: Number of retry attempts if send fails
+        
+        Returns:
+            bool: True if message was sent successfully
+        """
         if not self.enabled:
             return False
         
-        try:
-            url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
-            data = {
-                'chat_id': self.chat_id,
-                'text': message,
-                'parse_mode': parse_mode
-            }
-            
-            response = requests.post(url, data=data, timeout=10)
-            return response.status_code == 200
-            
-        except Exception as e:
-            print(f"{Fore.RED}❌ Telegram error: {e}{Style.RESET_ALL}")
-            return False
+        # Rate limiting: Wait if we're sending too fast
+        current_time = time.time()
+        time_since_last = current_time - self.last_message_time
+        if time_since_last < self.min_message_interval:
+            wait_time = self.min_message_interval - time_since_last
+            time.sleep(wait_time)
+        
+        # Try sending with retries
+        for attempt in range(max_retries):
+            try:
+                url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+                data = {
+                    'chat_id': self.chat_id,
+                    'text': message,
+                    'parse_mode': parse_mode
+                }
+                
+                response = requests.post(url, data=data, timeout=10)
+                self.last_message_time = time.time()
+                
+                if response.status_code == 200:
+                    return True
+                elif response.status_code == 429:  # Rate limit hit
+                    # Telegram told us to slow down
+                    retry_after = response.json().get('parameters', {}).get('retry_after', 1)
+                    print(f"{Fore.YELLOW}⚠️ Telegram rate limit hit, waiting {retry_after}s{Style.RESET_ALL}")
+                    time.sleep(retry_after)
+                    continue
+                else:
+                    print(f"{Fore.RED}❌ Telegram error (status {response.status_code}): {response.text}{Style.RESET_ALL}")
+                    
+            except requests.exceptions.Timeout:
+                print(f"{Fore.YELLOW}⚠️ Telegram timeout (attempt {attempt + 1}/{max_retries}){Style.RESET_ALL}")
+                if attempt < max_retries - 1:
+                    time.sleep(1)  # Wait 1 second before retry
+                    continue
+            except Exception as e:
+                print(f"{Fore.RED}❌ Telegram error (attempt {attempt + 1}/{max_retries}): {e}{Style.RESET_ALL}")
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+                    continue
+        
+        # All retries failed
+        print(f"{Fore.RED}❌ Failed to send Telegram message after {max_retries} attempts{Style.RESET_ALL}")
+        return False
     
     def send_trade_alert(self, trade_data):
         """Send trade execution alert"""
