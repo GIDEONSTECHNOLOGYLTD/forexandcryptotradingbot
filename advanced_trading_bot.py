@@ -422,10 +422,11 @@ def main():
         print(f"{Fore.RED}{'='*70}")
         print(f"⚠️  WARNING: LIVE TRADING MODE IS ENABLED!")
         print(f"{'='*70}{Style.RESET_ALL}")
-        response = input(f"{Fore.YELLOW}Are you sure you want to continue? (yes/no): {Style.RESET_ALL}")
-        if response.lower() != 'yes':
-            print(f"{Fore.GREEN}Exiting...{Style.RESET_ALL}")
-            return
+        print(f"{Fore.GREEN}✅ Auto-starting in LIVE trading mode...{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}💰 Real money will be used!{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}📊 Max positions: {config.MAX_OPEN_POSITIONS}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}{'='*70}{Style.RESET_ALL}")
+        # No input() on server - auto-continue!
     
     # Check API credentials
     if not config.OKX_API_KEY or not config.OKX_SECRET_KEY:
