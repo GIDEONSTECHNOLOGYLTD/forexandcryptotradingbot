@@ -143,7 +143,7 @@ FOREX_MARKETS = False  # Trade forex (requires different account type on OKX)
 QUOTE_CURRENCIES = ['USDT', 'USDC', 'USD']
 
 # New Listing Bot Configuration
-NEW_LISTING_BUY_AMOUNT = float(os.getenv('NEW_LISTING_BUY_AMOUNT', '50'))  # USDT to invest per new listing
+NEW_LISTING_BUY_AMOUNT = float(os.getenv('NEW_LISTING_BUY_AMOUNT', '10'))  # USDT to invest per new listing (SAFE: Start small!)
 NEW_LISTING_TAKE_PROFIT = float(os.getenv('NEW_LISTING_TAKE_PROFIT', '30'))  # Take profit % (default 30%)
 NEW_LISTING_STOP_LOSS = float(os.getenv('NEW_LISTING_STOP_LOSS', '15'))  # Stop loss % (default 15%)
 NEW_LISTING_MAX_HOLD = int(os.getenv('NEW_LISTING_MAX_HOLD', '3600'))  # Max hold time in seconds (default 1 hour)
@@ -151,7 +151,7 @@ NEW_LISTING_CHECK_INTERVAL = int(os.getenv('NEW_LISTING_CHECK_INTERVAL', '60')) 
 
 # Admin Auto-Trader Configuration
 ADMIN_MIN_TRADE_SIZE = float(os.getenv('ADMIN_MIN_TRADE_SIZE', '5'))  # Minimum trade size in USDT (OKX minimum)
-ADMIN_MAX_TRADE_SIZE = float(os.getenv('ADMIN_MAX_TRADE_SIZE', '1000'))  # Maximum trade size per position
+ADMIN_MAX_TRADE_SIZE = float(os.getenv('ADMIN_MAX_TRADE_SIZE', '50'))  # Maximum trade size per position (SAFE: Limit risk!)
 ADMIN_TARGET_PROFIT = float(os.getenv('ADMIN_TARGET_PROFIT', '15'))  # Target profit % - LOWERED for consistent wins!
 ADMIN_STOP_LOSS = float(os.getenv('ADMIN_STOP_LOSS', '5'))  # Stop loss % - Tighter to protect capital
 ADMIN_MOMENTUM_MIN_BALANCE = float(os.getenv('ADMIN_MOMENTUM_MIN_BALANCE', '50'))  # Minimum balance for momentum strategy
