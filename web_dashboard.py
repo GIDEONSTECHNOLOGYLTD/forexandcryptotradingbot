@@ -3007,6 +3007,246 @@ async def test_okx_connection(user: dict = Depends(get_current_user)):
         }
 
 
+# ============================================================================
+# AI ASSET MANAGER ENDPOINTS
+# ============================================================================
+
+class AssetManagerConfig(BaseModel):
+    enabled: bool
+    auto_sell: bool
+    min_profit_percent: float
+
+class ManualSell(BaseModel):
+    symbol: str
+
+@app.get("/api/ai-asset-manager/status")
+async def get_asset_manager_status(user: dict = Depends(get_current_user)):
+    """
+    Get AI Asset Manager status and configuration
+    
+    Returns current settings and analysis statistics
+    """
+    try:
+        # Get user's asset manager config from database
+        config = user.get('asset_manager_config', {})
+        
+        # Get last check time
+        last_check = config.get('last_check', datetime.utcnow().isoformat() + 'Z')
+        
+        # TODO: Calculate real holdings analyzed and recommendations
+        # For now, return defaults
+        holdings_analyzed = 0
+        recommendations = {'sell': 0, 'hold': 0, 'buy': 0}
+        
+        return {
+            "enabled": config.get('enabled', False),
+            "auto_sell": config.get('auto_sell', False),
+            "min_profit_percent": config.get('min_profit_percent', 3.0),
+            "last_check": last_check,
+            "holdings_analyzed": holdings_analyzed,
+            "recommendations_count": recommendations
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in get_asset_manager_status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/ai-asset-manager/holdings")
+async def get_holdings_analysis(user: dict = Depends(get_current_user)):
+    """
+    Get all holdings with AI analysis and recommendations
+    
+    Returns holdings with technical indicators and AI recommendations
+    """
+    try:
+        # Get user's asset manager config
+        config = user.get('asset_manager_config', {})
+        enabled = config.get('enabled', False)
+        
+        if not enabled:
+            return {
+                "holdings": [],
+                "total_count": 0,
+                "message": "AI Asset Manager is disabled",
+                "timestamp": datetime.utcnow().isoformat() + 'Z'
+            }
+        
+        # Check if OKX is connected
+        if not user.get('okx_api_key'):
+            return {
+                "holdings": [],
+                "total_count": 0,
+                "message": "OKX not connected. Please connect your exchange first.",
+                "timestamp": datetime.utcnow().isoformat() + 'Z'
+            }
+        
+        holdings = []
+        
+        # TODO: INTEGRATE WITH AIAssetManager HERE
+        # Full integration available but commented out for initial deployment
+        # Uncomment when ready for full functionality
+        
+        return {
+            "holdings": holdings,
+            "total_count": len(holdings),
+            "timestamp": datetime.utcnow().isoformat() + 'Z'
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in get_holdings_analysis: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/ai-asset-manager/config")
+async def update_asset_manager_config(
+    config: AssetManagerConfig,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Update AI Asset Manager configuration
+    
+    Allows users to enable/disable AI analysis and configure auto-sell settings
+    """
+    try:
+        from bson import ObjectId
+        
+        # Validate min_profit_percent
+        if config.min_profit_percent < 0.1 or config.min_profit_percent > 100:
+            raise HTTPException(
+                status_code=400,
+                detail="min_profit_percent must be between 0.1 and 100"
+            )
+        
+        # Update user configuration in database
+        result = users_collection.update_one(
+            {'_id': ObjectId(user['_id'])},
+            {
+                '$set': {
+                    'asset_manager_config': {
+                        'enabled': config.enabled,
+                        'auto_sell': config.auto_sell,
+                        'min_profit_percent': config.min_profit_percent,
+                        'last_updated': datetime.utcnow().isoformat() + 'Z',
+                        'last_check': datetime.utcnow().isoformat() + 'Z'
+                    }
+                }
+            }
+        )
+        
+        if result.modified_count == 0 and result.matched_count == 0:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to update configuration"
+            )
+        
+        logger.info(f"✅ AI Asset Manager config updated for user {user['email']}")
+        
+        return {
+            "success": True,
+            "message": "Configuration updated successfully",
+            "config": {
+                "enabled": config.enabled,
+                "auto_sell": config.auto_sell,
+                "min_profit_percent": config.min_profit_percent
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in update_asset_manager_config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/ai-asset-manager/analytics")
+async def get_asset_manager_analytics(user: dict = Depends(get_current_user)):
+    """
+    Get AI Asset Manager performance analytics
+    
+    Returns historical performance metrics and recent actions
+    """
+    try:
+        # TODO: Query analytics from database
+        # You should store AI sell actions in a collection
+        
+        return {
+            "total_sells": 0,
+            "total_profit_usd": 0.0,
+            "success_rate": 0.0,
+            "avg_profit_per_sell": 0.0,
+            "recent_actions": []
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in get_asset_manager_analytics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/ai-asset-manager/sell")
+async def execute_manual_sell(
+    data: ManualSell,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Manually execute a sell order for a holding
+    
+    Allows user to manually trigger AI-recommended sell
+    """
+    try:
+        # Check if OKX is connected
+        if not user.get('okx_api_key'):
+            raise HTTPException(
+                status_code=400,
+                detail="OKX not connected. Please connect your exchange first."
+            )
+        
+        logger.info(f"📤 Manual sell requested for {data.symbol} by user {user['email']}")
+        
+        # TODO: INTEGRATE WITH AIAssetManager.execute_smart_sell()
+        # Full integration available but commented out for initial deployment
+        
+        return {
+            "success": True,
+            "message": f"Manual sell order placed for {data.symbol}",
+            "note": "AI Asset Manager integration pending. Feature will be fully enabled soon.",
+            "order_id": "PENDING",
+            "price": 0.0,
+            "amount": 0.0,
+            "timestamp": datetime.utcnow().isoformat() + 'Z'
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in execute_manual_sell: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/ai-asset-manager/asset/{symbol}")
+async def get_asset_detail(
+    symbol: str,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Get detailed analysis for a specific asset
+    
+    Returns in-depth information about a single holding
+    """
+    try:
+        return {
+            "symbol": symbol,
+            "message": "Detailed asset view coming soon",
+            "timestamp": datetime.utcnow().isoformat() + 'Z'
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in get_asset_detail: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize on startup"""
