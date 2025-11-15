@@ -255,6 +255,14 @@ export default function HomeScreen({ navigation }: any) {
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <TouchableOpacity
           style={styles.actionButton}
+          onPress={() => navigation.navigate('AIAssetManager')}
+        >
+          <Ionicons name="analytics-outline" size={24} color="#667eea" />
+          <Text style={styles.actionText}>🤖 AI Asset Manager</Text>
+          <Ionicons name="chevron-forward" size={20} color="#ccc" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionButton}
           onPress={() => navigation.navigate('BotConfig')}
         >
           <Ionicons name="settings-outline" size={24} color="#667eea" />

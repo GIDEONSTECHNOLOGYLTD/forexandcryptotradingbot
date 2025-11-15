@@ -44,6 +44,7 @@ import ManageSubscriptionsScreen from './src/screens/ManageSubscriptionsScreen';
 import AdminBotScreen from './src/screens/AdminBotScreen';
 import TradeHistoryScreen from './src/screens/TradeHistoryScreen';
 import AISuggestionsScreen from './src/screens/AISuggestionsScreen';
+import AIAssetManagerScreen from './src/screens/AIAssetManagerScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -295,6 +296,11 @@ export default function App() {
             name="AISuggestions" 
             component={AISuggestionsScreen}
             options={{ headerShown: true, title: '✨ AI Suggestions' }}
+          />
+          <Stack.Screen 
+            name="AIAssetManager" 
+            component={AIAssetManagerScreen}
+            options={{ headerShown: true, title: '🤖 AI Asset Manager' }}
           />
         </Stack.Navigator>
       </NavigationContainer>

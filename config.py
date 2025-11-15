@@ -2,9 +2,13 @@
 Configuration file for the trading bot
 """
 import os
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 # Exchange Configuration
 EXCHANGE = 'okx'
@@ -104,6 +108,14 @@ def validate_config():
         errors.append(f"MAX_OPEN_POSITIONS={MAX_OPEN_POSITIONS} invalid! Must be 1-100. Using default 10")
         globals()['MAX_OPEN_POSITIONS'] = 10
     
+    # Validate ADMIN_ASSET_MANAGER_MIN_PROFIT (0.1% to 100%)
+    if 'ADMIN_ASSET_MANAGER_MIN_PROFIT' in globals():
+        if not (0.1 <= ADMIN_ASSET_MANAGER_MIN_PROFIT <= 100.0):
+            errors.append(f"ADMIN_ASSET_MANAGER_MIN_PROFIT={ADMIN_ASSET_MANAGER_MIN_PROFIT} invalid! Must be 0.1-100. Using default 3%")
+            globals()['ADMIN_ASSET_MANAGER_MIN_PROFIT'] = 3.0
+        elif ADMIN_ASSET_MANAGER_MIN_PROFIT < 1.0:
+            warnings.append(f"ADMIN_ASSET_MANAGER_MIN_PROFIT={ADMIN_ASSET_MANAGER_MIN_PROFIT}% is very low! Recommend >= 1%")
+    
     return errors, warnings
 
 # Validate on import
@@ -157,8 +169,7 @@ FOREX_MARKETS = False  # Trade forex (requires different account type on OKX)
 # Preferred quote currencies
 QUOTE_CURRENCIES = ['USDT', 'USDC', 'USD']
 
-# New Listing Bot Configuration
-NEW_LISTING_BUY_AMOUNT = float(os.getenv('NEW_LISTING_BUY_AMOUNT', '10'))  # USDT to invest per new listing (SAFE: Start small!)
+# Additional New Listing Bot settings (non-conflicting)
 NEW_LISTING_TAKE_PROFIT = float(os.getenv('NEW_LISTING_TAKE_PROFIT', '30'))  # Take profit % (default 30%)
 NEW_LISTING_STOP_LOSS = float(os.getenv('NEW_LISTING_STOP_LOSS', '15'))  # Stop loss % (default 15%)
 NEW_LISTING_MAX_HOLD = int(os.getenv('NEW_LISTING_MAX_HOLD', '3600'))  # Max hold time in seconds (default 1 hour)

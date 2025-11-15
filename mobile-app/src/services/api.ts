@@ -440,6 +440,41 @@ export const getRecommendedStrategy = async (symbol: string) => {
   return response.data;
 };
 
+// AI Asset Manager APIs
+export const getAIAssetManagerStatus = async () => {
+  const response = await api.get('/ai-asset-manager/status');
+  return response.data;
+};
+
+export const getHoldingsAnalysis = async () => {
+  const response = await api.get('/ai-asset-manager/holdings');
+  return response.data;
+};
+
+export const updateAssetManagerConfig = async (config: {
+  enabled: boolean;
+  auto_sell: boolean;
+  min_profit_percent: number;
+}) => {
+  const response = await api.put('/ai-asset-manager/config', config);
+  return response.data;
+};
+
+export const getAssetManagerAnalytics = async () => {
+  const response = await api.get('/ai-asset-manager/analytics');
+  return response.data;
+};
+
+export const executeManualSell = async (symbol: string) => {
+  const response = await api.post('/ai-asset-manager/sell', { symbol });
+  return response.data;
+};
+
+export const getAssetDetail = async (symbol: string) => {
+  const response = await api.get(`/ai-asset-manager/asset/${symbol}`);
+  return response.data;
+};
+
 export default {
   login,
   signup,
