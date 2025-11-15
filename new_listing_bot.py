@@ -153,6 +153,21 @@ class NewListingBot:
             
         except Exception as e:
             logger.error(f"Error detecting new listings: {e}")
+            
+            # CRITICAL: Notify about new listing detection failure
+            if self.telegram and self.telegram.enabled:
+                try:
+                    self.telegram.send_message(
+                        f"⚠️ <b>NEW LISTING DETECTION ERROR!</b>\n\n"
+                        f"❌ Error detecting new listings on OKX\n"
+                        f"Error: {str(e)}\n\n"
+                        f"💡 May miss new listing opportunities\n"
+                        f"📊 Bot will retry on next cycle\n\n"
+                        f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                    )
+                except:
+                    pass  # Don't fail if notification fails
+            
             return []
     
     def analyze_new_listing(self, symbol: str) -> Dict:
@@ -279,11 +294,30 @@ class NewListingBot:
             # Place market buy order
             logger.info(f"{Fore.GREEN}🛒 BUYING {symbol}: {amount:.4f} @ ${current_price:.6f}{Style.RESET_ALL}")
             
-            order = self.exchange.create_market_buy_order(
-                symbol,
-                amount,
-                params={'tdMode': 'cash'}  # SPOT trading only
-            )
+            try:
+                order = self.exchange.create_market_buy_order(
+                    symbol,
+                    amount,
+                    params={'tdMode': 'cash'}  # SPOT trading only
+                )
+                logger.info(f"✅ NEW LISTING BUY order executed successfully!")
+            except Exception as order_error:
+                logger.error(f"❌ CRITICAL: NEW LISTING BUY failed for {symbol}: {order_error}")
+                
+                # CRITICAL: Send immediate Telegram alert for failed new listing BUY
+                if self.telegram and self.telegram.enabled:
+                    self.telegram.send_message(
+                        f"🚨 <b>NEW LISTING BUY FAILED!</b>\n\n"
+                        f"🪙 Symbol: <b>{symbol}</b>\n"
+                        f"💰 Price: ${current_price:.6f}\n"
+                        f"📊 Amount: {amount:.4f}\n"
+                        f"💵 Size: ${self.buy_amount_usdt} USDT\n\n"
+                        f"❌ Error: {str(order_error)}\n\n"
+                        f"⚠️ <b>New listing NOT purchased!</b>\n"
+                        f"💡 Check your OKX account and API permissions\n\n"
+                        f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                    )
+                return None  # Exit if order failed
             
             # USE AI'S DYNAMIC TARGETS (CRITICAL FIX!)
             # Get AI-recommended targets from analysis, fallback to defaults if AI not available

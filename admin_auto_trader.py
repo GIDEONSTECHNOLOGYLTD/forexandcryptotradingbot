@@ -126,6 +126,17 @@ class AdminAutoTrader:
             return usdt_balance
         except Exception as e:
             logger.error(f"❌ Error fetching balance: {e}")
+            
+            # CRITICAL: Notify admin about balance fetch failure
+            if self.telegram and self.telegram.enabled:
+                self.telegram.send_message(
+                    f"🚨 <b>BALANCE FETCH FAILED!</b>\n\n"
+                    f"❌ Could not retrieve your OKX balance\n"
+                    f"Error: {str(e)}\n\n"
+                    f"⚠️ <b>Trading may be affected!</b>\n"
+                    f"💡 Check your API credentials and OKX connection\n\n"
+                    f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                )
             return 0
     
     def calculate_trade_size(self, balance):
@@ -242,12 +253,31 @@ class AdminAutoTrader:
                 logger.info(f"🚀 Bullish momentum detected{confidence_str}! Buying {amount:.6f} BTC")
                 
                 # Place order with SPOT params
-                order = self.exchange.create_market_order(
-                    'BTC/USDT', 
-                    'buy', 
-                    amount,
-                    params={'tdMode': 'cash'}  # SPOT trading only
-                )
+                try:
+                    order = self.exchange.create_market_order(
+                        'BTC/USDT', 
+                        'buy', 
+                        amount,
+                        params={'tdMode': 'cash'}  # SPOT trading only
+                    )
+                    logger.info(f"✅ BUY order executed successfully!")
+                except Exception as e:
+                    logger.error(f"❌ CRITICAL: BUY order failed for BTC/USDT: {e}")
+                    
+                    # CRITICAL: Send immediate Telegram alert for failed BUY
+                    if self.telegram and self.telegram.enabled:
+                        self.telegram.send_message(
+                            f"🚨 <b>BUY ORDER FAILED!</b>\n\n"
+                            f"🪙 Symbol: <b>BTC/USDT</b>\n"
+                            f"💰 Price: ${price:,.2f}\n"
+                            f"📊 Amount: {amount:.6f} BTC\n"
+                            f"💵 Size: ${trade_size:.2f}\n\n"
+                            f"❌ Error: {str(e)}\n\n"
+                            f"⚠️ <b>Trade NOT executed!</b>\n"
+                            f"💡 Check your OKX account and API permissions\n\n"
+                            f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                        )
+                    return  # Exit function if order failed
                 
                 # AI ENHANCED: Calculate dynamic targets based on volatility
                 if self.ai_engine and ai_analysis.get('analysis'):
@@ -393,6 +423,18 @@ class AdminAutoTrader:
                         continue
                 except Exception as e:
                     logger.error(f"Failed to fetch ticker for {symbol}: {e}")
+                    
+                    # CRITICAL: Notify about ticker fetch failure
+                    if self.telegram and self.telegram.enabled:
+                        self.telegram.send_message(
+                            f"⚠️ <b>PRICE FETCH FAILED!</b>\n\n"
+                            f"🪙 Symbol: <b>{symbol}</b>\n"
+                            f"❌ Could not get current price\n"
+                            f"Error: {str(e)}\n\n"
+                            f"💡 Position monitoring paused for this symbol\n"
+                            f"📊 Will retry on next cycle\n\n"
+                            f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                        )
                     continue
                 
                 # Check profit protector (returns single action dict)
@@ -527,6 +569,18 @@ class AdminAutoTrader:
                 
         except Exception as e:
             logger.error(f"❌ Error monitoring positions: {e}")
+            
+            # CRITICAL: Notify about position monitoring failure
+            if self.telegram and self.telegram.enabled:
+                self.telegram.send_message(
+                    f"🚨 <b>POSITION MONITORING ERROR!</b>\n\n"
+                    f"❌ Error in position monitoring system\n"
+                    f"Error: {str(e)}\n\n"
+                    f"⚠️ <b>Your positions may not be monitored!</b>\n"
+                    f"💡 Check bot logs immediately\n"
+                    f"📊 Bot will retry on next cycle\n\n"
+                    f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                )
     
     def execute_exit(self, position, price, reason):
         """Execute full exit"""
