@@ -52,6 +52,12 @@ TAKE_PROFIT_PERCENT = float(os.getenv('TAKE_PROFIT_PERCENT', '2.5'))  # ADJUSTED
 MAX_DAILY_LOSS_PERCENT = float(os.getenv('MAX_DAILY_LOSS_PERCENT', '3.0'))  # TIGHTENED: 3% daily max (was 5%)
 MAX_OPEN_POSITIONS = int(os.getenv('MAX_OPEN_POSITIONS', '10'))
 
+# AGGRESSIVE PROFIT PROTECTION - Never let profits turn into losses!
+AGGRESSIVE_PROFIT_LOCK = os.getenv('AGGRESSIVE_PROFIT_LOCK', 'true').lower() == 'true'  # Enable aggressive protection
+BREAK_EVEN_TRIGGER = float(os.getenv('BREAK_EVEN_TRIGGER', '0.5'))  # Move stop to break-even at 0.5% profit
+PROFIT_LOCK_AT_2_PCT = os.getenv('PROFIT_LOCK_AT_2_PCT', 'true').lower() == 'true'  # Auto-sell at 2% profit
+PROFIT_LOCK_AT_3_PCT = os.getenv('PROFIT_LOCK_AT_3_PCT', 'true').lower() == 'true'  # Auto-sell at 3% profit
+
 # Bug #9 fix: CONFIG VALIDATION - Prevent catastrophic user errors!
 def validate_config():
     """Validate configuration values are within safe bounds"""

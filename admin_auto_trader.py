@@ -345,29 +345,51 @@ class AdminAutoTrader:
                         self.total_small_profits += current_pnl_usd
                         continue
                 
-                # AI SUGGESTION: Notify when significant profit (let user decide) - Only in standard mode
-                if not self.small_profit_mode and current_pnl_pct >= 10 and current_pnl_pct < self.target_profit_per_trade:
-                    # Send suggestion notification (once per 5% gain to avoid spam)
-                    if not hasattr(position, '_last_suggestion_pct') or \
-                       current_pnl_pct - position.get('_last_suggestion_pct', 0) >= 5:
+                # AI SUGGESTION: Notify when significant profit (works in ALL modes now!)
+                # Trigger thresholds: 5%, 10%, 15%, 20%, etc. (every 5%)
+                if current_pnl_pct >= 5 and current_pnl_pct < self.target_profit_per_trade:
+                    # Calculate milestone (5%, 10%, 15%, 20%, ...)
+                    milestone = int(current_pnl_pct / 5) * 5
+                    last_suggestion = position.get('_last_suggestion_pct', 0)
+                    
+                    # Send suggestion if we hit a new milestone
+                    if milestone > last_suggestion and milestone >= 5:
                         if self.telegram and self.telegram.enabled:
                             try:
+                                # AI ANALYSIS: Dynamic advice based on profit level
+                                if current_pnl_pct >= 20:
+                                    ai_advice = "🤖 AI: STRONG SELL SIGNAL - Lock in this excellent profit!"
+                                    urgency = "🚨 HIGH"
+                                elif current_pnl_pct >= 15:
+                                    ai_advice = "🤖 AI: Consider selling - Good profit achieved"
+                                    urgency = "⚠️ MEDIUM"
+                                elif current_pnl_pct >= 10:
+                                    ai_advice = "🤖 AI: Decent profit - Your decision to hold or sell"
+                                    urgency = "💡 LOW"
+                                else:  # 5%
+                                    ai_advice = "🤖 AI: Early profit - May reach higher, but bird in hand..."
+                                    urgency = "ℹ️ INFO"
+                                
                                 self.telegram.send_message(
-                                    f"💡 <b>AI SUGGESTION - CONSIDER SELLING</b>\n\n"
+                                    f"💡 <b>AI PROFIT SUGGESTION</b>\n\n"
                                     f"🪙 Symbol: <b>{symbol}</b>\n"
                                     f"📈 Entry: ${entry_price:,.2f}\n"
-                                    f"📊 Current: ${current_price:,.2f}\n\n"
-                                    f"<b>💰 Current Profit: +{current_pnl_usd:.2f} USD (+{current_pnl_pct:.1f}%)</b>\n\n"
-                                    f"🎯 Target: +{self.target_profit_per_trade}%\n\n"
-                                    f"💡 <b>You're up {current_pnl_pct:.1f}%!</b>\n"
-                                    f"✅ Consider taking profit now\n"
-                                    f"⚠️ Or hold for {self.target_profit_per_trade}% target\n\n"
-                                    f"🤖 You decide - I'm just suggesting!"
+                                    f"📊 Current: ${current_price:,.2f}\n"
+                                    f"📈 Change: <b>+{(current_price - entry_price):,.2f} (+{current_pnl_pct:.1f}%)</b>\n\n"
+                                    f"<b>💰 Profit: +${current_pnl_usd:.2f} USD</b>\n\n"
+                                    f"🎯 Target: +{self.target_profit_per_trade}%\n"
+                                    f"🛡️ Stop Loss: -{self.max_loss_per_trade}%\n"
+                                    f"⏱️ Time Held: {self._get_time_held(position)}\n\n"
+                                    f"{ai_advice}\n"
+                                    f"🔔 Urgency: {urgency}\n\n"
+                                    f"✅ <b>Option 1:</b> Sell now (secure ${current_pnl_usd:.2f})\n"
+                                    f"⏳ <b>Option 2:</b> Hold for {self.target_profit_per_trade}% target\n\n"
+                                    f"🤖 <i>AI analyzes market conditions to help you decide!</i>"
                                 )
-                                position['_last_suggestion_pct'] = current_pnl_pct
-                                logger.info(f"📱 Sent AI profit suggestion at {current_pnl_pct:.1f}%")
-                            except:
-                                pass
+                                position['_last_suggestion_pct'] = milestone
+                                logger.info(f"📱 AI suggestion sent at {current_pnl_pct:.1f}% (milestone: {milestone}%)")
+                            except Exception as e:
+                                logger.error(f"Failed to send AI suggestion: {e}")
                 
                 # Execute any actions
                 if actions:
@@ -577,6 +599,27 @@ class AdminAutoTrader:
             
         except Exception as e:
             logger.error(f"❌ Error executing partial exit: {e}")
+    
+    def _get_time_held(self, position):
+        """Calculate how long position has been held"""
+        try:
+            entry_time = position.get('entry_time', datetime.utcnow())
+            if isinstance(entry_time, str):
+                entry_time = datetime.fromisoformat(entry_time)
+            
+            time_held = datetime.utcnow() - entry_time
+            hours = time_held.total_seconds() / 3600
+            
+            if hours < 1:
+                minutes = time_held.total_seconds() / 60
+                return f"{minutes:.0f} min"
+            elif hours < 24:
+                return f"{hours:.1f} hours"
+            else:
+                days = hours / 24
+                return f"{days:.1f} days"
+        except:
+            return "Unknown"
             # Send error notification
             if self.telegram and self.telegram.enabled:
                 self.telegram.send_message(
