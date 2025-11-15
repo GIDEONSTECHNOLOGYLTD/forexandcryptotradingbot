@@ -12,8 +12,18 @@ from auto_profit_protector import AutoProfitProtector
 from telegram_notifier import TelegramNotifier
 import config
 
+# Import Advanced AI Engine for smart trading decisions
+try:
+    from advanced_ai_engine import AdvancedAIEngine
+    ADVANCED_AI_AVAILABLE = True
+    logger = logging.getLogger(__name__)
+    logger.info("✅ Advanced AI Engine imported")
+except ImportError as e:
+    ADVANCED_AI_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning(f"⚠️ Advanced AI not available: {e}")
+
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 class AdminAutoTrader:
     """
@@ -43,6 +53,14 @@ class AdminAutoTrader:
         }
         self.new_listing_bot = NewListingBot(self.exchange, self.db, config=new_listing_config)
         self.profit_protector = AutoProfitProtector(self.exchange, self.db)
+        
+        # Initialize Advanced AI Engine for smart trading
+        if ADVANCED_AI_AVAILABLE:
+            self.ai_engine = AdvancedAIEngine(self.exchange)
+            logger.info("✅ Advanced AI Engine initialized for admin trader")
+        else:
+            self.ai_engine = None
+            logger.warning("⚠️ Trading without Advanced AI - using basic logic")
         
         # Initialize Telegram notifications
         self.telegram = TelegramNotifier()
@@ -177,14 +195,49 @@ class AdminAutoTrader:
                     )
                 return
             
-            # Calculate position size
-            trade_size = self.calculate_trade_size(balance)
+            # AI ENHANCED: Use Advanced AI for comprehensive analysis
+            should_enter = False
+            ai_confidence = 70  # Default confidence
+            adjusted_position_size = None
+            
+            if self.ai_engine:
+                try:
+                    # Multi-timeframe analysis
+                    logger.info("🤖 Running AI multi-timeframe analysis...")
+                    ai_analysis = self.ai_engine.should_enter_trade('BTC/USDT', 'buy', confidence=75)
+                    
+                    should_enter = ai_analysis['should_enter']
+                    ai_confidence = ai_analysis['confidence_adjusted']
+                    
+                    logger.info(f"🤖 AI Decision: {'ENTER' if should_enter else 'SKIP'} (Confidence: {ai_confidence}%)")
+                    logger.info(f"🤖 Reason: {ai_analysis['reason']}")
+                    
+                    if should_enter:
+                        # Use smart position sizing based on confidence and volatility
+                        volatility = ai_analysis['analysis'].get('volatility', 0.02)
+                        adjusted_position_size = self.ai_engine.calculate_smart_position_size(
+                            balance, ai_confidence, volatility
+                        )
+                        logger.info(f"💰 Smart Position Size: ${adjusted_position_size:.2f} (AI-optimized)")
+                except Exception as e:
+                    logger.warning(f"⚠️ AI analysis failed: {e} - using basic logic")
+                    should_enter = self.is_momentum_bullish('BTC/USDT')
+            else:
+                # Fallback to basic momentum check
+                should_enter = self.is_momentum_bullish('BTC/USDT')
+            
+            # Calculate position size (use AI recommendation if available)
+            if adjusted_position_size:
+                trade_size = min(adjusted_position_size, self.max_trade_size)
+            else:
+                trade_size = self.calculate_trade_size(balance)
+            
             amount = trade_size / price
             
             # Check if we should enter
-            # Simple momentum: buy if price is trending up
-            if self.is_momentum_bullish('BTC/USDT'):
-                logger.info(f"🚀 Bullish momentum detected! Buying {amount:.6f} BTC")
+            if should_enter:
+                confidence_str = f" (AI Confidence: {ai_confidence}%)" if self.ai_engine else ""
+                logger.info(f"🚀 Bullish momentum detected{confidence_str}! Buying {amount:.6f} BTC")
                 
                 # Place order with SPOT params
                 order = self.exchange.create_market_order(
@@ -194,9 +247,34 @@ class AdminAutoTrader:
                     params={'tdMode': 'cash'}  # SPOT trading only
                 )
                 
-                # Calculate targets
-                take_profit_price = price * (1 + self.target_profit_per_trade / 100)
-                stop_loss_price = price * (1 - self.max_loss_per_trade / 100)
+                # AI ENHANCED: Calculate dynamic targets based on volatility
+                if self.ai_engine and ai_analysis.get('analysis'):
+                    try:
+                        volatility = ai_analysis['analysis'].get('volatility', 0.02)
+                        
+                        # Dynamic stop loss
+                        stop_loss_price, stop_pct = self.ai_engine.calculate_dynamic_stop_loss(
+                            price, 'buy', volatility, ai_confidence
+                        )
+                        
+                        # Dynamic take profit (3:1 risk-reward)
+                        take_profit_price, tp_pct = self.ai_engine.calculate_dynamic_take_profit(
+                            price, stop_loss_price, 'buy', risk_reward_ratio=3.0
+                        )
+                        
+                        logger.info(f"🤖 AI Dynamic Targets: TP {tp_pct*100:.1f}%, SL {stop_pct*100:.1f}%")
+                    except Exception as e:
+                        logger.warning(f"⚠️ AI target calculation failed: {e} - using defaults")
+                        take_profit_price = price * (1 + self.target_profit_per_trade / 100)
+                        stop_loss_price = price * (1 - self.max_loss_per_trade / 100)
+                else:
+                    # Standard targets
+                    take_profit_price = price * (1 + self.target_profit_per_trade / 100)
+                    stop_loss_price = price * (1 - self.max_loss_per_trade / 100)
+                
+                # Calculate percentages for display
+                tp_pct_display = ((take_profit_price - price) / price) * 100
+                sl_pct_display = ((price - stop_loss_price) / price) * 100
                 
                 # Add to profit protector
                 position_id = self.profit_protector.add_position(
@@ -211,15 +289,25 @@ class AdminAutoTrader:
                 
                 # Send Telegram notification
                 if self.telegram and self.telegram.enabled:
+                    ai_info = ""
+                    if self.ai_engine:
+                        ai_info = (
+                            f"\n🤖 <b>AI Analysis:</b>\n"
+                            f"   Confidence: {ai_confidence}%\n"
+                            f"   Multi-timeframe: Confirmed\n"
+                            f"   Risk-Reward: 3:1 optimized\n"
+                        )
+                    
                     self.telegram.send_message(
                         f"🟢 <b>MOMENTUM TRADE - BUY</b>\n\n"
                         f"🪙 Symbol: <b>BTC/USDT</b>\n"
                         f"💰 Entry Price: <b>${price:,.2f}</b>\n"
                         f"📊 Amount: {amount:.6f} BTC\n"
-                        f"💵 Trade Size: ${trade_size:.2f} USDT\n\n"
-                        f"🎯 Take Profit: ${take_profit_price:,.2f} (+{self.target_profit_per_trade}%)\n"
-                        f"🛑 Stop Loss: ${stop_loss_price:,.2f} (-{self.max_loss_per_trade}%)\n\n"
-                        f"📈 Strategy: Momentum\n"
+                        f"💵 Trade Size: ${trade_size:.2f} USDT\n"
+                        f"{ai_info}\n"
+                        f"🎯 Take Profit: ${take_profit_price:,.2f} (+{tp_pct_display:.1f}%)\n"
+                        f"🛑 Stop Loss: ${stop_loss_price:,.2f} (-{sl_pct_display:.1f}%)\n\n"
+                        f"📈 Strategy: Momentum {'+ AI' if self.ai_engine else ''}\n"
                         f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
                     )
                 

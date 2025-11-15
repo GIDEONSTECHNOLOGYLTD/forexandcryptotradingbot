@@ -728,20 +728,33 @@ class BotInstance:
                     # Send AI suggestion at 15%, 25%, 35% profit milestones
                     if current_pnl_pct >= 15 and current_pnl_pct < 45:
                         milestone = int(current_pnl_pct / 10) * 10  # Round to nearest 10%
-                        if not hasattr(position, '_last_ai_suggestion') or \
-                           milestone > position.get('_last_ai_suggestion', 0):
+                        last_suggestion = position.get('_last_ai_suggestion', 0)
+                        
+                        if milestone > last_suggestion:
                             if self.telegram and self.telegram.enabled:
                                 try:
+                                    # AI ANALYSIS: Dynamic advice based on profit level
+                                    if current_pnl_pct >= 30:
+                                        ai_advice = "🤖 AI: STRONG SELL SIGNAL - Excellent profit achieved!"
+                                        urgency = "🚨 HIGH"
+                                    elif current_pnl_pct >= 20:
+                                        ai_advice = "🤖 AI: Consider selling - Very good profit"
+                                        urgency = "⚠️ MEDIUM"
+                                    else:  # 15%
+                                        ai_advice = "🤖 AI: Good profit - Your decision"
+                                        urgency = "💡 LOW"
+                                    
                                     message = (
                                         f"💡 <b>AI PROFIT SUGGESTION</b>\n\n"
                                         f"🪙 Symbol: <b>{self.symbol}</b>\n"
                                         f"📈 Entry: ${entry_price:,.2f}\n"
                                         f"📊 Current: ${price:,.2f}\n\n"
                                         f"<b>💰 Profit: +{current_pnl_usd:.2f} USD (+{current_pnl_pct:.1f}%)</b>\n\n"
-                                        f"💡 You're up {current_pnl_pct:.1f}%!\n"
-                                        f"✅ Consider selling now to lock profit\n"
-                                        f"⚠️ Or wait - but target may not be reached\n\n"
-                                        f"🤖 Your choice! I'm watching the trade.\n"
+                                        f"{ai_advice}\n"
+                                        f"🔔 Urgency: {urgency}\n\n"
+                                        f"✅ <b>Option 1:</b> Sell now (secure ${current_pnl_usd:.2f})\n"
+                                        f"⏳ <b>Option 2:</b> Hold for target\n\n"
+                                        f"🤖 <i>AI helps you make informed decisions!</i>\n"
                                         f"Bot ID: {self.bot_id}"
                                     )
                                     self.telegram.send_message(message)
