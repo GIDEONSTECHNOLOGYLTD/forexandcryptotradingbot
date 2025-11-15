@@ -127,11 +127,11 @@ class SmartRiskManager:
         - Volatility
         """
         # ATR-based stop loss
-        atr_multiplier = 2.0
+        atr_multiplier = 1.5  # TIGHTENED: 1.5x ATR (was 2.0x) for tighter stops
         atr_stop = entry_price - (atr * atr_multiplier) if signal == 'buy' else entry_price + (atr * atr_multiplier)
         
-        # Percentage-based stop loss (2%)
-        pct_stop = entry_price * 0.98 if signal == 'buy' else entry_price * 1.02
+        # Percentage-based stop loss (1% - TIGHTENED from 2%)
+        pct_stop = entry_price * 0.99 if signal == 'buy' else entry_price * 1.01
         
         # Use support/resistance if available
         if support_resistance:
@@ -204,18 +204,20 @@ class SmartRiskManager:
         position = self.open_positions[symbol]
         entry_price = position['entry_price']
         
-        # Only trail if in profit
+        # Only trail if in profit - TIGHTENED activation threshold
         if position['signal'] == 'buy':
             profit_pct = (current_price - entry_price) / entry_price
-            if profit_pct > 0.03:  # 3% profit
-                # Trail stop to break-even + 1%
-                new_stop = entry_price * 1.01
+            if profit_pct > 0.005:  # 0.5% profit (was 3%) - trail much sooner!
+                # Trail stop to 0.5% below current price (tighter protection)
+                new_stop = current_price * 0.995
                 position['stop_loss'] = max(position['stop_loss'], new_stop)
+                logger.info(f"🛡️ Trailing stop updated for {symbol}: ${position['stop_loss']:.4f}")
         else:
             profit_pct = (entry_price - current_price) / entry_price
-            if profit_pct > 0.03:
-                new_stop = entry_price * 0.99
+            if profit_pct > 0.005:
+                new_stop = current_price * 1.005
                 position['stop_loss'] = min(position['stop_loss'], new_stop)
+                logger.info(f"🛡️ Trailing stop updated for {symbol}: ${position['stop_loss']:.4f}")
     
     def check_exit_conditions(self, symbol, current_price):
         """Check if position should be closed - includes multiple profit-taking levels"""

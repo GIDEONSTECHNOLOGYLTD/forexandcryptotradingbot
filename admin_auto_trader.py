@@ -165,6 +165,18 @@ class AdminAutoTrader:
             ticker = self.exchange.fetch_ticker('BTC/USDT')
             price = ticker['last']
             
+            # 🔴 CRITICAL: Validate price before trading
+            if price is None or price <= 0 or price == 0.0:
+                logger.error(f"❌ Invalid BTC price: ${price} - SKIPPING TRADE!")
+                if self.telegram and self.telegram.enabled:
+                    self.telegram.send_message(
+                        f"⚠️ <b>INVALID PRICE DETECTED</b>\n\n"
+                        f"Symbol: BTC/USDT\n"
+                        f"Price: ${price}\n\n"
+                        f"💡 Trade blocked for safety"
+                    )
+                return
+            
             # Calculate position size
             trade_size = self.calculate_trade_size(balance)
             amount = trade_size / price
@@ -284,6 +296,11 @@ class AdminAutoTrader:
                         logger.warning(f"Invalid ticker data for {symbol}")
                         continue
                     current_price = ticker['last']
+                    
+                    # 🔴 CRITICAL: Validate price is not zero or invalid
+                    if current_price is None or current_price <= 0 or current_price == 0.0:
+                        logger.error(f"❌ Invalid price for {symbol}: ${current_price} - SKIPPING!")
+                        continue
                 except Exception as e:
                     logger.error(f"Failed to fetch ticker for {symbol}: {e}")
                     continue

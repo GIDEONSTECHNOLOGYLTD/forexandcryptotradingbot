@@ -264,8 +264,40 @@ class AdvancedTradingBot:
             ticker = self.exchange.fetch_ticker(symbol)
             current_price = ticker['last']
             
+            # 🔴 CRITICAL: Validate price before trading (prevent PUMP/USDT $0.00 bug)
+            if current_price is None or current_price <= 0 or current_price == 0.0:
+                logger.error(f"❌ Invalid price for {symbol}: ${current_price} - SKIPPING TRADE!")
+                print(f"{Fore.RED}❌ Invalid price ${current_price} - trade blocked for safety{Style.RESET_ALL}")
+                
+                # Send alert about invalid price
+                if self.telegram and self.telegram.enabled:
+                    self.telegram.send_custom_alert(
+                        "⚠️ INVALID PRICE DETECTED",
+                        f"Blocked trade for {symbol}\n\n"
+                        f"Reason: Invalid price ${current_price}\n\n"
+                        f"💡 This protects you from bad price data"
+                    )
+                return False
+            
+            # Additional sanity check: Price must be reasonable (> $0.0001 for crypto)
+            if current_price < 0.0001:
+                logger.warning(f"⚠️ Suspiciously low price for {symbol}: ${current_price}")
+            
             # Calculate position size
             position_size = self.risk_manager.calculate_position_size(symbol, current_price)
+            
+            # 🔴 CRITICAL: Validate position size is reasonable
+            if position_size <= 0:
+                logger.error(f"❌ Invalid position size: {position_size} - SKIPPING TRADE!")
+                print(f"{Fore.RED}❌ Position size too small - cannot trade{Style.RESET_ALL}")
+                return False
+            
+            # Check minimum trade value ($5 minimum for most exchanges)
+            trade_value = position_size * current_price
+            if trade_value < 5.0:
+                logger.warning(f"⚠️ Trade value ${trade_value:.2f} below minimum $5 - SKIPPING!")
+                print(f"{Fore.YELLOW}⚠️ Trade value ${trade_value:.2f} too small (min $5){Style.RESET_ALL}")
+                return False
             
             if config.PAPER_TRADING:
                 # Paper trading

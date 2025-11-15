@@ -303,9 +303,10 @@ class RiskManager:
             profit_pct = ((current_price - entry_price) / entry_price) * 100
             
             # TRAILING STOP: Move stop loss up when in profit (protect gains!)
-            if profit_pct > 0.5:  # Once in 0.5% profit, start trailing
-                # Calculate trailing stop (1% below current price)
-                trailing_stop = current_price * 0.99  # 1% below current
+            # TIGHTENED: Activate at 0.3% profit (was 0.5%) for faster protection
+            if profit_pct > 0.3:  # Once in 0.3% profit, start trailing
+                # Calculate trailing stop (0.5% below current price for tighter protection)
+                trailing_stop = current_price * 0.995  # 0.5% below current (was 1%)
                 
                 # If trailing stop is higher than original stop, use it
                 if trailing_stop > position['stop_loss']:

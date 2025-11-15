@@ -47,9 +47,9 @@ PAPER_TRADING = False  # 💰 LIVE TRADING MODE - Real trades on OKX! ✅
 
 # Risk Management - ULTRA SAFE FOR SMALL BALANCE!
 MAX_POSITION_SIZE_PERCENT = float(os.getenv('MAX_POSITION_SIZE_PERCENT', '80.0'))
-STOP_LOSS_PERCENT = float(os.getenv('STOP_LOSS_PERCENT', '2.0'))
-TAKE_PROFIT_PERCENT = float(os.getenv('TAKE_PROFIT_PERCENT', '4.0'))
-MAX_DAILY_LOSS_PERCENT = float(os.getenv('MAX_DAILY_LOSS_PERCENT', '5.0'))
+STOP_LOSS_PERCENT = float(os.getenv('STOP_LOSS_PERCENT', '1.0'))  # TIGHTENED: 1% max loss per trade (was 2%)
+TAKE_PROFIT_PERCENT = float(os.getenv('TAKE_PROFIT_PERCENT', '2.5'))  # ADJUSTED: 2.5:1 risk-reward ratio
+MAX_DAILY_LOSS_PERCENT = float(os.getenv('MAX_DAILY_LOSS_PERCENT', '3.0'))  # TIGHTENED: 3% daily max (was 5%)
 MAX_OPEN_POSITIONS = int(os.getenv('MAX_OPEN_POSITIONS', '10'))
 
 # Bug #9 fix: CONFIG VALIDATION - Prevent catastrophic user errors!
