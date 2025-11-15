@@ -2032,7 +2032,7 @@ class NewListingConfig(BaseModel):
     max_hold_time: int = 3600  # 1 hour max hold
 
 @app.post("/api/new-listing/start")
-async def start_new_listing_bot(config: NewListingConfig, user: dict = Depends(get_current_user)):
+async def start_new_listing_bot(bot_config: NewListingConfig, user: dict = Depends(get_current_user)):
     """Start new listing detection bot"""
     if not NEW_LISTING_BOT_AVAILABLE:
         raise HTTPException(status_code=503, detail="New listing bot not available")
@@ -2057,7 +2057,7 @@ async def start_new_listing_bot(config: NewListingConfig, user: dict = Depends(g
             # Admin uses backend OKX account
             import ccxt
             exchange = ccxt.okx({
-                'apiKey': config.OKX_API_KEY,
+                'apiKey': config.OKX_API_KEY,  # ✅ Now uses imported config module
                 'secret': config.OKX_SECRET_KEY,
                 'password': config.OKX_PASSPHRASE,
                 'enableRateLimit': True
@@ -2078,14 +2078,14 @@ async def start_new_listing_bot(config: NewListingConfig, user: dict = Depends(g
             logger.info(f"🔑 User {user_id} new listing bot - using their OKX credentials")
         
         # Create bot with user configuration
-        bot_config = {
-            'buy_amount_usdt': config.buy_amount_usdt,
-            'take_profit_percent': config.take_profit_percent,
-            'stop_loss_percent': config.stop_loss_percent,
-            'max_hold_time': config.max_hold_time,
+        bot_config_dict = {
+            'buy_amount_usdt': bot_config.buy_amount_usdt,
+            'take_profit_percent': bot_config.take_profit_percent,
+            'stop_loss_percent': bot_config.stop_loss_percent,
+            'max_hold_time': bot_config.max_hold_time,
             'check_interval': 60  # Check every 60 seconds
         }
-        bot = NewListingBot(exchange, db, config=bot_config)
+        bot = NewListingBot(exchange, db, config=bot_config_dict)
         
         # Create async wrapper to run bot in background
         async def run_bot_loop():
@@ -2108,7 +2108,7 @@ async def start_new_listing_bot(config: NewListingConfig, user: dict = Depends(g
         new_listing_bot_instances[user_id] = {
             "bot": bot,
             "task": task,
-            "config": bot_config,
+            "config": bot_config_dict,
             "started_at": datetime.utcnow()
         }
         
@@ -2117,7 +2117,7 @@ async def start_new_listing_bot(config: NewListingConfig, user: dict = Depends(g
             {"_id": user["_id"]},
             {"$set": {
                 "new_listing_bot_enabled": True,
-                "new_listing_bot_config": config.dict(),
+                "new_listing_bot_config": bot_config.dict(),
                 "new_listing_bot_started": datetime.utcnow()
             }}
         )
@@ -2126,7 +2126,7 @@ async def start_new_listing_bot(config: NewListingConfig, user: dict = Depends(g
         
         return {
             "message": "New listing bot started and monitoring OKX",
-            "config": config.dict(),
+            "config": bot_config.dict(),
             "status": "running"
         }
         
@@ -2135,21 +2135,21 @@ async def start_new_listing_bot(config: NewListingConfig, user: dict = Depends(g
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/api/new-listing/config")
-async def update_new_listing_bot_config(config: NewListingConfig, user: dict = Depends(get_current_user)):
+async def update_new_listing_bot_config(bot_config: NewListingConfig, user: dict = Depends(get_current_user)):
     """Update new listing bot configuration without starting it"""
     try:
         # Save config to user document
         users_collection.update_one(
             {"_id": user["_id"]},
             {"$set": {
-                "new_listing_bot_config": config.dict(),
+                "new_listing_bot_config": bot_config.dict(),
                 "new_listing_bot_config_updated": datetime.utcnow()
             }}
         )
         
         return {
             "message": "Configuration saved successfully",
-            "config": config.dict()
+            "config": bot_config.dict()
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
