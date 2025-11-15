@@ -40,7 +40,7 @@ class AIAssetManager:
     Analyzes positions and suggests optimal exit strategies
     """
     
-    def __init__(self, exchange: ccxt.Exchange, db=None, telegram=None):
+    def __init__(self, exchange: ccxt.Exchange, db=None, telegram=None, risk_manager=None):
         """
         Initialize AI Asset Manager
         
@@ -48,9 +48,11 @@ class AIAssetManager:
             exchange: CCXT exchange instance
             db: Database instance
             telegram: TelegramNotifier instance
+            risk_manager: RiskManager instance for cooldown tracking
         """
         self.exchange = exchange
         self.db = db
+        self.risk_manager = risk_manager  # For cooldown tracking when we sell
         
         # Initialize Telegram
         if telegram:
@@ -380,6 +382,23 @@ class AIAssetManager:
             
             logger.info(f"✅ SELL order executed: {symbol}")
             
+            # 🔥 CRITICAL: Register cooldown to prevent immediate buy-back!
+            if hasattr(self, 'risk_manager') and self.risk_manager:
+                # Calculate profit (if we have entry data)
+                estimated_profit = analysis.get('estimated_profit_pct', 0) * value_usd / 100
+                
+                # Add to cooldown tracking
+                self.risk_manager.recently_closed_positions[symbol] = {
+                    'close_time': datetime.utcnow(),
+                    'pnl': estimated_profit,
+                    'exit_price': current_price,
+                    'exit_reason': 'ai_asset_manager'
+                }
+                logger.info(f"🛡️ Cooldown registered for {symbol} - prevents buy-back for 30 minutes")
+                
+                # Save cooldown data
+                self.risk_manager._save_cooldown_data()
+            
             # Send Telegram notification
             if self.telegram and self.telegram.enabled:
                 self.telegram.send_message(
@@ -414,23 +433,25 @@ class AIAssetManager:
             
             return False
     
-    def analyze_and_manage_all_assets(self, auto_sell: bool = False):
+    def analyze_and_manage_all_assets(self, auto_sell: bool = False, min_profit_pct: float = 3.0):
         """
         Analyze all holdings and manage them
         
         Args:
-            auto_sell: If True, automatically sell when AI recommends
+            auto_sell: If True, automatically sells assets that AI recommends selling
+            min_profit_pct: Minimum profit percentage required for auto-sell (default: 3%)
         """
-        logger.info("\n" + "="*70)
-        logger.info(f"{Fore.CYAN}🤖 AI ASSET MANAGER - ANALYZING YOUR PORTFOLIO{Style.RESET_ALL}")
-        logger.info("="*70 + "\n")
+        logger.info("🔍 Starting analysis of all assets...")
+        logger.info(f"   Auto-sell: {'ENABLED' if auto_sell else 'DISABLED'}")
+        logger.info(f"   Min profit for sell: {min_profit_pct}%")
         
         # Send start notification
         if self.telegram and self.telegram.enabled:
+            mode_text = f"AUTO-SELL (min {min_profit_pct}% profit)" if auto_sell else "RECOMMENDATIONS ONLY"
             self.telegram.send_message(
                 "🤖 <b>AI ASSET MANAGER STARTED</b>\n\n"
                 "📊 Analyzing all your OKX holdings...\n"
-                "💡 You'll receive recommendations for each asset\n\n"
+                f"💡 Mode: <b>{mode_text}</b>\n\n"
                 f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
             )
         
@@ -454,8 +475,13 @@ class AIAssetManager:
             
             # Auto-sell if recommended and enabled
             if auto_sell and analysis['recommendation'] == 'SELL':
-                logger.info(f"🤖 Auto-sell enabled and AI recommends SELL")
-                self.execute_smart_sell(holding, analysis)
+                # Only auto-sell if profit meets minimum threshold
+                profit_pct = analysis.get('estimated_profit_pct', 0)
+                if profit_pct >= min_profit_pct:
+                    logger.info(f"🤖 Auto-sell enabled and AI recommends SELL (profit: {profit_pct:.1f}% >= {min_profit_pct}%)")
+                    self.execute_smart_sell(holding, analysis)
+                else:
+                    logger.info(f"⏸️  Auto-sell skipped: profit {profit_pct:.1f}% < minimum {min_profit_pct}%")
             
             time.sleep(2)  # Rate limiting
         

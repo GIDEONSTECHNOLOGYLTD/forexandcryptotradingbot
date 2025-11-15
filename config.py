@@ -182,6 +182,9 @@ ADMIN_MAX_CONSECUTIVE_LOSSES = int(os.getenv('ADMIN_MAX_CONSECUTIVE_LOSSES', '3'
 
 # AI Asset Manager - Manages your existing OKX holdings
 ADMIN_ENABLE_ASSET_MANAGER = os.getenv('ADMIN_ENABLE_ASSET_MANAGER', 'false').lower() == 'true'  # Enable AI Asset Manager
+ADMIN_ASSET_MANAGER_AUTO_SELL = os.getenv('ADMIN_ASSET_MANAGER_AUTO_SELL', 'false').lower() == 'true'  # Enable AUTO-SELL
+ADMIN_ASSET_MANAGER_MIN_PROFIT = float(os.getenv('ADMIN_ASSET_MANAGER_MIN_PROFIT', '3'))  # Min profit % for auto-sell
 # When enabled: AI analyzes ALL your holdings every hour and sends recommendations
+# AUTO_SELL=false: Safe mode - only recommendations (default)
+# AUTO_SELL=true: Active mode - AI sells automatically when profitable
 # This helps free up capital stuck in losing positions
-# You'll get Telegram notifications with AI suggestions for each asset

@@ -95,14 +95,16 @@ class AdvancedTradingBot:
         
         # Initialize AI Asset Manager for managing existing holdings
         if ASSET_MANAGER_AVAILABLE:
-            self.asset_manager = AIAssetManager(self.exchange, self.db, self.telegram)
-            logger.info("✅ AI Asset Manager initialized")
+            self.asset_manager = AIAssetManager(self.exchange, self.db, self.telegram, self.risk_manager)
+            logger.info("✅ AI Asset Manager initialized with cooldown tracking")
         else:
             self.asset_manager = None
             logger.warning("⚠️ AI Asset Manager not available")
         
         # Asset management settings
         self.enable_asset_management = config.ADMIN_ENABLE_ASSET_MANAGER if hasattr(config, 'ADMIN_ENABLE_ASSET_MANAGER') else False
+        self.asset_manager_auto_sell = config.ADMIN_ASSET_MANAGER_AUTO_SELL if hasattr(config, 'ADMIN_ASSET_MANAGER_AUTO_SELL') else False
+        self.asset_manager_min_profit = config.ADMIN_ASSET_MANAGER_MIN_PROFIT if hasattr(config, 'ADMIN_ASSET_MANAGER_MIN_PROFIT') else 3.0
         self.asset_check_interval = 3600  # Check holdings every hour (3600 seconds)
         self.last_asset_check = 0
         
@@ -689,10 +691,15 @@ class AdvancedTradingBot:
         try:
             logger.info("\n" + "="*70)
             logger.info("🤖 Running AI Asset Manager...")
+            logger.info(f"   Mode: {'AUTO-SELL' if self.asset_manager_auto_sell else 'RECOMMENDATIONS ONLY'}")
+            logger.info(f"   Min Profit: {self.asset_manager_min_profit}%")
             logger.info("="*70)
             
-            # Analyze and manage assets (recommendations only, no auto-sell in main loop)
-            self.asset_manager.analyze_and_manage_all_assets(auto_sell=False)
+            # Analyze and manage assets (use configured auto-sell setting)
+            self.asset_manager.analyze_and_manage_all_assets(
+                auto_sell=self.asset_manager_auto_sell,
+                min_profit_pct=self.asset_manager_min_profit
+            )
             
             # Update last check time
             self.last_asset_check = current_time
