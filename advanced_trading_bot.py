@@ -30,6 +30,15 @@ try:
 except ImportError:
     SQLITE_AVAILABLE = False
 
+# Import AI Asset Manager for managing existing holdings
+try:
+    from ai_asset_manager import AIAssetManager
+    ASSET_MANAGER_AVAILABLE = True
+    logging.info("✅ AI Asset Manager imported")
+except ImportError as e:
+    ASSET_MANAGER_AVAILABLE = False
+    logging.warning(f"⚠️ AI Asset Manager not available: {e}")
+
 # Initialize colorama
 init(autoreset=True)
 
@@ -83,6 +92,19 @@ class AdvancedTradingBot:
         
         # Initialize Telegram notifications
         self.telegram = TelegramNotifier() if use_telegram else None
+        
+        # Initialize AI Asset Manager for managing existing holdings
+        if ASSET_MANAGER_AVAILABLE:
+            self.asset_manager = AIAssetManager(self.exchange, self.db, self.telegram)
+            logger.info("✅ AI Asset Manager initialized")
+        else:
+            self.asset_manager = None
+            logger.warning("⚠️ AI Asset Manager not available")
+        
+        # Asset management settings
+        self.enable_asset_management = config.ADMIN_ENABLE_ASSET_MANAGER if hasattr(config, 'ADMIN_ENABLE_ASSET_MANAGER') else False
+        self.asset_check_interval = 3600  # Check holdings every hour (3600 seconds)
+        self.last_asset_check = 0
         
         print(f"\n{Fore.CYAN}{'='*70}")
         print(f"{Fore.CYAN}🤖 Advanced Trading Bot Initialized")
@@ -651,6 +673,45 @@ class AdvancedTradingBot:
         if send_telegram and self.telegram and self.telegram.enabled:
             self.telegram.send_daily_summary(stats)
     
+    def manage_existing_assets(self):
+        """
+        Check and manage existing holdings with AI
+        Helps free up capital stuck in positions
+        """
+        if not self.asset_manager or not self.enable_asset_management:
+            return
+        
+        # Check if enough time has passed since last check
+        current_time = time.time()
+        if (current_time - self.last_asset_check) < self.asset_check_interval:
+            return
+        
+        try:
+            logger.info("\n" + "="*70)
+            logger.info("🤖 Running AI Asset Manager...")
+            logger.info("="*70)
+            
+            # Analyze and manage assets (recommendations only, no auto-sell in main loop)
+            self.asset_manager.analyze_and_manage_all_assets(auto_sell=False)
+            
+            # Update last check time
+            self.last_asset_check = current_time
+            
+            logger.info("✅ Asset management complete")
+            
+        except Exception as e:
+            logger.error(f"Error in asset management: {e}")
+            
+            # Notify about asset management error
+            if self.telegram and self.telegram.enabled:
+                self.telegram.send_message(
+                    f"⚠️ <b>ASSET MANAGEMENT ERROR</b>\n\n"
+                    f"Error analyzing holdings\n"
+                    f"Error: {str(e)}\n\n"
+                    f"💡 Will retry on next cycle\n"
+                    f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                )
+    
     def run(self):
         """Main trading loop"""
         print(f"{Fore.GREEN}🚀 Starting trading bot...{Style.RESET_ALL}\n")
@@ -669,6 +730,10 @@ class AdvancedTradingBot:
                 
                 # Check open positions
                 self.check_open_positions()
+                
+                # Manage existing assets (if enabled)
+                # This helps free up capital stuck in losing positions
+                self.manage_existing_assets()
                 
                 # Analyze active symbols
                 for symbol in self.active_symbols:
