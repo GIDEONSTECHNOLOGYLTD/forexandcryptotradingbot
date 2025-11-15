@@ -212,21 +212,71 @@ class AIAssetManager:
                 reasoning.append("Downtrend detected - price falling")
                 urgency = "MEDIUM"
             
-            # 3. Use Advanced AI if available
+            # 3. Use Advanced AI if available - COMPREHENSIVE MARKET ANALYSIS
             if self.ai_engine:
                 try:
-                    # Multi-timeframe analysis
-                    ai_analysis = self.ai_engine.should_enter_trade(symbol, 'sell', confidence=60)
+                    # 🔥 NEW: Comprehensive market analysis with all indicators
+                    logger.info(f"\n🤖 Running comprehensive AI market analysis for {symbol}...")
+                    market_analysis = self.ai_engine.comprehensive_market_analysis(symbol)
                     
-                    if ai_analysis['should_enter']:
+                    # Extract AI insights
+                    ai_recommendation = market_analysis['recommendation']
+                    ai_confidence = market_analysis['confidence']
+                    ai_reasons = market_analysis['reasons']
+                    indicators = market_analysis['indicators']
+                    
+                    logger.info(f"\n📊 AI Market Insights:")
+                    logger.info(f"   Recommendation: {ai_recommendation}")
+                    logger.info(f"   Confidence: {ai_confidence}%")
+                    logger.info(f"   RSI: {indicators.get('rsi', 'N/A')}")
+                    logger.info(f"   MACD: {indicators.get('macd', {}).get('trend', 'N/A')}")
+                    logger.info(f"   Bollinger: {indicators.get('bollinger', {}).get('position', 'N/A')}% of range")
+                    logger.info(f"   Order Book Pressure: {indicators.get('order_book', {}).get('pressure', 'N/A')}")
+                    
+                    # Adjust recommendation based on AI analysis
+                    if ai_recommendation in ['STRONG_SELL', 'SELL']:
                         recommendation = "SELL"
-                        reasoning.append(f"AI recommends selling (Confidence: {ai_analysis['confidence_adjusted']}%)")
+                        reasoning.append(f"🤖 AI strongly recommends selling (Confidence: {ai_confidence}%)")
+                        for reason in ai_reasons[:3]:  # Top 3 reasons
+                            reasoning.append(f"AI: {reason}")
                         urgency = "HIGH"
+                    elif ai_recommendation == 'HOLD':
+                        # Keep existing recommendation but note AI suggests hold
+                        reasoning.append(f"🤖 AI suggests HOLD (Confidence: {ai_confidence}%)")
+                    elif ai_recommendation in ['BUY', 'STRONG_BUY']:
+                        # AI suggests not selling
+                        if recommendation == "SELL":
+                            recommendation = "HOLD"  # Override sell if AI says buy
+                        reasoning.append(f"🤖 AI sees upside potential (not recommended to sell)")
                     
-                    reasoning.append(f"AI: {ai_analysis['reason']}")
+                    # Add specific indicator insights
+                    rsi = indicators.get('rsi')
+                    if rsi and rsi > 70:
+                        reasoning.append(f"RSI overbought ({rsi:.1f}) - good time to sell")
+                    elif rsi and rsi < 30:
+                        reasoning.append(f"RSI oversold ({rsi:.1f}) - hold for recovery")
+                    
+                    macd_trend = indicators.get('macd', {}).get('trend')
+                    if macd_trend == 'BEAR':
+                        reasoning.append("MACD shows bearish momentum")
+                    elif macd_trend == 'BULL':
+                        reasoning.append("MACD shows bullish momentum - consider holding")
+                    
+                    bollinger_pos = indicators.get('bollinger', {}).get('position')
+                    if bollinger_pos and bollinger_pos > 80:
+                        reasoning.append(f"Price at upper Bollinger Band ({bollinger_pos:.1f}%) - ideal sell zone")
+                    elif bollinger_pos and bollinger_pos < 20:
+                        reasoning.append(f"Price at lower Bollinger Band ({bollinger_pos:.1f}%) - wait for bounce")
+                    
+                    order_pressure = indicators.get('order_book', {}).get('pressure')
+                    if order_pressure == 'SELL':
+                        reasoning.append("Heavy sell pressure detected - consider exiting")
+                    elif order_pressure == 'BUY':
+                        reasoning.append("Strong buy pressure - market wants this asset")
                     
                 except Exception as e:
                     logger.warning(f"AI analysis failed: {e}")
+                    reasoning.append("AI analysis unavailable - using basic analysis")
             
             # 4. Value-based decision
             if value_usd < 5:
@@ -400,9 +450,55 @@ class AIAssetManager:
         except Exception as e:
             logger.warning(f"Failed to send analysis notification: {e}")
     
+    def calculate_optimal_exit_price(self, holding: Dict, analysis: Dict) -> Dict:
+        """
+        Calculate optimal exit price using AI insights
+        
+        Args:
+            holding: Holding details
+            analysis: Analysis results with AI indicators
+            
+        Returns:
+            dict: {'exit_type': 'MARKET'/'LIMIT', 'price': value, 'reason': str}
+        """
+        try:
+            current_price = holding['current_price']
+            symbol = holding['symbol']
+            
+            # Get Bollinger Bands position if available
+            bollinger_pos = analysis.get('bollinger_position', 50)
+            
+            # Default to market order
+            exit_strategy = {
+                'exit_type': 'MARKET',
+                'price': current_price,
+                'reason': 'Immediate market execution'
+            }
+            
+            # If price is not at optimal level, consider limit order
+            if bollinger_pos < 75:  # Not at upper band yet
+                # Price could go higher - set limit order slightly above
+                optimal_price = current_price * 1.02  # 2% above current
+                exit_strategy = {
+                    'exit_type': 'LIMIT',
+                    'price': optimal_price,
+                    'reason': f'Price at {bollinger_pos:.1f}% of Bollinger range - wait for better exit'
+                }
+                logger.info(f"💡 Optimal exit: Limit order at ${optimal_price:.6f} (+2%)")
+            
+            return exit_strategy
+            
+        except Exception as e:
+            logger.error(f"Error calculating optimal exit: {e}")
+            return {
+                'exit_type': 'MARKET',
+                'price': holding['current_price'],
+                'reason': 'Fallback to market order'
+            }
+    
     def execute_smart_sell(self, holding: Dict, analysis: Dict) -> bool:
         """
-        Execute smart sell order for a holding
+        Execute smart sell order for a holding with AI-optimized execution
         
         Args:
             holding: Holding details
@@ -420,14 +516,32 @@ class AIAssetManager:
             return False
         
         try:
-            logger.info(f"🔴 SELLING {symbol}: {amount:.6f} @ ${current_price:.6f}")
+            # 🔥 Calculate optimal exit strategy
+            exit_strategy = self.calculate_optimal_exit_price(holding, analysis)
             
-            # Execute market sell order
-            order = self.exchange.create_market_sell_order(
-                symbol,
-                amount,
-                params={'tdMode': 'cash'}  # SPOT trading
-            )
+            logger.info(f"🔴 SELLING {symbol}: {amount:.6f}")
+            logger.info(f"📊 Current Price: ${current_price:.6f}")
+            logger.info(f"🎯 Strategy: {exit_strategy['exit_type']} @ ${exit_strategy['price']:.6f}")
+            logger.info(f"💡 Reason: {exit_strategy['reason']}")
+            
+            # Execute order based on strategy
+            if exit_strategy['exit_type'] == 'LIMIT':
+                # Limit order for better price
+                order = self.exchange.create_limit_sell_order(
+                    symbol,
+                    amount,
+                    exit_strategy['price'],
+                    params={'tdMode': 'cash'}  # SPOT trading
+                )
+                logger.info(f"📝 LIMIT SELL order placed @ ${exit_strategy['price']:.6f}")
+            else:
+                # Market order for immediate execution
+                order = self.exchange.create_market_sell_order(
+                    symbol,
+                    amount,
+                    params={'tdMode': 'cash'}  # SPOT trading
+                )
+                logger.info(f"⚡ MARKET SELL order executed @ ${current_price:.6f}")
             
             value_usd = amount * current_price
             

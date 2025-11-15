@@ -138,6 +138,212 @@ class AdvancedAIEngine:
             logger.error(f"Error calculating smart position size: {e}")
             return balance * 0.05  # Fallback: 5% of balance
     
+    def calculate_rsi(self, symbol: str, timeframe: str = '1h', periods: int = 14) -> float:
+        """
+        Calculate RSI (Relative Strength Index) for market momentum
+        
+        Args:
+            symbol: Trading pair
+            timeframe: Timeframe for analysis
+            periods: Number of periods for RSI calculation (default 14)
+        
+        Returns:
+            float: RSI value (0-100)
+        """
+        try:
+            # Fetch OHLCV data
+            ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, limit=periods + 1)
+            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+            
+            # Calculate price changes
+            df['change'] = df['close'].diff()
+            
+            # Separate gains and losses
+            df['gain'] = df['change'].apply(lambda x: x if x > 0 else 0)
+            df['loss'] = df['change'].apply(lambda x: abs(x) if x < 0 else 0)
+            
+            # Calculate average gain and loss
+            avg_gain = df['gain'].rolling(window=periods).mean().iloc[-1]
+            avg_loss = df['loss'].rolling(window=periods).mean().iloc[-1]
+            
+            # Calculate RSI
+            if avg_loss == 0:
+                rsi = 100
+            else:
+                rs = avg_gain / avg_loss
+                rsi = 100 - (100 / (1 + rs))
+            
+            logger.info(f"RSI for {symbol}: {rsi:.2f}")
+            return rsi
+            
+        except Exception as e:
+            logger.error(f"Error calculating RSI: {e}")
+            return 50  # Neutral
+    
+    def calculate_macd(self, symbol: str, timeframe: str = '1h') -> Dict:
+        """
+        Calculate MACD (Moving Average Convergence Divergence)
+        
+        Args:
+            symbol: Trading pair
+            timeframe: Timeframe for analysis
+        
+        Returns:
+            dict: {'macd': value, 'signal': value, 'histogram': value, 'trend': 'BULL'/'BEAR'}
+        """
+        try:
+            # Fetch OHLCV data
+            ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, limit=50)
+            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+            
+            # Calculate MACD
+            exp1 = df['close'].ewm(span=12, adjust=False).mean()
+            exp2 = df['close'].ewm(span=26, adjust=False).mean()
+            macd = exp1 - exp2
+            signal = macd.ewm(span=9, adjust=False).mean()
+            histogram = macd - signal
+            
+            macd_value = macd.iloc[-1]
+            signal_value = signal.iloc[-1]
+            histogram_value = histogram.iloc[-1]
+            
+            # Determine trend
+            if macd_value > signal_value and histogram_value > 0:
+                trend = 'BULL'
+            elif macd_value < signal_value and histogram_value < 0:
+                trend = 'BEAR'
+            else:
+                trend = 'NEUTRAL'
+            
+            logger.info(f"MACD for {symbol}: {macd_value:.6f}, Signal: {signal_value:.6f}, Trend: {trend}")
+            
+            return {
+                'macd': macd_value,
+                'signal': signal_value,
+                'histogram': histogram_value,
+                'trend': trend
+            }
+            
+        except Exception as e:
+            logger.error(f"Error calculating MACD: {e}")
+            return {'macd': 0, 'signal': 0, 'histogram': 0, 'trend': 'NEUTRAL'}
+    
+    def calculate_bollinger_bands(self, symbol: str, timeframe: str = '1h', periods: int = 20) -> Dict:
+        """
+        Calculate Bollinger Bands for volatility and price levels
+        
+        Args:
+            symbol: Trading pair
+            timeframe: Timeframe for analysis
+            periods: Number of periods (default 20)
+        
+        Returns:
+            dict: {'upper': value, 'middle': value, 'lower': value, 'position': percentage}
+        """
+        try:
+            # Fetch OHLCV data
+            ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, limit=periods + 1)
+            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+            
+            # Calculate Bollinger Bands
+            middle_band = df['close'].rolling(window=periods).mean().iloc[-1]
+            std_dev = df['close'].rolling(window=periods).std().iloc[-1]
+            upper_band = middle_band + (2 * std_dev)
+            lower_band = middle_band - (2 * std_dev)
+            
+            current_price = df['close'].iloc[-1]
+            
+            # Calculate position within bands (0-100%)
+            if upper_band - lower_band > 0:
+                position = ((current_price - lower_band) / (upper_band - lower_band)) * 100
+            else:
+                position = 50
+            
+            logger.info(f"Bollinger Bands for {symbol}: Price ${current_price:.6f} at {position:.1f}% of bands")
+            
+            return {
+                'upper': upper_band,
+                'middle': middle_band,
+                'lower': lower_band,
+                'position': position,
+                'current_price': current_price
+            }
+            
+        except Exception as e:
+            logger.error(f"Error calculating Bollinger Bands: {e}")
+            return {'upper': 0, 'middle': 0, 'lower': 0, 'position': 50, 'current_price': 0}
+    
+    def analyze_order_book(self, symbol: str, depth: int = 20) -> Dict:
+        """
+        Analyze order book for market depth and buying/selling pressure
+        
+        Args:
+            symbol: Trading pair
+            depth: Order book depth to analyze
+        
+        Returns:
+            dict: {
+                'bid_strength': percentage,
+                'ask_strength': percentage,
+                'pressure': 'BUY'/'SELL'/'NEUTRAL',
+                'spread': percentage
+            }
+        """
+        try:
+            # Fetch order book
+            order_book = self.exchange.fetch_order_book(symbol, limit=depth)
+            
+            # Calculate total bid and ask volume
+            total_bid_volume = sum([bid[1] for bid in order_book['bids']])
+            total_ask_volume = sum([ask[1] for ask in order_book['asks']])
+            
+            # Calculate bid/ask strength
+            total_volume = total_bid_volume + total_ask_volume
+            if total_volume > 0:
+                bid_strength = (total_bid_volume / total_volume) * 100
+                ask_strength = (total_ask_volume / total_volume) * 100
+            else:
+                bid_strength = 50
+                ask_strength = 50
+            
+            # Determine pressure
+            if bid_strength > 55:
+                pressure = 'BUY'
+            elif ask_strength > 55:
+                pressure = 'SELL'
+            else:
+                pressure = 'NEUTRAL'
+            
+            # Calculate spread
+            if order_book['bids'] and order_book['asks']:
+                best_bid = order_book['bids'][0][0]
+                best_ask = order_book['asks'][0][0]
+                spread = ((best_ask - best_bid) / best_bid) * 100
+            else:
+                spread = 0
+            
+            logger.info(f"Order book for {symbol}: Bid {bid_strength:.1f}%, Ask {ask_strength:.1f}%, Pressure: {pressure}")
+            
+            return {
+                'bid_strength': bid_strength,
+                'ask_strength': ask_strength,
+                'pressure': pressure,
+                'spread': spread,
+                'total_bid_volume': total_bid_volume,
+                'total_ask_volume': total_ask_volume
+            }
+            
+        except Exception as e:
+            logger.error(f"Error analyzing order book: {e}")
+            return {
+                'bid_strength': 50,
+                'ask_strength': 50,
+                'pressure': 'NEUTRAL',
+                'spread': 0,
+                'total_bid_volume': 0,
+                'total_ask_volume': 0
+            }
+    
     def calculate_dynamic_stop_loss(self, entry_price: float, side: str, 
                                    volatility: float, confidence: int) -> Tuple[float, float]:
         """
@@ -392,6 +598,126 @@ class AdvancedAIEngine:
                 'risk_score': 0.5,
                 'recommendation': 'MODERATE',
                 'factors': {}
+            }
+    
+    def comprehensive_market_analysis(self, symbol: str) -> Dict:
+        """
+        Comprehensive real-time market analysis with all indicators
+        
+        Returns:
+            dict: Complete market analysis with insights and recommendations
+        """
+        try:
+            logger.info(f"\n{'='*70}")
+            logger.info(f"🔍 COMPREHENSIVE MARKET ANALYSIS: {symbol}")
+            logger.info(f"{'='*70}")
+            
+            # 1. Multi-timeframe trend
+            mtf = self.analyze_multi_timeframe(symbol)
+            logger.info(f"📊 Multi-timeframe: {mtf['trend']} (Confidence: {mtf['confidence']}%)")
+            
+            # 2. Technical indicators
+            rsi = self.calculate_rsi(symbol)
+            macd = self.calculate_macd(symbol)
+            bollinger = self.calculate_bollinger_bands(symbol)
+            
+            logger.info(f"📈 RSI: {rsi:.2f}")
+            logger.info(f"📉 MACD: {macd['trend']}")
+            logger.info(f"📊 Bollinger Position: {bollinger['position']:.1f}%")
+            
+            # 3. Order book analysis
+            order_book = self.analyze_order_book(symbol)
+            logger.info(f"📖 Order Book Pressure: {order_book['pressure']}")
+            
+            # 4. Volatility
+            volatility = self.calculate_volatility(symbol)
+            logger.info(f"⚡ Volatility: {volatility*100:.2f}%")
+            
+            # 5. Generate trading signal
+            signal_strength = 0
+            reasons = []
+            
+            # RSI analysis (oversold = buy signal, overbought = sell signal)
+            if rsi < 30:
+                signal_strength += 20
+                reasons.append(f"RSI oversold ({rsi:.1f})")
+            elif rsi > 70:
+                signal_strength -= 20
+                reasons.append(f"RSI overbought ({rsi:.1f})")
+            
+            # MACD analysis
+            if macd['trend'] == 'BULL':
+                signal_strength += 15
+                reasons.append("MACD bullish")
+            elif macd['trend'] == 'BEAR':
+                signal_strength -= 15
+                reasons.append("MACD bearish")
+            
+            # Bollinger Bands analysis
+            if bollinger['position'] < 20:
+                signal_strength += 15
+                reasons.append(f"Price near lower band ({bollinger['position']:.1f}%)")
+            elif bollinger['position'] > 80:
+                signal_strength -= 15
+                reasons.append(f"Price near upper band ({bollinger['position']:.1f}%)")
+            
+            # Order book pressure
+            if order_book['pressure'] == 'BUY':
+                signal_strength += 10
+                reasons.append(f"Strong buy pressure ({order_book['bid_strength']:.1f}%)")
+            elif order_book['pressure'] == 'SELL':
+                signal_strength -= 10
+                reasons.append(f"Strong sell pressure ({order_book['ask_strength']:.1f}%)")
+            
+            # Multi-timeframe confirmation
+            if mtf['trend'] == 'BULL' and mtf['confidence'] >= 75:
+                signal_strength += 20
+                reasons.append("Multi-timeframe confirms uptrend")
+            elif mtf['trend'] == 'BEAR' and mtf['confidence'] >= 75:
+                signal_strength -= 20
+                reasons.append("Multi-timeframe confirms downtrend")
+            
+            # Determine recommendation
+            if signal_strength >= 30:
+                recommendation = 'STRONG_BUY'
+            elif signal_strength >= 15:
+                recommendation = 'BUY'
+            elif signal_strength <= -30:
+                recommendation = 'STRONG_SELL'
+            elif signal_strength <= -15:
+                recommendation = 'SELL'
+            else:
+                recommendation = 'HOLD'
+            
+            confidence = min(100, abs(signal_strength) + 50)
+            
+            logger.info(f"\n🎯 RECOMMENDATION: {recommendation} (Confidence: {confidence}%)")
+            logger.info(f"📋 Reasons: {', '.join(reasons) if reasons else 'No strong signals'}")
+            logger.info(f"{'='*70}\n")
+            
+            return {
+                'recommendation': recommendation,
+                'confidence': confidence,
+                'signal_strength': signal_strength,
+                'reasons': reasons,
+                'indicators': {
+                    'rsi': rsi,
+                    'macd': macd,
+                    'bollinger': bollinger,
+                    'order_book': order_book,
+                    'multi_timeframe': mtf,
+                    'volatility': volatility
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in comprehensive market analysis: {e}")
+            return {
+                'recommendation': 'HOLD',
+                'confidence': 50,
+                'signal_strength': 0,
+                'reasons': ['Analysis error'],
+                'indicators': {}
             }
     
     def should_enter_trade(self, symbol: str, signal: str, confidence: int) -> Dict:
