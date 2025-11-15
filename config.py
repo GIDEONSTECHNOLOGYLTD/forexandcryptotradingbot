@@ -179,3 +179,9 @@ ADMIN_QUICK_EXIT_THRESHOLD = float(os.getenv('ADMIN_QUICK_EXIT_THRESHOLD', '10')
 # CRITICAL PROTECTION: Daily Loss Limits (prevent catastrophic losses!)
 ADMIN_DAILY_LOSS_LIMIT = float(os.getenv('ADMIN_DAILY_LOSS_LIMIT', '10'))  # Stop trading if lose 10% of capital in one day
 ADMIN_MAX_CONSECUTIVE_LOSSES = int(os.getenv('ADMIN_MAX_CONSECUTIVE_LOSSES', '3'))  # Stop after 3 losses in a row
+
+# AI Asset Manager - Manages your existing OKX holdings
+ADMIN_ENABLE_ASSET_MANAGER = os.getenv('ADMIN_ENABLE_ASSET_MANAGER', 'false').lower() == 'true'  # Enable AI Asset Manager
+# When enabled: AI analyzes ALL your holdings every hour and sends recommendations
+# This helps free up capital stuck in losing positions
+# You'll get Telegram notifications with AI suggestions for each asset

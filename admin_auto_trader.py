@@ -23,6 +23,15 @@ except ImportError as e:
     logger = logging.getLogger(__name__)
     logger.warning(f"⚠️ Advanced AI not available: {e}")
 
+# Import AI Asset Manager for managing existing holdings
+try:
+    from ai_asset_manager import AIAssetManager
+    ASSET_MANAGER_AVAILABLE = True
+    logger.info("✅ AI Asset Manager imported")
+except ImportError as e:
+    ASSET_MANAGER_AVAILABLE = False
+    logger.warning(f"⚠️ AI Asset Manager not available: {e}")
+
 logging.basicConfig(level=logging.INFO)
 
 class AdminAutoTrader:
@@ -66,6 +75,19 @@ class AdminAutoTrader:
         else:
             self.ai_engine = None
             logger.warning("⚠️ Trading without Advanced AI - using basic logic")
+        
+        # Initialize AI Asset Manager for managing existing holdings
+        if ASSET_MANAGER_AVAILABLE:
+            self.asset_manager = AIAssetManager(self.exchange, self.db, self.telegram)
+            logger.info("✅ AI Asset Manager initialized")
+        else:
+            self.asset_manager = None
+            logger.warning("⚠️ AI Asset Manager not available")
+        
+        # Asset management settings
+        self.enable_asset_management = config.ADMIN_ENABLE_ASSET_MANAGER if hasattr(config, 'ADMIN_ENABLE_ASSET_MANAGER') else False
+        self.asset_check_interval = 3600  # Check holdings every hour (3600 seconds)
+        self.last_asset_check = 0
         
         # Trading settings - dynamically fetched from actual balance
         self.capital = self.get_current_balance()  # Get real balance instead of hardcoded
@@ -850,6 +872,45 @@ class AdminAutoTrader:
         
         return True
     
+    def manage_existing_assets(self):
+        """
+        Check and manage existing holdings with AI
+        Helps free up capital stuck in positions
+        """
+        if not self.asset_manager or not self.enable_asset_management:
+            return
+        
+        # Check if enough time has passed since last check
+        current_time = time.time()
+        if (current_time - self.last_asset_check) < self.asset_check_interval:
+            return
+        
+        try:
+            logger.info("\n" + "="*70)
+            logger.info("🤖 Running AI Asset Manager...")
+            logger.info("="*70)
+            
+            # Analyze and manage assets (recommendations only, no auto-sell in main loop)
+            self.asset_manager.analyze_and_manage_all_assets(auto_sell=False)
+            
+            # Update last check time
+            self.last_asset_check = current_time
+            
+            logger.info("✅ Asset management complete")
+            
+        except Exception as e:
+            logger.error(f"Error in asset management: {e}")
+            
+            # Notify about asset management error
+            if self.telegram and self.telegram.enabled:
+                self.telegram.send_message(
+                    f"⚠️ <b>ASSET MANAGEMENT ERROR</b>\n\n"
+                    f"Error analyzing holdings\n"
+                    f"Error: {str(e)}\n\n"
+                    f"💡 Will retry on next cycle\n"
+                    f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                )
+    
     def run_forever(self):
         """
         Main loop - runs 24/7
@@ -880,6 +941,10 @@ class AdminAutoTrader:
                 
                 # Monitor existing positions
                 self.monitor_positions()
+                
+                # Manage existing assets (if enabled)
+                # This helps free up capital stuck in losing positions
+                self.manage_existing_assets()
                 
                 # Run momentum strategy if balance meets minimum
                 if balance >= self.momentum_min_balance:

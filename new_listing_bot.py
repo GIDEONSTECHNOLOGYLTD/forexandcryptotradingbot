@@ -119,6 +119,43 @@ class NewListingBot:
         except Exception as e:
             logger.error(f"Error loading markets: {e}")
     
+    def send_new_listing_alert(self, symbol: str):
+        """
+        Send ADVANCE notification about new listing IMMEDIATELY when detected
+        This gives you time to prepare before the trade executes
+        
+        Args:
+            symbol: New listing symbol
+        """
+        if not self.telegram or not self.telegram.enabled:
+            return
+        
+        try:
+            # Get current price if available
+            try:
+                ticker = self.exchange.fetch_ticker(symbol)
+                current_price = ticker['last']
+                price_info = f"💰 Current Price: ${current_price:.6f}\n"
+            except:
+                price_info = "💰 Price: Loading...\n"
+            
+            self.telegram.send_message(
+                f"🚨🚨🚨 <b>NEW LISTING ALERT!</b> 🚨🚨🚨\n\n"
+                f"🆕 <b>DETECTED: {symbol}</b>\n"
+                f"{price_info}"
+                f"📊 Buy Amount: ${self.buy_amount_usdt} USDT\n\n"
+                f"⏰ <b>Trading will start in ~1 minute!</b>\n\n"
+                f"💡 <b>Get ready!</b>\n"
+                f"   • Analyzing market conditions...\n"
+                f"   • Checking liquidity...\n"
+                f"   • AI calculating target...\n\n"
+                f"📱 You'll get another notification when BUY executes!\n\n"
+                f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+            )
+            logger.info(f"🚨 ADVANCE ALERT sent for {symbol}")
+        except Exception as e:
+            logger.warning(f"Failed to send advance alert: {e}")
+    
     def detect_new_listings(self) -> List[str]:
         """
         Detect new coin listings on OKX
@@ -287,6 +324,31 @@ class NewListingBot:
         
         try:
             current_price = analysis['current_price']
+            
+            # Check balance before attempting to buy
+            try:
+                balance = self.exchange.fetch_balance()
+                usdt_free = balance.get('USDT', {}).get('free', 0)
+                
+                if usdt_free < self.buy_amount_usdt:
+                    logger.error(f"❌ Insufficient balance: ${usdt_free:.2f} < ${self.buy_amount_usdt:.2f}")
+                    
+                    # Send Telegram notification about insufficient balance
+                    if self.telegram and self.telegram.enabled:
+                        self.telegram.send_message(
+                            f"⚠️ <b>NEW LISTING - INSUFFICIENT BALANCE!</b>\n\n"
+                            f"🚨 Detected: <b>{symbol}</b>\n"
+                            f"💰 Your Balance: <b>${usdt_free:.2f} USDT</b>\n"
+                            f"💵 Required: <b>${self.buy_amount_usdt:.2f} USDT</b>\n"
+                            f"📊 Missing: <b>${self.buy_amount_usdt - usdt_free:.2f} USDT</b>\n\n"
+                            f"❌ <b>Cannot buy this new listing!</b>\n"
+                            f"💡 Add funds to catch opportunities\n\n"
+                            f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                        )
+                    return None
+                    
+            except Exception as balance_error:
+                logger.warning(f"Could not check balance: {balance_error}")
             
             # Calculate amount to buy
             amount = self.buy_amount_usdt / current_price
@@ -647,6 +709,13 @@ class NewListingBot:
                 
                 # Trade new listings
                 for symbol in new_listings:
+                    # 🚨 ADVANCE ALERT: Send notification IMMEDIATELY when detected!
+                    logger.info(f"🚨 NEW LISTING DETECTED: {symbol} - Sending advance alert!")
+                    self.send_new_listing_alert(symbol)
+                    
+                    # Give user a moment to see the alert (1 second)
+                    time.sleep(1)
+                    
                     # Analyze
                     analysis = self.analyze_new_listing(symbol)
                     

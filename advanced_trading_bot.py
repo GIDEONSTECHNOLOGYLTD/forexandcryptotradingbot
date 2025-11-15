@@ -209,6 +209,27 @@ class AdvancedTradingBot:
                     if actual_usdt < 10:
                         logger.error(f"❌ Balance too low: ${actual_usdt:.2f}")
                         print(f"{Fore.RED}❌ Balance too low to trade: ${actual_usdt:.2f}{Style.RESET_ALL}")
+                        
+                        # 🚨 CRITICAL: Send Telegram notification about low balance
+                        if hasattr(self, 'telegram') and self.telegram and self.telegram.enabled:
+                            try:
+                                # Only send once per hour to avoid spam
+                                if not hasattr(self, '_last_low_balance_notification') or \
+                                   (datetime.utcnow() - self._last_low_balance_notification).seconds > 3600:
+                                    self.telegram.send_message(
+                                        f"⚠️ <b>BALANCE TOO LOW TO TRADE!</b>\n\n"
+                                        f"💰 Current Balance: <b>${actual_usdt:.2f} USDT</b>\n"
+                                        f"💵 Minimum Required: <b>$10.00 USDT</b>\n\n"
+                                        f"🚫 <b>Trading blocked for safety!</b>\n"
+                                        f"💡 Add funds to your OKX account to continue trading\n\n"
+                                        f"📊 Signal detected but cannot execute\n"
+                                        f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                                    )
+                                    self._last_low_balance_notification = datetime.utcnow()
+                                    logger.info("📱 Low balance notification sent to Telegram")
+                            except Exception as e:
+                                logger.warning(f"Failed to send low balance notification: {e}")
+                        
                         return False
                 except Exception as e:
                     logger.error(f"❌ Failed to fetch balance: {e}")
