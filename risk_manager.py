@@ -158,8 +158,13 @@ class RiskManager:
         """Check if trading is allowed based on risk parameters"""
         self.reset_daily_stats()
         
-        # Check daily loss limit
-        daily_loss_percent = (self.daily_pnl / self.current_capital) * 100
+        # Check daily loss limit (with safety check)
+        if self.current_capital > 0:
+            daily_loss_percent = (self.daily_pnl / self.current_capital) * 100
+        else:
+            logger.error(f"❌ Invalid capital for daily loss calc: ${self.current_capital}")
+            daily_loss_percent = 0  # Prevent division by zero
+        
         if daily_loss_percent <= -config.MAX_DAILY_LOSS_PERCENT:
             return False, f"Daily loss limit reached: {daily_loss_percent:.2f}%"
         
@@ -172,37 +177,124 @@ class RiskManager:
     def calculate_position_size(self, symbol, entry_price):
         """
         Calculate position size based on risk management rules
+        🎯 SMART: Works even with small balances!
         Returns the amount to trade
         """
+        # 🔴 CRITICAL: Math safety checks
+        if self.current_capital <= 0:
+            logger.error(f"❌ Invalid capital: ${self.current_capital}")
+            return 0
+        
+        if entry_price <= 0:
+            logger.error(f"❌ Invalid entry price: ${entry_price}")
+            return 0
+        
         # Calculate max position value based on portfolio percentage
         max_position_value = self.current_capital * (config.MAX_POSITION_SIZE_PERCENT / 100)
         
-        # Calculate position size
-        position_size = max_position_value / entry_price
+        # 🎯 SMART SMALL BALANCE LOGIC:
+        # For small balances, use higher percentage to still make meaningful trades
+        if self.current_capital < 10:
+            # With small balance, use up to 80% for single trade (careful but profitable)
+            max_position_value = self.current_capital * 0.80
+            logger.info(f"💡 Small balance detected - using 80% position sizing: ${max_position_value:.2f}")
+        elif self.current_capital < 20:
+            # Medium small: use 50%
+            max_position_value = self.current_capital * 0.50
+            logger.info(f"💡 Medium balance - using 50% position sizing: ${max_position_value:.2f}")
         
-        return position_size
+        # Minimum viable trade size (OKX minimum)
+        min_trade_value = 5.0
+        
+        # If calculated size is below minimum, use all available (or skip)
+        if max_position_value < min_trade_value:
+            if self.current_capital >= min_trade_value:
+                logger.warning(f"⚠️ Calculated size ${max_position_value:.2f} < $5 min - using ${min_trade_value:.2f}")
+                max_position_value = min(min_trade_value, self.current_capital * 0.95)  # Use 95% max
+            else:
+                logger.error(f"❌ Capital ${self.current_capital:.2f} too low for minimum trade")
+                return 0
+        
+        # Calculate position size with safety check
+        try:
+            position_size = max_position_value / entry_price
+            
+            # Round to reasonable precision (8 decimals for crypto)
+            position_size = round(position_size, 8)
+            
+            # Final validation
+            if position_size <= 0:
+                logger.error(f"❌ Calculated position size: {position_size} - invalid!")
+                return 0
+            
+            trade_value = position_size * entry_price
+            logger.info(f"📊 Position Size: {position_size:.8f} (${trade_value:.2f} value)")
+            
+            return position_size
+            
+        except Exception as e:
+            logger.error(f"❌ Error calculating position size: {e}")
+            return 0
     
     def calculate_stop_loss(self, entry_price, side='long'):
-        """Calculate stop loss price"""
+        """
+        Calculate stop loss price
+        🔴 MATH SAFETY: Prevents invalid calculations
+        """
+        # Safety check
+        if entry_price <= 0:
+            logger.error(f"❌ Invalid entry price for stop loss: ${entry_price}")
+            return entry_price * 0.95  # Fallback: 5% stop loss
+        
         # Normalize side to 'long' or 'short'
         normalized_side = 'long' if side.lower() in ['long', 'buy'] else 'short'
         
-        if normalized_side == 'long':
-            stop_loss = entry_price * (1 - config.STOP_LOSS_PERCENT / 100)
-        else:  # short
-            stop_loss = entry_price * (1 + config.STOP_LOSS_PERCENT / 100)
-        return stop_loss
+        try:
+            if normalized_side == 'long':
+                stop_loss = entry_price * (1 - config.STOP_LOSS_PERCENT / 100)
+            else:  # short
+                stop_loss = entry_price * (1 + config.STOP_LOSS_PERCENT / 100)
+            
+            # Validate result
+            if stop_loss <= 0:
+                logger.error(f"❌ Invalid stop loss calculated: ${stop_loss}")
+                return entry_price * 0.95  # Fallback
+            
+            return round(stop_loss, 8)  # Round to 8 decimals
+            
+        except Exception as e:
+            logger.error(f"❌ Error calculating stop loss: {e}")
+            return entry_price * 0.95  # Safe fallback
     
     def calculate_take_profit(self, entry_price, side='long'):
-        """Calculate take profit price"""
+        """
+        Calculate take profit price
+        🔴 MATH SAFETY: Prevents invalid calculations
+        """
+        # Safety check
+        if entry_price <= 0:
+            logger.error(f"❌ Invalid entry price for take profit: ${entry_price}")
+            return entry_price * 1.05  # Fallback: 5% take profit
+        
         # Normalize side to 'long' or 'short'
         normalized_side = 'long' if side.lower() in ['long', 'buy'] else 'short'
         
-        if normalized_side == 'long':
-            take_profit = entry_price * (1 + config.TAKE_PROFIT_PERCENT / 100)
-        else:  # short
-            take_profit = entry_price * (1 - config.TAKE_PROFIT_PERCENT / 100)
-        return take_profit
+        try:
+            if normalized_side == 'long':
+                take_profit = entry_price * (1 + config.TAKE_PROFIT_PERCENT / 100)
+            else:  # short
+                take_profit = entry_price * (1 - config.TAKE_PROFIT_PERCENT / 100)
+            
+            # Validate result
+            if take_profit <= 0:
+                logger.error(f"❌ Invalid take profit calculated: ${take_profit}")
+                return entry_price * 1.05  # Fallback
+            
+            return round(take_profit, 8)  # Round to 8 decimals
+            
+        except Exception as e:
+            logger.error(f"❌ Error calculating take profit: {e}")
+            return entry_price * 1.05  # Safe fallback
     
     def open_position(self, symbol, side, entry_price, amount):
         """Record a new position"""
@@ -232,13 +324,25 @@ class RiskManager:
         
         position = self.open_positions[symbol]
         
-        # Calculate PnL
-        if position['side'] == 'long' or position['side'] == 'buy':
+        # Calculate P&L with safety checks
+        try:
             pnl = (exit_price - position['entry_price']) * position['amount']
-        else:  # short or sell
-            pnl = (position['entry_price'] - exit_price) * position['amount']
-        
-        pnl_percent = (pnl / position['position_value']) * 100 if position['position_value'] > 0 else 0
+            
+            # Safety check for percentage calculation
+            if position['position_value'] > 0:
+                pnl_percent = (pnl / position['position_value']) * 100
+            else:
+                logger.warning(f"⚠️ Invalid position value: ${position['position_value']}")
+                pnl_percent = 0
+            
+            # Round to reasonable precision
+            pnl = round(pnl, 2)
+            pnl_percent = round(pnl_percent, 2)
+            
+        except Exception as e:
+            logger.error(f"❌ Error calculating PnL: {e}")
+            pnl = 0
+            pnl_percent = 0
         
         # Update capital: Add back the exit value (not just PnL)
         exit_value = exit_price * position['amount']

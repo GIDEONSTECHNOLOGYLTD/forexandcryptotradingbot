@@ -229,32 +229,60 @@ class AdvancedTradingBot:
                     # Update risk manager with REAL balance
                     self.risk_manager.current_capital = actual_usdt
                     
-                    # Safety check: Don't trade if balance too low
-                    if actual_usdt < 10:
-                        logger.error(f"❌ Balance too low: ${actual_usdt:.2f}")
+                    # 🎯 SMART BALANCE LOGIC: Even with small balance, we can still profit!
+                    min_viable_trade = 5.0  # Absolute minimum for OKX
+                    recommended_min = 10.0   # Recommended minimum
+                    
+                    if actual_usdt < min_viable_trade:
+                        # Truly too low - can't trade at all
+                        logger.error(f"❌ Balance critically low: ${actual_usdt:.2f}")
                         print(f"{Fore.RED}❌ Balance too low to trade: ${actual_usdt:.2f}{Style.RESET_ALL}")
                         
-                        # 🚨 CRITICAL: Send Telegram notification about low balance
+                        # 🚨 Send notification
                         if hasattr(self, 'telegram') and self.telegram and self.telegram.enabled:
                             try:
-                                # Only send once per hour to avoid spam
                                 if not hasattr(self, '_last_low_balance_notification') or \
                                    (datetime.utcnow() - self._last_low_balance_notification).seconds > 3600:
                                     self.telegram.send_message(
-                                        f"⚠️ <b>BALANCE TOO LOW TO TRADE!</b>\n\n"
+                                        f"🚨 <b>CRITICAL: BALANCE TOO LOW!</b>\n\n"
                                         f"💰 Current Balance: <b>${actual_usdt:.2f} USDT</b>\n"
-                                        f"💵 Minimum Required: <b>$10.00 USDT</b>\n\n"
-                                        f"🚫 <b>Trading blocked for safety!</b>\n"
-                                        f"💡 Add funds to your OKX account to continue trading\n\n"
-                                        f"📊 Signal detected but cannot execute\n"
+                                        f"💵 Minimum Required: <b>${min_viable_trade:.2f} USDT</b>\n\n"
+                                        f"🚫 <b>Cannot execute any trades!</b>\n"
+                                        f"💡 Add at least ${min_viable_trade:.2f} USDT to continue\n\n"
                                         f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
                                     )
                                     self._last_low_balance_notification = datetime.utcnow()
-                                    logger.info("📱 Low balance notification sent to Telegram")
+                                    logger.info("📱 Critical low balance notification sent")
                             except Exception as e:
-                                logger.warning(f"Failed to send low balance notification: {e}")
-                        
+                                logger.warning(f"Failed to send notification: {e}")
                         return False
+                    
+                    elif actual_usdt < recommended_min:
+                        # Small but usable - trade smartly with what we have!
+                        logger.warning(f"⚠️ Small balance: ${actual_usdt:.2f} - Trading with reduced size")
+                        print(f"{Fore.YELLOW}⚠️ Small balance: ${actual_usdt:.2f} - Using smart micro-trading{Style.RESET_ALL}")
+                        
+                        # Notify but don't block - we can still profit!
+                        if hasattr(self, 'telegram') and self.telegram and self.telegram.enabled:
+                            try:
+                                if not hasattr(self, '_last_small_balance_warning') or \
+                                   (datetime.utcnow() - self._last_small_balance_warning).seconds > 7200:  # Every 2 hours
+                                    self.telegram.send_message(
+                                        f"💡 <b>SMALL BALANCE MODE</b>\n\n"
+                                        f"💰 Current Balance: <b>${actual_usdt:.2f} USDT</b>\n"
+                                        f"📊 Recommended: ${recommended_min:.2f} USDT\n\n"
+                                        f"✅ <b>Still trading with reduced size!</b>\n"
+                                        f"💎 Using: ${min(actual_usdt * 0.8, 8):.2f} per trade\n"
+                                        f"🎯 Can still make profit with small balance!\n\n"
+                                        f"💡 Tip: Add more funds for larger positions\n"
+                                        f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                                    )
+                                    self._last_small_balance_warning = datetime.utcnow()
+                                    logger.info("📱 Small balance warning sent (but trading continues)")
+                            except Exception as e:
+                                logger.warning(f"Failed to send warning: {e}")
+                        
+                        # ✅ DON'T RETURN FALSE - Continue trading with small balance!
                 except Exception as e:
                     logger.error(f"❌ Failed to fetch balance: {e}")
                     print(f"{Fore.RED}❌ Cannot verify balance - skipping trade for safety{Style.RESET_ALL}")
