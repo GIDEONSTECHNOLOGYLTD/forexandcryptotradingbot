@@ -234,6 +234,42 @@ class AIAssetManager:
                 reasoning.append(f"Small position (${value_usd:.2f}) - consider closing")
                 urgency = "LOW"
             
+            # 5. 🔥 CRITICAL: Estimate profit/loss
+            # Use 30-day average as estimated entry price (best guess without entry tracking)
+            estimated_entry_price = avg_price_30d
+            
+            # Safety check: Prevent division by zero
+            if estimated_entry_price > 0:
+                estimated_profit_pct = ((current_price - estimated_entry_price) / estimated_entry_price) * 100
+                estimated_profit_usd = (current_price - estimated_entry_price) * holding['total_amount']
+            else:
+                logger.warning(f"Invalid entry price ({estimated_entry_price}), using 7-day avg")
+                estimated_entry_price = avg_price_7d if avg_price_7d > 0 else current_price
+                estimated_profit_pct = ((current_price - estimated_entry_price) / estimated_entry_price) * 100 if estimated_entry_price > 0 else 0
+                estimated_profit_usd = (current_price - estimated_entry_price) * holding['total_amount'] if estimated_entry_price > 0 else 0
+            
+            logger.info(f"💰 Estimated Entry: ${estimated_entry_price:.6f}")
+            logger.info(f"📊 Estimated Profit: {estimated_profit_pct:+.2f}% (${estimated_profit_usd:+.2f})")
+            
+            # Adjust recommendation based on profit
+            if estimated_profit_pct >= 5:
+                # Strong profit - recommend sell
+                if recommendation != "SELL":
+                    recommendation = "SELL"
+                reasoning.append(f"Strong profit: {estimated_profit_pct:+.2f}% (${estimated_profit_usd:+.2f})")
+                urgency = "MEDIUM"
+            elif estimated_profit_pct >= 3:
+                # Good profit - consider selling
+                if recommendation == "HOLD":
+                    recommendation = "CONSIDER_SELL"
+                reasoning.append(f"Good profit: {estimated_profit_pct:+.2f}% (${estimated_profit_usd:+.2f})")
+            elif estimated_profit_pct < -5:
+                # Significant loss - consider cutting
+                if recommendation == "HOLD":
+                    recommendation = "CONSIDER_SELL"
+                reasoning.append(f"Significant loss: {estimated_profit_pct:+.2f}% - consider cutting")
+                urgency = "MEDIUM"
+            
             analysis = {
                 'symbol': symbol,
                 'currency': currency,
@@ -244,6 +280,9 @@ class AIAssetManager:
                 'highest_30d': highest_30d,
                 'lowest_30d': lowest_30d,
                 'position_in_range': position_in_range,
+                'estimated_entry_price': estimated_entry_price,
+                'estimated_profit_pct': estimated_profit_pct,
+                'estimated_profit_usd': estimated_profit_usd,
                 'recommendation': recommendation,
                 'reasoning': reasoning,
                 'urgency': urgency,
@@ -321,12 +360,24 @@ class AIAssetManager:
         }.get(urgency, '💡')
         
         try:
+            # Profit indicator
+            profit_pct = analysis.get('estimated_profit_pct', 0)
+            profit_usd = analysis.get('estimated_profit_usd', 0)
+            if profit_pct > 0:
+                profit_emoji = "📈"
+                profit_text = f"<b>+{profit_pct:.2f}%</b> (+${profit_usd:.2f})"
+            else:
+                profit_emoji = "📉"
+                profit_text = f"<b>{profit_pct:.2f}%</b> ({profit_usd:+.2f})"
+            
             message = (
                 f"{emoji} <b>AI ASSET ANALYSIS</b>\n\n"
                 f"🪙 Asset: <b>{symbol}</b>\n"
                 f"💰 Current Price: ${current_price:.6f}\n"
                 f"💵 Total Value: <b>${value_usd:.2f}</b>\n"
                 f"📊 Amount: {holding['total_amount']:.6f}\n\n"
+                f"{profit_emoji} <b>Estimated P&L: {profit_text}</b>\n"
+                f"   (Entry ~${analysis.get('estimated_entry_price', 0):.6f})\n\n"
                 f"🤖 <b>AI Recommendation: {action}</b>\n"
                 f"{urgency_emoji} Urgency: {urgency}\n\n"
                 f"<b>📋 Reasoning:</b>\n"
@@ -384,13 +435,13 @@ class AIAssetManager:
             
             # 🔥 CRITICAL: Register cooldown to prevent immediate buy-back!
             if hasattr(self, 'risk_manager') and self.risk_manager:
-                # Calculate profit (if we have entry data)
-                estimated_profit = analysis.get('estimated_profit_pct', 0) * value_usd / 100
+                # Use estimated profit USD from analysis (not percentage calculation)
+                estimated_profit_usd = analysis.get('estimated_profit_usd', 0)
                 
                 # Add to cooldown tracking
                 self.risk_manager.recently_closed_positions[symbol] = {
                     'close_time': datetime.utcnow(),
-                    'pnl': estimated_profit,
+                    'pnl': estimated_profit_usd,
                     'exit_price': current_price,
                     'exit_reason': 'ai_asset_manager'
                 }
@@ -499,14 +550,27 @@ class AIAssetManager:
             return
         
         total_value = sum(h['value_usd'] for h, a in analyses)
+        total_profit_usd = sum(a.get('estimated_profit_usd', 0) for h, a in analyses)
+        # Calculate weighted average profit percentage
+        total_profit_pct = (total_profit_usd / (total_value - total_profit_usd) * 100) if (total_value - total_profit_usd) > 0 else 0
+        
         sell_count = sum(1 for h, a in analyses if a['recommendation'] == 'SELL')
         hold_count = sum(1 for h, a in analyses if a['recommendation'] == 'HOLD')
         consider_count = sum(1 for h, a in analyses if a['recommendation'] == 'CONSIDER_SELL')
+        
+        # Profit emoji
+        if total_profit_usd > 0:
+            profit_emoji = "📈"
+            profit_text = f"+${total_profit_usd:.2f} (+{total_profit_pct:.2f}%)"
+        else:
+            profit_emoji = "📉"
+            profit_text = f"${total_profit_usd:.2f} ({total_profit_pct:.2f}%)"
         
         try:
             message = (
                 "📊 <b>AI PORTFOLIO ANALYSIS SUMMARY</b>\n\n"
                 f"💰 Total Portfolio Value: <b>${total_value:.2f}</b>\n"
+                f"{profit_emoji} Estimated Total P&L: <b>{profit_text}</b>\n"
                 f"🪙 Assets Analyzed: {len(analyses)}\n\n"
                 f"<b>Recommendations:</b>\n"
                 f"🔴 SELL: {sell_count} assets\n"
