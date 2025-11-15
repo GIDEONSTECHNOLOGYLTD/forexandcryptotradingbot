@@ -58,6 +58,15 @@ BREAK_EVEN_TRIGGER = float(os.getenv('BREAK_EVEN_TRIGGER', '0.5'))  # Move stop 
 PROFIT_LOCK_AT_2_PCT = os.getenv('PROFIT_LOCK_AT_2_PCT', 'true').lower() == 'true'  # Auto-sell at 2% profit
 PROFIT_LOCK_AT_3_PCT = os.getenv('PROFIT_LOCK_AT_3_PCT', 'true').lower() == 'true'  # Auto-sell at 3% profit
 
+# SMART AI NEW LISTING BOT - Continuous small profits strategy
+NEW_LISTING_BUY_AMOUNT = float(os.getenv('NEW_LISTING_BUY_AMOUNT', '10'))  # $10 per listing (safe, many trades)
+NEW_LISTING_USE_SMART_AI = os.getenv('NEW_LISTING_USE_SMART_AI', 'true').lower() == 'true'  # Let AI decide targets
+NEW_LISTING_MIN_PROFIT = float(os.getenv('NEW_LISTING_MIN_PROFIT', '1'))  # Exit at ANY profit >=1%
+NEW_LISTING_MAX_PROFIT = float(os.getenv('NEW_LISTING_MAX_PROFIT', '20'))  # Don't be too greedy (max 20%)
+NEW_LISTING_DEFAULT_TARGET = float(os.getenv('NEW_LISTING_DEFAULT_TARGET', '5'))  # Default 5% (AI adjusts)
+NEW_LISTING_DEFAULT_STOP = float(os.getenv('NEW_LISTING_DEFAULT_STOP', '2'))  # Tight 2% stop (AI adjusts)
+NEW_LISTING_MAX_HOLD_MINUTES = int(os.getenv('NEW_LISTING_MAX_HOLD_MINUTES', '30'))  # 30 min max (quick in/out)
+
 # Bug #9 fix: CONFIG VALIDATION - Prevent catastrophic user errors!
 def validate_config():
     """Validate configuration values are within safe bounds"""

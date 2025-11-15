@@ -22,6 +22,15 @@ except ImportError as e:
     TELEGRAM_AVAILABLE = False
     logger.warning(f"⚠️ Telegram not available for new listing bot: {e}")
 
+# Import Smart AI Engine
+try:
+    from smart_new_listing_ai import SmartNewListingAI
+    SMART_AI_AVAILABLE = True
+    logger.info("✅ Smart AI engine imported for dynamic profit targets")
+except ImportError as e:
+    SMART_AI_AVAILABLE = False
+    logger.warning(f"⚠️ Smart AI not available: {e} - will use fixed targets")
+
 
 class NewListingBot:
     """
@@ -43,13 +52,27 @@ class NewListingBot:
         self.new_listings = []
         self.trading_enabled = True
         
-        # Default configuration (can be overridden) - TIGHTENED FOR USER PROTECTION!
+        # Initialize Smart AI Engine
+        if SMART_AI_AVAILABLE:
+            self.smart_ai = SmartNewListingAI()
+            logger.info("✅ Smart AI engine initialized")
+        else:
+            self.smart_ai = None
+            logger.warning("⚠️ Smart AI not available - using fixed targets")
+        
+        # Default configuration - SMART AI + CONTINUOUS SMALL PROFITS!
         default_config = {
-            'check_interval': 60,  # Check every 60 seconds
-            'buy_amount_usdt': 50,  # Amount to invest per new listing
-            'take_profit_percent': 15,  # Sell at 15% profit (realistic target)
-            'stop_loss_percent': 5,  # Stop loss at 5% loss (PROTECTED!)
-            'max_hold_time': 3600  # Max hold time: 1 hour
+            'check_interval': 30,  # Check every 30 seconds (faster detection)
+            'buy_amount_usdt': 10,  # $10 per listing (small capital, MANY trades)
+            'use_smart_ai': True,  # Let AI determine optimal target per coin
+            'take_profit_percent': 5,  # Default 5% (AI will adjust per coin)
+            'stop_loss_percent': 2,  # Tight 2% stop (AI will adjust)
+            'max_hold_time': 1800,  # Max hold: 30 minutes (quick in/out)
+            'continuous_profit_mode': True,  # Take many small wins
+            'min_profit_target': 1,  # Exit at ANY profit >=1%
+            'max_profit_target': 20,  # Don't be too greedy
+            'aggressive_entry': True,  # Enter immediately when detected
+            'break_even_at_2_pct': True  # Move stop to break-even at 2% profit
         }
         
         # Merge with provided config
@@ -164,6 +187,43 @@ class NewListingBot:
             # Trading signal
             signal = 'BUY' if liquidity_score > 30 and bid_ask_spread < 2 else 'WAIT'
             
+            # USE SMART AI TO DETERMINE OPTIMAL PROFIT TARGET!
+            ai_recommendation = None
+            dynamic_target = self.take_profit_percent  # Default
+            dynamic_stop = self.stop_loss_percent  # Default
+            
+            if self.smart_ai and signal == 'BUY':
+                try:
+                    # Estimate market cap (rough calculation)
+                    estimated_market_cap = volume_24h * 100  # Rough estimate
+                    
+                    # Get hype level (simplified - based on volume)
+                    hype_level = min(100, (volume_24h / 1_000_000) * 50)  # 0-100
+                    
+                    # AI analyzes the coin
+                    ai_recommendation = self.smart_ai.analyze_new_listing(symbol, {
+                        'price': current_price,
+                        'volume_24h': volume_24h,
+                        'spread': bid_ask_spread,
+                        'market_cap': estimated_market_cap,
+                        'hype_level': hype_level
+                    })
+                    
+                    # Use AI's recommended target!
+                    dynamic_target = ai_recommendation['recommended_target']
+                    
+                    # Calculate appropriate stop loss
+                    dynamic_stop, stop_reasoning = self.smart_ai.calculate_dynamic_stop_loss(
+                        current_price, dynamic_target
+                    )
+                    
+                    logger.info(f"🤖 AI Decision: Target {dynamic_target}% (Confidence: {ai_recommendation['confidence']}%)")
+                    logger.info(f"🤖 {ai_recommendation['reasoning']}")
+                    logger.info(f"🛡️ Dynamic Stop: {dynamic_stop}% - {stop_reasoning}")
+                    
+                except Exception as e:
+                    logger.error(f"AI analysis failed: {e} - using defaults")
+            
             analysis = {
                 'symbol': symbol,
                 'current_price': current_price,
@@ -173,6 +233,9 @@ class NewListingBot:
                 'total_bids': total_bids,
                 'total_asks': total_asks,
                 'signal': signal,
+                'ai_recommendation': ai_recommendation,  # Include AI recommendation
+                'dynamic_target': dynamic_target,  # AI-determined target
+                'dynamic_stop': dynamic_stop,  # AI-determined stop
                 'timestamp': datetime.utcnow()
             }
             
@@ -222,9 +285,14 @@ class NewListingBot:
                 params={'tdMode': 'cash'}  # SPOT trading only
             )
             
-            # Calculate targets
-            take_profit_price = current_price * (1 + self.take_profit_percent / 100)
-            stop_loss_price = current_price * (1 - self.stop_loss_percent / 100)
+            # USE AI'S DYNAMIC TARGETS (CRITICAL FIX!)
+            # Get AI-recommended targets from analysis, fallback to defaults if AI not available
+            profit_target_pct = analysis.get('dynamic_target', self.take_profit_percent)
+            stop_loss_pct = analysis.get('dynamic_stop', self.stop_loss_percent)
+            
+            # Calculate target prices using AI recommendations
+            take_profit_price = current_price * (1 + profit_target_pct / 100)
+            stop_loss_price = current_price * (1 - stop_loss_pct / 100)
             
             trade = {
                 'bot_id': 'admin_auto_trader',
@@ -238,31 +306,47 @@ class NewListingBot:
                 'invested': self.buy_amount_usdt,
                 'take_profit': take_profit_price,
                 'stop_loss': stop_loss_price,
+                'profit_target_pct': profit_target_pct,  # Store AI's target
+                'stop_loss_pct': stop_loss_pct,  # Store AI's stop
                 'entry_time': datetime.utcnow(),
                 'timestamp': datetime.utcnow(),
                 'status': 'open',
                 'side': 'buy',
                 'pnl': 0,
-                'analysis': analysis
+                'analysis': analysis,
+                'ai_enabled': self.smart_ai is not None  # Track if AI was used
             }
             
             logger.info(f"✅ Trade opened:")
             logger.info(f"   Entry: ${current_price:.6f}")
-            logger.info(f"   Take Profit: ${take_profit_price:.6f} (+{self.take_profit_percent}%)")
-            logger.info(f"   Stop Loss: ${stop_loss_price:.6f} (-{self.stop_loss_percent}%)")
+            logger.info(f"   🤖 AI Target: ${take_profit_price:.6f} (+{profit_target_pct}%)")
+            logger.info(f"   🛡️ AI Stop: ${stop_loss_price:.6f} (-{stop_loss_pct}%)")
             
             # Send Telegram notification for NEW LISTING BUY
             if self.telegram and self.telegram.enabled:
                 try:
+                    # Include AI recommendation in notification
+                    ai_info = ""
+                    if analysis.get('ai_recommendation'):
+                        ai_rec = analysis['ai_recommendation']
+                        ai_info = (
+                            f"\n🤖 <b>AI Analysis:</b>\n"
+                            f"   Target: {profit_target_pct}%\n"
+                            f"   Confidence: {ai_rec['confidence']}%\n"
+                            f"   Risk: {ai_rec['risk_level']}\n"
+                            f"   {ai_rec['reasoning']}\n"
+                        )
+                    
                     message = (
-                        f"🚨 **NEW LISTING DETECTED!**\n"
-                        f"🟢 **BUY Executed**\n\n"
-                        f"🪙 Symbol: {symbol}\n"
+                        f"🚨 <b>NEW LISTING DETECTED!</b>\n"
+                        f"🟢 <b>BUY Executed</b>\n\n"
+                        f"🪙 Symbol: <b>{symbol}</b>\n"
                         f"💰 Price: ${current_price:.6f}\n"
                         f"📊 Amount: {amount:.4f}\n"
-                        f"💵 Invested: ${self.buy_amount_usdt} USDT\n\n"
-                        f"🎯 Take Profit: ${take_profit_price:.6f} (+{self.take_profit_percent}%)\n"
-                        f"🛑 Stop Loss: ${stop_loss_price:.6f} (-{self.stop_loss_percent}%)\n\n"
+                        f"💵 Invested: ${self.buy_amount_usdt} USDT\n"
+                        f"{ai_info}\n"
+                        f"🎯 Take Profit: ${take_profit_price:.6f} (+{profit_target_pct}%)\n"
+                        f"�️ Stop Loss: ${stop_loss_price:.6f} (-{stop_loss_pct}%)\n\n"
                         f"⏰ Time: {datetime.utcnow().strftime('%H:%M:%S UTC')}\n"
                         f"✅ Position opened successfully!"
                     )

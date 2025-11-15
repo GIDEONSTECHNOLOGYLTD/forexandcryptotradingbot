@@ -23,10 +23,10 @@ export default function AdminBotScreen() {
   const [botStatus, setBotStatus] = useState({
     enabled: false,
     config: {
-      buy_amount_usdt: 50,
-      take_profit_percent: 30,
-      stop_loss_percent: 15,
-      max_hold_time: 3600,
+      buy_amount_usdt: 10,  // SMART: $10 per listing (many small wins strategy)
+      take_profit_percent: 5,  // SMART AI: Adjusts per coin (1-20%)
+      stop_loss_percent: 2,  // TIGHT: 2% max loss ($0.20 per trade)
+      max_hold_time: 1800,  // 30 min (quick in/out)
     },
     stats: {
       total_trades: 0,
@@ -40,10 +40,10 @@ export default function AdminBotScreen() {
   const [error, setError] = useState<string | null>(null);
   const [configModalVisible, setConfigModalVisible] = useState(false);
   const [config, setConfig] = useState({
-    buy_amount_usdt: 50,
-    take_profit_percent: 30,
-    stop_loss_percent: 15,
-    max_hold_time: 60, // In minutes for UI
+    buy_amount_usdt: 10,  // SMART: $10 per listing
+    take_profit_percent: 5,  // SMART AI: Adjusts per coin
+    stop_loss_percent: 2,  // TIGHT: 2% stop
+    max_hold_time: 30, // 30 minutes for UI
   });
 
   useEffect(() => {
@@ -78,10 +78,10 @@ export default function AdminBotScreen() {
       
       // Safely extract config and stats as primitives only
       const safeConfig = {
-        buy_amount_usdt: Number(statusData?.config?.buy_amount_usdt) || 50,
-        take_profit_percent: Number(statusData?.config?.take_profit_percent) || 30,
-        stop_loss_percent: Number(statusData?.config?.stop_loss_percent) || 15,
-        max_hold_time: Number(statusData?.config?.max_hold_time) || 3600,
+        buy_amount_usdt: Number(statusData?.config?.buy_amount_usdt) || 10,
+        take_profit_percent: Number(statusData?.config?.take_profit_percent) || 5,
+        stop_loss_percent: Number(statusData?.config?.stop_loss_percent) || 2,
+        max_hold_time: Number(statusData?.config?.max_hold_time) || 1800,
       };
       
       const safeStats = {
@@ -243,7 +243,7 @@ export default function AdminBotScreen() {
           <View>
             <Text style={styles.headerTitle}>🚀 Admin Auto-Trader</Text>
             <Text style={styles.headerSubtitle}>
-              ${Number(config?.buy_amount_usdt || 50)} trades • +{Number(config?.take_profit_percent || 30)}% profit • -{Number(config?.stop_loss_percent || 15)}% stop loss
+              🤖 Smart AI • ${Number(config?.buy_amount_usdt || 10)} per trade • Many small wins • Max -{Number(config?.stop_loss_percent || 2)}% ($0.{(Number(config?.buy_amount_usdt || 10) * Number(config?.stop_loss_percent || 2)).toFixed(0)}) loss
             </Text>
           </View>
           <View style={styles.balanceContainer}>
@@ -307,7 +307,7 @@ export default function AdminBotScreen() {
         <View style={styles.infoBox}>
           <Ionicons name="information-circle" size={16} color="#6b7280" />
           <Text style={styles.infoText}>
-            Bot invests ${Number(config?.buy_amount_usdt || 50)} per new listing, targets +{Number(config?.take_profit_percent || 30)}% profit (+${(Number(config?.buy_amount_usdt || 50) * Number(config?.take_profit_percent || 30) / 100).toFixed(2)}), stops at -{Number(config?.stop_loss_percent || 15)}% loss (-${(Number(config?.buy_amount_usdt || 50) * Number(config?.stop_loss_percent || 15) / 100).toFixed(2)})
+            🤖 AI analyzes each coin → Invests $10 → Takes 1-20% profit (AI decides) → Max loss $0.20 → Break-even at 2%
           </Text>
         </View>
       </View>
@@ -332,13 +332,13 @@ export default function AdminBotScreen() {
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>3</Text>
             </View>
-            <Text style={styles.stepText}>Buys ${Number(config?.buy_amount_usdt || 50)} worth automatically</Text>
+            <Text style={styles.stepText}>AI analyzes coin, invests ${Number(config?.buy_amount_usdt || 10)}</Text>
           </View>
           <View style={styles.step}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>4</Text>
             </View>
-            <Text style={styles.stepText}>Sells at +{Number(config?.take_profit_percent || 30)}% profit or -{Number(config?.stop_loss_percent || 15)}% stop loss</Text>
+            <Text style={styles.stepText}>AI decides optimal exit (1-20% profit) or -2% stop</Text>
           </View>
           <View style={styles.step}>
             <View style={styles.stepNumber}>
@@ -353,24 +353,31 @@ export default function AdminBotScreen() {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Expected Results</Text>
         <View style={styles.resultRow}>
-          <Text style={styles.resultLabel}>Week 1:</Text>
-          <Text style={styles.resultValue}>$16.78 → $25 (+49%)</Text>
+          <Text style={styles.resultLabel}>Strategy:</Text>
+          <Text style={styles.resultValue}>Many small wins (continuous profits)</Text>
         </View>
         <View style={styles.resultRow}>
-          <Text style={styles.resultLabel}>Week 2:</Text>
-          <Text style={styles.resultValue}>$25 → $38 (+52%)</Text>
+          <Text style={styles.resultLabel}>Per Trade:</Text>
+          <Text style={styles.resultValue}>+$0.50 avg (5% on $10)</Text>
+        </View>
+        <View style={styles.resultRow}>
+          <Text style={styles.resultLabel}>Week 1:</Text>
+          <Text style={styles.resultValue}>5 listings → +$2.50 profit</Text>
         </View>
         <View style={styles.resultRow}>
           <Text style={styles.resultLabel}>Month 1:</Text>
-          <Text style={styles.resultValue}>$38 → $100 (+163%)</Text>
+          <Text style={styles.resultValue}>20 listings → +$10 profit</Text>
         </View>
         <View style={styles.resultRow}>
           <Text style={styles.resultLabel}>Month 3:</Text>
-          <Text style={styles.resultValue}>$100 → $500 (+400%)</Text>
+          <Text style={styles.resultValue}>60 listings → +$30 profit</Text>
         </View>
         <View style={styles.resultRow}>
-          <Text style={styles.resultLabel}>Month 6:</Text>
-          <Text style={[styles.resultValue, styles.highlightText]}>$500 → $1,000+ (+100%)</Text>
+          <Text style={[styles.resultValue, styles.highlightText]}>Catch 1 big pump: +$100 bonus! 🚀</Text>
+        </View>
+        <View style={styles.infoBox}>
+          <Ionicons name="bulb" size={16} color="#f59e0b" />
+          <Text style={styles.infoTextSmall}>🤖 AI studies each coin's volume, spread, hype → Adjusts target (1-20%) → Takes continuous small profits → Never waits for huge gains that may not come!</Text>
         </View>
       </View>
 
@@ -396,11 +403,11 @@ export default function AdminBotScreen() {
                 <TextInput
                   style={styles.input}
                   value={String(Number(config?.buy_amount_usdt || 50))}
-                  onChangeText={(text) => setConfig({ ...config, buy_amount_usdt: parseFloat(text) || 50 })}
+                  onChangeText={(text) => setConfig({ ...config, buy_amount_usdt: parseFloat(text) || 10 })}
                   keyboardType="decimal-pad"
-                  placeholder="50"
+                  placeholder="10"
                 />
-                <Text style={styles.inputHint}>Recommended: $50 per new listing</Text>
+                <Text style={styles.inputHint}>Recommended: $10 per listing (safe, allows MANY trades, continuous profits)</Text>
               </View>
 
               <View style={styles.inputGroup}>
@@ -408,11 +415,11 @@ export default function AdminBotScreen() {
                 <TextInput
                   style={styles.input}
                   value={String(Number(config?.take_profit_percent || 30))}
-                  onChangeText={(text) => setConfig({ ...config, take_profit_percent: parseFloat(text) || 30 })}
+                  onChangeText={(text) => setConfig({ ...config, take_profit_percent: parseFloat(text) || 5 })}
                   keyboardType="decimal-pad"
-                  placeholder="30"
+                  placeholder="5"
                 />
-                <Text style={styles.inputHint}>Sell when profit reaches this %</Text>
+                <Text style={styles.inputHint}>AI adjusts per coin (1-20%). Default 5% = safe baseline. AI will optimize!</Text>
               </View>
 
               <View style={styles.inputGroup}>
@@ -420,23 +427,23 @@ export default function AdminBotScreen() {
                 <TextInput
                   style={styles.input}
                   value={String(Number(config?.stop_loss_percent || 15))}
-                  onChangeText={(text) => setConfig({ ...config, stop_loss_percent: parseFloat(text) || 15 })}
+                  onChangeText={(text) => setConfig({ ...config, stop_loss_percent: parseFloat(text) || 2 })}
                   keyboardType="decimal-pad"
-                  placeholder="15"
+                  placeholder="2"
                 />
-                <Text style={styles.inputHint}>Exit when loss reaches this %</Text>
+                <Text style={styles.inputHint}>Recommended: 2% (tight stop, only $0.20 loss on $10 trade). Break-even protection at 2% profit!</Text>
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Max Hold Time (minutes)</Text>
                 <TextInput
                   style={styles.input}
-                  value={String(Number(config?.max_hold_time || 60))}
-                  onChangeText={(text) => setConfig({ ...config, max_hold_time: parseInt(text) || 60 })}
+                  value={String(Number(config?.max_hold_time || 30))}
+                  onChangeText={(text) => setConfig({ ...config, max_hold_time: parseInt(text) || 30 })}
                   keyboardType="number-pad"
-                  placeholder="60"
+                  placeholder="30"
                 />
-                <Text style={styles.inputHint}>Maximum time to hold position</Text>
+                <Text style={styles.inputHint}>Recommended: 30 min (quick in/out, don't hold too long, take profits fast!)</Text>
               </View>
 
               <TouchableOpacity style={styles.saveButton} onPress={saveConfig}>
@@ -572,6 +579,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#fff',
     opacity: 0.9,
+  },
+  infoTextSmall: {
+    flex: 1,
+    fontSize: 11,
+    color: '#374151',
+    lineHeight: 16,
   },
   card: {
     backgroundColor: '#fff',
