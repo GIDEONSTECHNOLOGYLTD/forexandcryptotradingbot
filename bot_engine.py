@@ -328,13 +328,48 @@ class BotInstance:
                     daily_loss_pct = (self.daily_losses / self.balance) * 100 if self.balance > 0 else 0
                     if daily_loss_pct >= self.max_daily_loss_percent:
                         logger.warning(f"🛑 Daily loss limit reached: {daily_loss_pct:.2f}% (max {self.max_daily_loss_percent}%)")
+                        
+                        # Send notification once per day
+                        if self.telegram and self.telegram.enabled:
+                            if not hasattr(self, '_daily_limit_notified') or self._daily_limit_notified != today:
+                                try:
+                                    self.telegram.send_message(
+                                        f"⚠️ **DAILY LOSS LIMIT REACHED**\n\n"
+                                        f"📉 Daily Loss: {daily_loss_pct:.2f}%\n"
+                                        f"🛑 Max Allowed: {self.max_daily_loss_percent}%\n\n"
+                                        f"🛡️ Trading paused for today to protect your capital.\n"
+                                        f"⏰ Will resume tomorrow.\n\n"
+                                        f"Bot ID: {self.bot_id}"
+                                    )
+                                    self._daily_limit_notified = today
+                                except:
+                                    pass
+                        
                         return 'hold'  # Stop trading for today
                     
                     # Check cooldown period after last loss (dynamic based on loss size)
                     if self.last_loss_time:
                         minutes_since_loss = (datetime.utcnow() - self.last_loss_time).total_seconds() / 60
                         if minutes_since_loss < self.cooldown_minutes:
-                            logger.info(f"⏸️ Cooldown active: {self.cooldown_minutes - minutes_since_loss:.1f} min remaining")
+                            remaining_minutes = self.cooldown_minutes - minutes_since_loss
+                            logger.info(f"⏸️ Cooldown active: {remaining_minutes:.1f} min remaining")
+                            
+                            # Send notification every hour during cooldown
+                            if self.telegram and self.telegram.enabled:
+                                if not hasattr(self, '_last_cooldown_alert') or \
+                                   (datetime.utcnow() - self._last_cooldown_alert).total_seconds() > 3600:
+                                    try:
+                                        self.telegram.send_message(
+                                            f"⏳ **COOLDOWN ACTIVE**\n\n"
+                                            f"🕒 Time Remaining: {remaining_minutes:.0f} minutes\n\n"
+                                            f"🛡️ Bot is waiting after a loss to avoid trading in unfavorable conditions.\n"
+                                            f"✅ This is a safety feature to protect your capital!\n\n"
+                                            f"Bot ID: {self.bot_id}"
+                                        )
+                                        self._last_cooldown_alert = datetime.utcnow()
+                                    except:
+                                        pass
+                            
                             return 'hold'  # Don't buy yet
                     
                     # Check trend: only buy if price is stable or rising
@@ -348,6 +383,24 @@ class BotInstance:
                             
                             if trend_change < -1.0:  # Downtrend if avg dropped >1%
                                 logger.info(f"📉 Downtrend detected: {trend_change:.2f}% - waiting")
+                                
+                                # Send notification hourly during downtrend
+                                if self.telegram and self.telegram.enabled:
+                                    if not hasattr(self, '_last_downtrend_alert') or \
+                                       (datetime.utcnow() - self._last_downtrend_alert).total_seconds() > 3600:
+                                        try:
+                                            self.telegram.send_message(
+                                                f"📉 **DOWNTREND DETECTED**\n\n"
+                                                f"📊 Trend Change: {trend_change:.2f}%\n"
+                                                f"💼 Symbol: {self.symbol}\n\n"
+                                                f"⏸️ Bot is waiting for market conditions to improve.\n"
+                                                f"🛡️ Smart AI avoids buying during downtrends!\n\n"
+                                                f"Bot ID: {self.bot_id}"
+                                            )
+                                            self._last_downtrend_alert = datetime.utcnow()
+                                        except:
+                                            pass
+                                
                                 return 'hold'
                         
                         # Also check immediate trend (last 3 prices)
@@ -644,7 +697,24 @@ class BotInstance:
                             await asyncio.sleep(60)
                             continue
                     
-                    position = {'entry': price, 'amount': amount, 'time': datetime.utcnow()}
+                    # 🔧 FIX: Calculate stop loss and take profit based on config
+                    stop_loss_price = price * (1 - config.STOP_LOSS_PERCENT / 100)
+                    take_profit_price = price * (1 + config.TAKE_PROFIT_PERCENT / 100)
+                    
+                    position = {
+                        'entry': price,
+                        'entry_price': price,  # For compatibility with telegram notifier
+                        'amount': amount,
+                        'time': datetime.utcnow(),
+                        'symbol': self.symbol,  # Required for notifications
+                        'side': 'buy',  # Required for notifications
+                        'stop_loss': stop_loss_price,
+                        'take_profit': take_profit_price,
+                        'confidence': 100.0  # From bot signal
+                    }
+                    
+                    logger.info(f"📊 Stop Loss: ${stop_loss_price:.6f} ({config.STOP_LOSS_PERCENT}%)")
+                    logger.info(f"🎯 Take Profit: ${take_profit_price:.6f} ({config.TAKE_PROFIT_PERCENT}%)")
                     
                     # Add position to profit protector for automated protection
                     if self.profit_protector:
@@ -678,23 +748,12 @@ class BotInstance:
                     position['trade_id'] = str(result.inserted_id)  # Store trade ID for later update
                     logger.info(f"💾 Trade saved to database with ID: {result.inserted_id}")
                     
-                    # Send Telegram notification for BUY
+                    # Send Telegram notification for BUY using standard format
                     if self.telegram and self.telegram.enabled:
                         try:
-                            mode = "📝 PAPER" if self.paper_trading else "💰 REAL"
-                            total_value = amount * price
-                            message = (
-                                f"🟢 **BUY Signal Executed!**\n\n"
-                                f"Symbol: {self.symbol}\n"
-                                f"Mode: {mode}\n"
-                                f"Price: ${price:,.2f}\n"
-                                f"Amount: {amount:.6f}\n"
-                                f"Total Value: ${total_value:,.2f}\n"
-                                f"Time: {datetime.utcnow().strftime('%H:%M:%S UTC')}\n\n"
-                                f"✅ Position opened successfully!"
-                            )
-                            self.telegram.send_message(message)
-                            logger.info("📱 Telegram: BUY notification sent")
+                            # Use standardized send_trade_alert method
+                            self.telegram.send_trade_alert(position)
+                            logger.info("📱 Telegram: BUY notification sent (with SL/TP)")
                         except Exception as e:
                             logger.warning(f"⚠️ Failed to send BUY notification: {e}")
                     

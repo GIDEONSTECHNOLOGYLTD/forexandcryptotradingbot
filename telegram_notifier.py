@@ -104,31 +104,46 @@ class TelegramNotifier:
     
     def send_trade_alert(self, trade_data):
         """Send trade execution alert"""
-        symbol = trade_data['symbol']
-        side = trade_data['side'].upper()
-        price = trade_data['entry_price']
-        amount = trade_data['amount']
+        symbol = trade_data.get('symbol', 'UNKNOWN')
+        side = trade_data.get('side', 'buy').upper()
+        price = trade_data.get('entry_price', 0)
+        amount = trade_data.get('amount', 0)
         confidence = trade_data.get('confidence', 0)
         stop_loss = trade_data.get('stop_loss', 0)
         take_profit = trade_data.get('take_profit', 0)
         
+        # 🔧 FIX: Validate critical fields before sending
+        if price <= 0:
+            # Don't send notification if price is invalid
+            print(f"⚠️ Cannot send trade alert - invalid price: ${price}")
+            return False
+        
         # Emoji based on side
         emoji = "🟢" if side == "BUY" else "🔴"
         
+        # Build message with proper formatting
         message = f"""
 {emoji} <b>TRADE EXECUTED</b>
 
 <b>Symbol:</b> {symbol}
 <b>Side:</b> {side}
-<b>Price:</b> ${price:,.2f}
+<b>Price:</b> ${price:,.6f}
 <b>Amount:</b> {amount:.6f}
 <b>Confidence:</b> {confidence:.1f}%
-
-<b>Stop Loss:</b> ${stop_loss:,.2f}
-<b>Take Profit:</b> ${take_profit:,.2f}
-
-<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>
 """
+        
+        # Only add stop loss and take profit if they're valid
+        if stop_loss > 0:
+            message += f"\n<b>Stop Loss:</b> ${stop_loss:,.6f}"
+        else:
+            message += f"\n<b>Stop Loss:</b> ⚠️ Not set"
+            
+        if take_profit > 0:
+            message += f"\n<b>Take Profit:</b> ${take_profit:,.6f}"
+        else:
+            message += f"\n<b>Take Profit:</b> ⚠️ Not set"
+        
+        message += f"\n\n<i>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</i>\n"
         
         return self.send_message(message)
     

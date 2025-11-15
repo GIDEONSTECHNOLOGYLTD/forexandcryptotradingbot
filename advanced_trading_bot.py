@@ -413,8 +413,26 @@ class AdvancedTradingBot:
                         position_size,
                         params={'tdMode': 'cash'}  # SPOT trading only!
                     )
-                    logger.info(f"✅ SPOT BUY executed: {symbol} - {position_size} @ ${current_price}")
+                    logger.info(f"✅ SPOT BUY order placed: {symbol}")
+                    
+                    # 🔧 FIX: Extract ACTUAL fill details from order response
+                    actual_price = order.get('average', order.get('price', current_price))
+                    actual_amount = order.get('filled', position_size)
+                    actual_cost = order.get('cost', actual_price * actual_amount)
+                    
+                    # Validate we got real values
+                    if actual_price <= 0:
+                        logger.error(f"❌ Order failed - no fill price! Order: {order}")
+                        if self.telegram and self.telegram.enabled:
+                            self.telegram.send_custom_alert(
+                                "⚠️ ORDER EXECUTION FAILED",
+                                f"Symbol: {symbol}\nOrder was placed but fill price is invalid.\nPlease check your OKX account."
+                            )
+                        return False
+                    
+                    logger.info(f"✅ SPOT BUY executed: {symbol} - {actual_amount:.6f} @ ${actual_price:.4f}")
                     print(f"{Fore.GREEN}✅ Order executed successfully!{Style.RESET_ALL}")
+                    print(f"{Fore.CYAN}   Filled: {actual_amount:.6f} @ ${actual_price:.4f} (Total: ${actual_cost:.2f}){Style.RESET_ALL}")
                 else:
                     # Should never reach here with our fix, but just in case
                     logger.warning(f"⚠️ Skipping SELL signal for {symbol} - need to BUY first!")
@@ -423,13 +441,15 @@ class AdvancedTradingBot:
                 
                 logger.info(f"Live trade executed: {order}")
                 
-                # Open position in risk manager
-                position = self.risk_manager.open_position(symbol, signal, current_price, position_size)
+                # 🔧 FIX: Open position with ACTUAL execution price, not ticker price
+                position = self.risk_manager.open_position(symbol, signal, actual_price, actual_amount)
                 position['confidence'] = confidence
                 position['entry_time'] = datetime.now()
+                position['order_id'] = order.get('id', 'unknown')
+                position['actual_cost'] = actual_cost
                 
                 print(f"Symbol: {Fore.CYAN}{symbol}{Style.RESET_ALL}")
-                print(f"Entry Price: {Fore.CYAN}${current_price:.4f}{Style.RESET_ALL}")
+                print(f"Entry Price: {Fore.CYAN}${actual_price:.4f}{Style.RESET_ALL}")
                 print(f"Stop Loss: {Fore.RED}${position['stop_loss']:.4f}{Style.RESET_ALL}")
                 print(f"Take Profit: {Fore.GREEN}${position['take_profit']:.4f}{Style.RESET_ALL}")
                 

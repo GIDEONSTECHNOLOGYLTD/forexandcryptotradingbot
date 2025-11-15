@@ -317,7 +317,37 @@ class UltimateTradingBot:
                 params={'tdMode': 'cash'}  # SPOT trading only
             )
         
-        logger.info(f"Live trade executed: {order}")
+        # 🔧 FIX: Extract ACTUAL fill details from order response
+        actual_price = order.get('average', order.get('price', current_price))
+        actual_amount = order.get('filled', position_size)
+        actual_cost = order.get('cost', actual_price * actual_amount)
+        
+        # Validate we got real values
+        if actual_price <= 0:
+            logger.error(f"❌ Order failed - no fill price! Order: {order}")
+            if self.telegram and self.telegram.enabled:
+                self.telegram.send_custom_alert(
+                    "⚠️ ORDER EXECUTION FAILED",
+                    f"Symbol: {symbol}\nOrder was placed but fill price is invalid.\nPlease check your OKX account."
+                )
+            return False
+        
+        logger.info(f"✅ Live trade executed: {symbol} - {actual_amount:.6f} @ ${actual_price:.4f} (Total: ${actual_cost:.2f})")
+        
+        # Create position with actual execution details
+        position = self.risk_manager.open_position(symbol, signal, actual_price, actual_amount)
+        position['order_id'] = order.get('id', 'unknown')
+        position['actual_cost'] = actual_cost
+        
+        # Save to database
+        if self.db:
+            self.db.save_trade(position)
+        
+        # Send notification
+        if self.telegram and self.telegram.enabled:
+            self.telegram.send_trade_alert(position)
+        
+        return True
     
     def check_positions_advanced(self):
         """Advanced position monitoring with trailing stops"""
