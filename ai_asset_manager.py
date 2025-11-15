@@ -98,6 +98,10 @@ class AIAssetManager:
                 if currency in ['free', 'used', 'total', 'info']:
                     continue
                 
+                # Skip if amounts is not a dictionary
+                if not isinstance(amounts, dict):
+                    continue
+                
                 total_amount = amounts.get('total', 0)
                 if total_amount <= 0:
                     continue
