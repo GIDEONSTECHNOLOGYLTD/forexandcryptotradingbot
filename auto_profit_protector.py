@@ -13,6 +13,22 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+# Import Advanced AI Engine and Telegram for comprehensive notifications
+try:
+    from advanced_ai_engine import AdvancedAIEngine
+    AI_AVAILABLE = True
+    logger.info("✅ Advanced AI Engine available for profit protection")
+except ImportError:
+    AI_AVAILABLE = False
+    logger.warning("⚠️ Advanced AI not available for profit protector")
+
+try:
+    from telegram_notifier import TelegramNotifier
+    TELEGRAM_AVAILABLE = True
+except ImportError:
+    TELEGRAM_AVAILABLE = False
+    logger.warning("⚠️ Telegram notifications not available")
+
 
 class AutoProfitProtector:
     """
@@ -20,17 +36,36 @@ class AutoProfitProtector:
     Multiple strategies to ensure profitability
     """
     
-    def __init__(self, exchange: ccxt.Exchange, db=None):
+    def __init__(self, exchange: ccxt.Exchange, db=None, telegram=None):
         """
         Initialize profit protector
         
         Args:
             exchange: CCXT exchange instance
             db: Database instance
+            telegram: TelegramNotifier instance for comprehensive notifications
         """
         self.exchange = exchange
         self.db = db
         self.active_positions = {}
+        
+        # Initialize AI Engine for smart protection
+        if AI_AVAILABLE:
+            self.ai_engine = AdvancedAIEngine(exchange)
+            logger.info("✅ AI-Enhanced Profit Protection Activated")
+        else:
+            self.ai_engine = None
+        
+        # Initialize Telegram for ALL notifications
+        if telegram:
+            self.telegram = telegram
+            logger.info("✅ Telegram notifications enabled for profit protector")
+        elif TELEGRAM_AVAILABLE:
+            self.telegram = TelegramNotifier()
+            logger.info("✅ Telegram notifier initialized")
+        else:
+            self.telegram = None
+            logger.warning("⚠️ No Telegram notifications")
         
         # ============================================================================
         # PROFIT PROTECTION SETTINGS
@@ -180,7 +215,28 @@ class AutoProfitProtector:
         # 3. Trailing Stop Loss
         if self.trailing_stop_enabled and pnl_percent >= self.trailing_stop_activation:
             trailing_stop = position['highest_price'] * (1 - self.trailing_stop_distance / 100)
+            old_trailing = position.get('trailing_stop')
             position['trailing_stop'] = trailing_stop
+            
+            # NOTIFICATION: Trailing stop activated (first time only)
+            if old_trailing is None and self.telegram and self.telegram.enabled:
+                try:
+                    self.telegram.send_message(
+                        f"🎯 <b>TRAILING STOP ACTIVATED!</b>\n\n"
+                        f"🪙 Symbol: <b>{position['symbol']}</b>\n"
+                        f"📈 Current Profit: <b>+{pnl_percent:.1f}%</b>\n"
+                        f"🔝 Peak Price: <b>${position['highest_price']:.6f}</b>\n"
+                        f"📊 Current Price: <b>${current_price:.6f}</b>\n"
+                        f"🛡️ Trailing Stop: <b>${trailing_stop:.6f}</b> ({self.trailing_stop_distance}% trail)\n\n"
+                        f"✅ <b>Profit protection active!</b>\n"
+                        f"📈 Stop follows price up automatically\n"
+                        f"🔒 Locks in gains as price rises\n"
+                        f"💡 Exits if price drops {self.trailing_stop_distance}% from peak\n\n"
+                        f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                    )
+                    logger.info(f"📱 Telegram: Trailing stop activation notification sent for {position['symbol']}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to send trailing stop notification: {e}")
             
             if current_price <= trailing_stop * (1 + self.price_tolerance):
                 return {
@@ -214,6 +270,23 @@ class AutoProfitProtector:
                 position['stop_loss'] = position['entry_price']
                 position['breakeven_activated'] = True
                 logger.info(f"✅ Break-even activated for {position['symbol']}")
+                
+                # NOTIFICATION: Break-even activated
+                if self.telegram and self.telegram.enabled:
+                    try:
+                        self.telegram.send_message(
+                            f"🛡️ <b>BREAK-EVEN ACTIVATED</b>\n\n"
+                            f"🪙 Symbol: <b>{position['symbol']}</b>\n"
+                            f"📈 Current Profit: <b>+{pnl_percent:.1f}%</b>\n"
+                            f"🔒 Stop Loss moved to: <b>${position['entry_price']:.6f}</b>\n\n"
+                            f"✅ <b>You can't lose now!</b>\n"
+                            f"💡 Worst case = break-even (0% loss)\n"
+                            f"🎯 Best case = continue to target\n\n"
+                            f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                        )
+                        logger.info(f"📱 Telegram: Break-even notification sent for {position['symbol']}")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to send break-even notification: {e}")
         
         # 6. Profit Lock
         if self.profit_lock_enabled and not position['profit_locked']:
@@ -222,6 +295,24 @@ class AutoProfitProtector:
                 position['stop_loss'] = max(position['stop_loss'], locked_price)
                 position['profit_locked'] = True
                 logger.info(f"🔒 Profit locked at +{self.profit_lock_minimum}% for {position['symbol']}")
+                
+                # NOTIFICATION: Profit locked
+                if self.telegram and self.telegram.enabled:
+                    try:
+                        self.telegram.send_message(
+                            f"🔒 <b>PROFIT LOCKED!</b>\n\n"
+                            f"🪙 Symbol: <b>{position['symbol']}</b>\n"
+                            f"📈 Current Profit: <b>+{pnl_percent:.1f}%</b>\n"
+                            f"🛡️ Minimum Profit Locked: <b>+{self.profit_lock_minimum}%</b>\n"
+                            f"🔐 New Stop Loss: <b>${locked_price:.6f}</b>\n\n"
+                            f"✅ <b>Guaranteed minimum +{self.profit_lock_minimum}% profit!</b>\n"
+                            f"💰 You will make at least ${(locked_price - position['entry_price']) * position['remaining_amount']:.2f}\n"
+                            f"🎯 Still aiming for full target\n\n"
+                            f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                        )
+                        logger.info(f"📱 Telegram: Profit lock notification sent for {position['symbol']}")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to send profit lock notification: {e}")
         
         # 7. Time-Based Exit
         time_held = (datetime.utcnow() - position['entry_time']).total_seconds()

@@ -52,7 +52,12 @@ class AdminAutoTrader:
             'max_hold_time': config.NEW_LISTING_MAX_HOLD
         }
         self.new_listing_bot = NewListingBot(self.exchange, self.db, config=new_listing_config)
-        self.profit_protector = AutoProfitProtector(self.exchange, self.db)
+        
+        # Initialize Telegram notifications FIRST
+        self.telegram = TelegramNotifier()
+        
+        # Pass telegram to profit protector for comprehensive notifications
+        self.profit_protector = AutoProfitProtector(self.exchange, self.db, telegram=self.telegram)
         
         # Initialize Advanced AI Engine for smart trading
         if ADVANCED_AI_AVAILABLE:
@@ -61,9 +66,6 @@ class AdminAutoTrader:
         else:
             self.ai_engine = None
             logger.warning("⚠️ Trading without Advanced AI - using basic logic")
-        
-        # Initialize Telegram notifications
-        self.telegram = TelegramNotifier()
         
         # Trading settings - dynamically fetched from actual balance
         self.capital = self.get_current_balance()  # Get real balance instead of hardcoded
@@ -393,8 +395,8 @@ class AdminAutoTrader:
                     logger.error(f"Failed to fetch ticker for {symbol}: {e}")
                     continue
                 
-                # Check profit protector
-                actions = self.profit_protector.check_position(pos_id, current_price)
+                # Check profit protector (returns single action dict)
+                action = self.profit_protector.update_position(pos_id, current_price)
                 
                 # Calculate current P&L for monitoring
                 entry_price = position.get('entry_price', 0)
@@ -479,15 +481,49 @@ class AdminAutoTrader:
                             except Exception as e:
                                 logger.error(f"Failed to send AI suggestion: {e}")
                 
-                # Execute any actions
-                if actions:
-                    for action in actions:
-                        if action['action'] == 'exit':
-                            logger.info(f"🛡️ Profit protector triggered exit: {action['reason']}")
-                            self.execute_exit(position, current_price, action['reason'])
-                        elif action['action'] == 'partial_exit':
-                            logger.info(f"💰 Taking partial profit: {action['amount']}")
-                            self.execute_partial_exit(position, action['amount'], current_price)
+                # Execute profit protector actions
+                if action and action.get('action'):
+                    action_type = action['action']
+                    
+                    if action_type == 'close_all':
+                        logger.info(f"🛡️ Profit protector triggered exit: {action['reason']}")
+                        # Send notification about profit protector action
+                        if self.telegram and self.telegram.enabled:
+                            try:
+                                self.telegram.send_message(
+                                    f"🛡️ <b>PROFIT PROTECTOR - AUTO EXIT</b>\n\n"
+                                    f"🪙 Symbol: <b>{symbol}</b>\n"
+                                    f"📊 Reason: <b>{action['reason']}</b>\n"
+                                    f"💰 Exit Price: ${current_price:,.2f}\n"
+                                    f"📈 P&L: {current_pnl_pct:+.1f}%\n\n"
+                                    f"✅ Protection system working!\n"
+                                    f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                                )
+                            except Exception as e:
+                                logger.warning(f"⚠️ Failed to send protector notification: {e}")
+                        
+                        self.execute_exit(position, current_price, action['reason'])
+                        continue
+                        
+                    elif action_type == 'partial_close':
+                        logger.info(f"💰 Profit protector taking partial profit: {action['reason']}")
+                        # Send notification about partial profit
+                        if self.telegram and self.telegram.enabled:
+                            try:
+                                partial_pct = (action['amount'] / position.get('amount', 1)) * 100
+                                self.telegram.send_message(
+                                    f"💰 <b>PARTIAL PROFIT TAKEN</b>\n\n"
+                                    f"🪙 Symbol: <b>{symbol}</b>\n"
+                                    f"📊 Selling: <b>{partial_pct:.0f}%</b> of position\n"
+                                    f"📈 Reason: {action['reason']}\n"
+                                    f"💵 Price: ${current_price:,.2f}\n\n"
+                                    f"✅ Securing gains!\n"
+                                    f"⏰ {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+                                )
+                            except Exception as e:
+                                logger.warning(f"⚠️ Failed to send partial profit notification: {e}")
+                        
+                        self.execute_partial_exit(position, action['amount'], current_price)
                 
         except Exception as e:
             logger.error(f"❌ Error monitoring positions: {e}")
